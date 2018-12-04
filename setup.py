@@ -5,7 +5,7 @@ import sys
 from setuptools import setup
 
 
-def get_version(source='erppeek.py'):
+def get_version(source='odooly.py'):
     with open(source) as f:
         for line in f:
             if line.startswith('__version__'):
@@ -24,23 +24,23 @@ else:
     test_suite = 'unittest2.collector.collector'
 
 setup(
-    name='ERPpeek',
+    name='Odooly',
     version=get_version(),
     license='BSD',
     description='Versatile tool for browsing Odoo / OpenERP data',
     long_description=readme,
-    url='http://erppeek.readthedocs.org/',
+    url='http://odooly.readthedocs.org/',
     author='Florent Xicluna',
     author_email='florent.xicluna@gmail.com',
-    py_modules=['erppeek'],
+    py_modules=['odooly'],
     zip_safe=False,
     platforms='any',
     entry_points={
         'console_scripts': [
-            'erppeek = erppeek:main',
+            'odooly = odooly:main',
         ]
     },
-    keywords="odoo openerp xml-rpc xmlrpc",
+    keywords="odoo openerp xml-rpc xmlrpc jsonrpc",
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Environment :: Console',

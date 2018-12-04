@@ -1,10 +1,10 @@
-.. currentmodule:: erppeek
+.. currentmodule:: odooly
 
 ========
 Tutorial
 ========
 
-This tutorial demonstrates some features of ERPpeek in the interactive shell.
+This tutorial demonstrates some features of Odooly in the interactive shell.
 
 It assumes an Odoo or OpenERP server is installed.
 The shell is a true Python shell.  We have access to all the features and
@@ -21,51 +21,48 @@ First connection
 The server is freshly installed and does not have an Odoo database yet.
 The tutorial creates its own database ``demo`` to play with.
 
-Open the ERPpeek shell::
+Open the Odooly shell::
 
-    $ erppeek
+    $ odooly
 
 It assumes that the server is running locally, and listens on default
 port ``8069``.
 
 If our configuration is different, then we use arguments, like::
 
-    $ erppeek --server http://192.168.0.42:8069
+    $ odooly --server http://192.168.0.42:8069
 
 It connects using the XML-RPC protocol. If you want to use the JSON-RPC
 protocol instead, then pass the full URL with ``/jsonrpc`` path::
 
-    $ erppeek --server http://127.0.0.1:8069/jsonrpc
+    $ odooly --server http://127.0.0.1:8069/jsonrpc
 
 
 On login, it prints few lines about the commands available.
 
 .. sourcecode:: pycon
 
-    $ erppeek
+    $ odooly
     Usage (some commands):
-        models(name)                    # List models matching pattern
-        model(name)                     # Return a Model instance
-        model(name).keys()              # List field names of the model
-        model(name).fields(names=None)  # Return details for the fields
-        model(name).field(name)         # Return details for the field
-        model(name).browse(domain)
-        model(name).browse(domain, offset=0, limit=None, order=None)
+        env[name]                       # Return a Model instance
+        env[name].keys()                # List field names of the model
+        env[name].fields(names=None)    # Return details for the fields
+        env[name].field(name)           # Return details for the field
+        env[name].browse(ids)
+        env[name].search(domain)
+        env[name].search(domain, offset=0, limit=None, order=None)
                                         # Return a RecordList
 
-        rec = model(name).get(domain)   # Get the Record matching domain
+        rec = env[name].get(domain)     # Get the Record matching domain
         rec.some_field                  # Return the value of this field
         rec.read(fields=None)           # Return values for the fields
 
         client.login(user)              # Login with another user
         client.connect(env)             # Connect to another env.
-        client.modules(name)            # List modules matching pattern
-        client.upgrade(module1, module2, ...)
+        env.models(name)                # List models matching pattern
+        env.modules(name)               # List modules matching pattern
+        env.upgrade(module1, module2, ...)
                                         # Upgrade the modules
-
-As we'll see later, the most interesting method here is probably
-:meth:`~Client.model` which returns a :class:`Model` object with nice
-wrappers.
 
 And it confirms that the default database is not available::
 
@@ -101,17 +98,17 @@ Default password is ``"admin"``.
     <Client 'http://localhost:8069/xmlrpc#demo'>
     >>> client.db.list()
     ['demo']
-    >>> client.user
-    'admin'
-    >>> client.modules(installed=True)
+    >>> env
+    <Env 'admin@demo'>
+    >>> env.modules(installed=True)
     {'installed': ['base', 'web', 'web_mobile', 'web_tests']}
-    >>> len(client.modules()['uninstalled'])
+    >>> len(env.modules()['uninstalled'])
     202
     >>> #
 
 .. note::
 
-   Create an ``erppeek.ini`` file in the current directory to declare all our
+   Create an ``odooly.ini`` file in the current directory to declare all our
    environments.  Example::
 
        [DEFAULT]
@@ -122,7 +119,7 @@ Default password is ``"admin"``.
        database = demo
        username = joe
 
-   Then we connect to any environment with ``erppeek --env demo`` or switch
+   Then we connect to any environment with ``odooly --env demo`` or switch
    during an interactive session with ``client.connect('demo')``.
 
 
@@ -142,8 +139,8 @@ database name and the superadmin password.
     <Client 'http://localhost:8069/xmlrpc#demo_test'>
     >>> client.db.list()
     ['demo', 'demo_test']
-    >>> client.user
-    'admin'
+    >>> env
+    <Env 'admin@demo'>
     >>> client.modules(installed=True)
     {'installed': ['base', 'web', 'web_mobile', 'web_tests']}
     >>> len(client.modules()['uninstalled'])
@@ -163,48 +160,48 @@ Where is the table for the users?
 
     >>> client
     <Client 'http://localhost:8069/xmlrpc#demo'>
-    >>> models('user')
-    {'ResUsers': <Model 'res.users'>, 'ResWidgetUser': <Model 'res.widget.user'>}
+    >>> env.models('user')
+    ['res.users', 'res.users.log']
 
 We've listed two models which matches the name, ``res.users`` and
-``res.widget.user``.  We reach the users' model using the :meth:`~Client.model`
-method and we want to introspect its fields.
+``res.users.log``.  Through the environment :class:`Env` we reach the users'
+model and we want to introspect its fields.
 Fortunately, the :class:`Model` class provides methods to retrieve all
 the details.
 
 .. sourcecode:: pycon
 
-    >>> model('res.users')
+    >>> env['res.users']
     <Model 'res.users'>
-    >>> print(model('res.users').keys())
+    >>> print(env['res.users'].keys())
     ['action_id', 'active', 'company_id', 'company_ids', 'context_lang',
      'context_tz', 'date', 'groups_id', 'id', 'login', 'menu_id', 'menu_tips',
      'name', 'new_password', 'password', 'signature', 'user_email', 'view']
-    >>> model('res.users').field('view')
-    {'digits': [16, 2],
-     'fnct_inv': '_set_interface_type',
-     'fnct_inv_arg': False,
-     'fnct_search': False,
-     'func_obj': False,
-     'function': '_get_interface_type',
-     'help': 'OpenERP offers a simplified and an extended user interface. If\
-     you use OpenERP for the first time we strongly advise you to select the\
-     simplified interface, which has less features but is easier to use. You\
-     can switch to the other interface from the User/Preferences menu at any\
-     time.',
-     'selection': [['simple', 'Simplified'], ['extended', 'Extended']],
-     'store': False,
-     'string': 'Interface',
-     'type': 'selection'}
+    >>> env['res.users'].field('company')
+    {'change_default': False,
+     'company_dependent': False,
+     'context': {'user_preference': True},
+     'depends': [],
+     'domain': [],
+     'help': 'The company this user is currently working for.',
+     'manual': False,
+     'readonly': False,
+     'relation': 'res.company',
+     'required': True,
+     'searchable': True,
+     'sortable': True,
+     'store': True,
+     'string': 'Company',
+     'type': 'many2one'}
     >>> #
 
 Let's examine the ``'admin'`` user in details.
 
 .. sourcecode:: pycon
 
-    >>> model('res.users').count()
+    >>> env['res.users'].search_count()
     1
-    >>> admin_user = model('res.users').browse(1)
+    >>> admin_user = env['res.users'].browse(1)
     >>> admin_user.groups_id
     <RecordList 'res.groups,[1, 2, 3]'>
     >>> admin_user.groups_id.name
@@ -230,7 +227,7 @@ Let's create ``Joe``.
 
 .. sourcecode:: pycon
 
-    >>> model('res.users').create({'login': 'joe'})
+    >>> env['res.users'].create({'login': 'joe'})
     Fault: Integrity Error
 
     The operation cannot be completed, probably due to the following:
@@ -244,7 +241,7 @@ It seems we've forgotten some mandatory data.  Let's give him a ``name``.
 
 .. sourcecode:: pycon
 
-    >>> model('res.users').create({'login': 'joe', 'name': 'Joe'})
+    >>> env['res.users'].create({'login': 'joe', 'name': 'Joe'})
     <Record 'res.users,3'>
     >>> joe_user = _
     >>> joe_user.groups_id.full_name
@@ -258,12 +255,12 @@ We set a password for ``Joe`` and we try again.
     >>> client.login('joe')
     Password for 'joe':
     Error: Invalid username or password
-    >>> client.user
+    >>> env.user
     'admin'
     >>> joe_user.password = 'bar'
     >>> client.login('joe')
     Logged in as 'joe'
-    >>> client.user
+    >>> env.user
     'joe'
     >>> #
 
@@ -277,9 +274,9 @@ We keep connected as user ``Joe`` and we explore the world around us.
 
 .. sourcecode:: pycon
 
-    >>> client.user
+    >>> env.user
     'joe'
-    >>> all_models = sorted(models().values(), key=str)
+    >>> all_models = env.models()
     >>> len(all_models)
     92
 
@@ -289,96 +286,85 @@ Among these 92 objects, some of them are ``read-only``, others are
 .. sourcecode:: pycon
 
     >>> # Read-only models
-    >>> len([m for m in all_models if not m.access('write')])
+    >>> len([m for m in all_models if not env[m].access('write')])
     44
     >>> #
     >>> # Writable but cannot delete
-    >>> [m for m in all_models if m.access('write') and not m.access('unlink')]
-    [<Model 'ir.property'>]
+    >>> [m for m in all_models if env[m].access('write') and not env[m].access('unlink')]
+    ['ir.property', 'web.planner']
     >>> #
     >>> # Unreadable models
-    >>> [m for m in all_models if not m.access('read')]
-    [<Model 'ir.actions.todo'>,
-     <Model 'ir.actions.todo.category'>,
-     <Model 'res.payterm'>]
+    >>> [m for m in all_models if not env[m].access('read')]
+    ['ir.actions.todo',
+     'ir.actions.todo.category',
+     'res.payterm']
     >>> #
     >>> # Now print the number of entries in all (readable) models
     >>> for m in all_models:
-    ...     mcount = m.access() and m.count()
+    ...     mcount = env[m].access() and env[m].search_count()
     ...     if not mcount:
     ...         continue
     ...     print('%4d  %s' % (mcount, m))
     ... 
-      81  <Model 'ir.actions.act_window'>
-      14  <Model 'ir.actions.act_window.view'>
-      85  <Model 'ir.actions.act_window_close'>
-      85  <Model 'ir.actions.actions'>
-       4  <Model 'ir.actions.report.xml'>
-       3  <Model 'ir.config_parameter'>
-       2  <Model 'ir.cron'>
-       1  <Model 'ir.mail_server'>
-      92  <Model 'ir.model'>
-     126  <Model 'ir.model.access'>
-    1941  <Model 'ir.model.data'>
-     658  <Model 'ir.model.fields'>
-      32  <Model 'ir.module.category'>
-     207  <Model 'ir.module.module'>
-     432  <Model 'ir.module.module.dependency'>
-       8  <Model 'ir.rule'>
-      63  <Model 'ir.ui.menu'>
-     185  <Model 'ir.ui.view'>
-       1  <Model 'ir.ui.view_sc'>
-      72  <Model 'ir.values'>
-       1  <Model 'res.bank'>
-       1  <Model 'res.company'>
-     253  <Model 'res.country'>
-      51  <Model 'res.country.state'>
-      48  <Model 'res.currency'>
-      49  <Model 'res.currency.rate'>
-       9  <Model 'res.groups'>
-       1  <Model 'res.lang'>
-       1  <Model 'res.partner'>
-       1  <Model 'res.partner.address'>
-       1  <Model 'res.partner.bank.type'>
-       1  <Model 'res.partner.bank.type.field'>
-       5  <Model 'res.partner.title'>
-       1  <Model 'res.request.link'>
-       2  <Model 'res.users'>
-       6  <Model 'res.widget'>
-       1  <Model 'res.widget.user'>
+       1  ir.actions.act_url
+      64  ir.actions.act_window
+      14  ir.actions.act_window.view
+      76  ir.actions.act_window_close
+      76  ir.actions.actions
+       4  ir.actions.client
+       4  ir.actions.report
+       3  ir.actions.server
+       1  ir.default
+     112  ir.model
+    3649  ir.model.data
+    1382  ir.model.fields
+      33  ir.ui.menu
+     221  ir.ui.view
+       3  report.paperformat
+       1  res.company
+     249  res.country
+       2  res.country.group
+     678  res.country.state
+       2  res.currency
+       9  res.groups
+       1  res.lang
+       5  res.partner
+      21  res.partner.industry
+       5  res.partner.title
+       1  res.request.link
+       4  res.users
+      12  res.users.log
     >>> #
     >>> # Show the content of a model
-    >>> config_params = model('ir.config_parameter').browse([])
-    >>> config_params.read()
+    >>> config_params = env['ir.config_parameter'].search([])
+    >>> config_params.read('key value')
     [{'id': 1, 'key': 'web.base.url', 'value': 'http://localhost:8069'},
      {'id': 2, 'key': 'database.create_date', 'value': '2012-09-01 09:01:12'},
      {'id': 3,
       'key': 'database.uuid',
       'value': '52fc9630-f49e-2222-e622-08002763afeb'}]
 
+
 Browse the records
 ------------------
 
 Query the ``"res.country"`` model::
 
-    >>> model('res.country').keys()
+    >>> env['res.country'].keys()
     ['address_format', 'code', 'name']
-    >>> model('res.country').browse(['name like public'])
-    <RecordList 'res.country,[41, 42, 57, 62, 116, 144]'>
-    >>> model('res.country').browse(['name like public']).name
+    >>> env['res.country'].search(['name like public'])
+    <RecordList 'res.country,[41, 42, 57, 62, 144]'>
+    >>> env['res.country'].search(['name like public']).name
     ['Central African Republic',
      'Congo, Democratic Republic of the',
      'Czech Republic',
      'Dominican Republic',
-     'Kyrgyz Republic (Kyrgyzstan)',
      'Macedonia, the former Yugoslav Republic of']
-    >>> model('res.country').browse(['code > Y'], order='code ASC').read('code name')
+    >>> env['res.country'].search(['code > Y'], order='code ASC').read('code name')
     [{'code': 'YE', 'id': 247, 'name': 'Yemen'},
      {'code': 'YT', 'id': 248, 'name': 'Mayotte'},
-     {'code': 'YU', 'id': 249, 'name': 'Yugoslavia'},
      {'code': 'ZA', 'id': 250, 'name': 'South Africa'},
      {'code': 'ZM', 'id': 251, 'name': 'Zambia'},
-     {'code': 'ZR', 'id': 252, 'name': 'Zaire'},
      {'code': 'ZW', 'id': 253, 'name': 'Zimbabwe'}]
     >>> #
 

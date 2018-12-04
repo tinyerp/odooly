@@ -1,6 +1,0 @@
-./*.egg
-./*.egg-info
-./build
-./dist
-./docs/_build
-__pycache__

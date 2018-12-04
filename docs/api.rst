@@ -1,10 +1,10 @@
-===========
-ERPpeek API
-===========
+==========
+Odooly API
+==========
 
-.. module:: erppeek
+.. module:: odooly
 
-The library provides few objects to access the OpenObject model and the
+The library provides few objects to access the Odoo model and the
 associated services of `the Odoo API`_.
 
 The signature of the methods mimics the standard methods provided by the
@@ -62,130 +62,15 @@ list or install Odoo add-ons.
    and recreate the :func:`globals()`.
 
 
-.. note::
-
-   In :ref:`interactive mode <interactive-mode>`, when connected to the local
-   Odoo server, the `get_pool(db_name=None)` function helps to grab a model
-   registry for the current database.  The cursor factory is available on the
-   registry as ``get_pool().cursor()`` (Odoo) or ``get_pool().db.cursor()``
-   (OpenERP <= 7).
-
-
-Objects
-~~~~~~~
-
-..
-   .. method:: Client.search(obj, domain, context=None)
-.. automethod:: Client.search(obj, domain, offset=0, limit=None, order=None, context=None)
-
-.. automethod:: Client.count(obj, domain, context=None)
-
-..
-   .. method:: Client.read(obj, ids, fields=None)
-               Client.read(obj, domain, fields=None)
-.. automethod:: Client.read(obj, domain, fields=None, offset=0, limit=None, order=None, context=None)
-
-.. method:: Client.perm_read(obj, ids, context=None, details=True)
-
-   Lookup metadata about the records in the `ids` list.
-   Return a list of dictionaries with the following keys:
-
-    * ``id``: object id
-    * ``create_uid``: user who created the record
-    * ``create_date``: date when the record was created
-    * ``write_uid``: last user who changed the record
-    * ``write_date``: date of the last change to the record
-    * ``xmlid``: External ID to use to refer to this record (if there is one),
-      in format ``module.name`` (not available with OpenERP 5)
-
-   If `details` is True, the ``create_uid`` and ``write_uid`` contain the
-   name of the user.
-
-.. method:: Client.write(obj, ids, values, context=None)
-
-   Update the record(s) with the content of the `values` dictionary.
-
-.. method:: Client.create(obj, values, context=None)
-
-   Create a new record for the model.
-   The argument `values` is a dictionary of values for the new record.
-   Return the object ``id``.
-
-.. method:: Client.copy(obj, id, default=None, context=None)
-
-   Copy a record and return the new ``id``.
-   The optional argument `default` is a mapping which overrides some values
-   of the new record.
-
-.. method:: Client.unlink(obj, ids, context=None)
-
-   Delete records with the given `ids`
-
-.. automethod:: Client.models
-
-.. automethod:: Client.model
-
-
-.. automethod:: Client.keys
-
-.. automethod:: Client.fields
-
-.. automethod:: Client.field
-
-.. automethod:: Client.access
-
-
-Advanced methods
-~~~~~~~~~~~~~~~~
-
-Those methods give more control on the Odoo objects: workflows and reports.
-Please refer to `the Odoo documentation`_ for details.
-
-
-.. automethod:: Client.execute(obj, method, *params, **kwargs)
-
-.. method:: Client.execute_kw(obj, ids, params, kwargs=None)
-
-   Wrapper around ``object.execute_kw`` RPC method.
-
-   Does not exist if server is OpenERP 5.
-
-.. automethod:: Client.exec_workflow
-
-.. method:: Client.report(obj, ids, datas=None, context=None)
-
-   Wrapper around ``report.report`` RPC method.
-
-   Removed in Odoo 11.
-
-.. method:: Client.render_report(obj, ids, datas=None, context=None)
-
-   Wrapper around ``report.render_report`` RPC method.
-
-   Does not exist if server is OpenERP 5.
-
-   Removed in Odoo 11.
-
-.. method:: Client.report_get(report_id)
-
-   Wrapper around ``report.report_get`` RPC method.
-
-   Removed in Odoo 11.
-
-.. automethod:: Client.wizard
-
-   Removed in OpenERP 7.
-
-
 Odoo RPC Services
 ~~~~~~~~~~~~~~~~~
 
-The nake Odoo services are exposed too.
+The naked Odoo RPC services are exposed too.
 The :attr:`~Client.db` and the :attr:`~Client.common` services expose few
 methods which might be helpful for server administration.  Use the
 :func:`dir` function to introspect them.  The :attr:``~Client._object``
 service should not be used directly because its methods are wrapped and
-exposed on the :class:`Client` object itself.
+exposed on the :class:`Env` object itself.
 The two last services are deprecated and removed in recent versions of Odoo.
 Please refer to `the Odoo documentation`_ for more details.
 
@@ -227,19 +112,97 @@ Please refer to `the Odoo documentation`_ for more details.
 .. _the Odoo API: http://doc.odoo.com/v6.1/developer/12_api.html#api
 
 
+Environment
+-----------
+
+.. autoclass:: Env
+   :members: lang, execute, exec_workflow, access, models, ref, __getitem__, odoo_env, registry
+   :undoc-members:
+
+   .. attribute:: db_name
+
+      Environment's database name.
+
+   .. attribute:: uid
+
+      Environment's user id.
+
+   .. attribute:: user
+
+      Instance of the environment's user.
+
+   .. attribute:: context
+
+      Environment's context dictionary.
+
+   .. attribute:: cr
+
+      Cursor on the current database.
+
+
+.. note::
+
+   In :ref:`interactive mode <interactive-mode>`, when connected to the local
+   Odoo server, the `Env.odoo_env` attribute grabs an Odoo Environment with the same
+   attribute as the `Env` instance (db_name, uid, context).
+   The cursor is retrieved with `Env.cr`.
+
+
+Advanced methods
+~~~~~~~~~~~~~~~~
+
+Those methods give more control on the Odoo objects: workflows and reports.
+Please refer to `the Odoo documentation`_ for details.
+
+
+.. automethod:: Env.execute(obj, method, *params, **kwargs)
+
+.. automethod:: Env.exec_workflow
+
+.. method:: Env.report(obj, ids, datas=None)
+
+   Wrapper around ``report.report`` RPC method.
+
+   Removed in Odoo 11.
+
+.. method:: Env.render_report(obj, ids, datas=None)
+
+   Wrapper around ``report.render_report`` RPC method.
+
+   Removed in Odoo 11.
+
+.. method:: Env.report_get(report_id)
+
+   Wrapper around ``report.report_get`` RPC method.
+
+   Removed in Odoo 11.
+
+.. method:: Env.wizard_create(wiz_name, datas=None)
+
+   Wrapper around ``wizard.create`` RPC method.
+
+   Removed in OpenERP 7.
+
+.. method:: Env.wizard_execute(wiz_id, datas, action='init', context=None)
+
+   Wrapper around ``wizard.execute`` RPC method.
+
+   Removed in OpenERP 7.
+
+
 Manage addons
 ~~~~~~~~~~~~~
 
 These helpers are convenient to list, install or upgrade addons from a
 Python script or interactively in a Python session.
 
-.. automethod:: Client.modules
+.. automethod:: Env.modules
 
-.. automethod:: Client.install
+.. automethod:: Env.install
 
-.. automethod:: Client.upgrade
+.. automethod:: Env.upgrade
 
-.. automethod:: Client.uninstall
+.. automethod:: Env.uninstall
 
 .. note::
 
@@ -254,15 +217,13 @@ Python script or interactively in a Python session.
 Model and Records
 -----------------
 
-In addition to the thin wrapper methods, the :class:`Client` provides a high
-level API which encapsulates objects into `Active Records
+The :class:`Env` provides a high level API similar to the Odoo API, which
+encapsulates objects into `Active Records
 <http://www.martinfowler.com/eaaCatalog/activeRecord.html>`_.
 
-The :class:`Model` is instantiated using the :meth:`Client.model` method or
-directly through camel case attributes.
+The :class:`Model` is instantiated using the ``client.env[...]`` syntax.
 
-Example: both ``client.model('res.company')`` and ``client.ResCompany`` return
-the same :class:`Model`.
+Example: ``client.env['res.company']`` returns a :class:`Model`.
 
 .. autoclass:: Model(client, model_name)
 
@@ -274,11 +235,15 @@ the same :class:`Model`.
 
    .. automethod:: access
 
-   ..
-      .. method:: browse(domain, context=None)
-   .. automethod:: browse(domain, offset=0, limit=None, order=None, context=None)
+   .. automethod:: search(domain, offset=0, limit=None, order=None)
 
-   .. automethod:: get(domain, context=None)
+   .. automethod:: search_count(domain)
+
+   .. automethod:: read(domain, fields=None, offset=0, limit=None, order=None)
+
+   .. automethod:: get(domain)
+
+   .. automethod:: browse(ids)
 
    .. automethod:: create
 
@@ -286,28 +251,29 @@ the same :class:`Model`.
 
 ..
    search count read ...
+   write copy unlink
 
 .. autoclass:: RecordList(model, ids)
 
-   .. method:: read(fields=None, context=None)
+   .. method:: read(fields=None)
 
       Wrapper for the :meth:`Record.read` method.
 
       Return a :class:`RecordList` if `fields` is the name of a single
       ``many2one`` field, else return a :class:`list`.
-      See :meth:`Client.read` for details.
+      See :meth:`Model.read` for details.
 
-   .. method:: perm_read(context=None)
-
-      Wrapper for the :meth:`Record.perm_read` method.
-
-   .. method:: write(values, context=None)
+   .. method:: write(values)
 
       Wrapper for the :meth:`Record.write` method.
 
-   .. method:: unlink(context=None)
+   .. method:: unlink()
 
       Wrapper for the :meth:`Record.unlink` method.
+
+   .. method:: get_metadata()
+
+      Wrapper for the :meth:`Record.get_metadata` method.
 
    .. attribute:: _external_id
 
@@ -318,8 +284,21 @@ the same :class:`Model`.
       If multiple IDs exist for a record, only one of them is returned.
 
 .. autoclass:: Record(model, id)
-   :members: read, perm_read, write, copy, unlink, _send, _external_id, refresh
+   :members: read, write, copy, unlink, _send, _external_id, refresh
    :undoc-members:
+
+   .. method:: get_metadata(details=True)
+
+      Lookup metadata about the record(s).
+      Return dictionaries with the following keys:
+
+       * ``id``: object id
+       * ``create_uid``: user who created the record
+       * ``create_date``: date when the record was created
+       * ``write_uid``: last user who changed the record
+       * ``write_date``: date of the last change to the record
+       * ``xmlid``: External ID to use to refer to this record (if there is one),
+         in format ``module.name``.
 
 
 Utilities
@@ -338,3 +317,4 @@ Utilities
 .. autofunction:: read_config
 
 .. autofunction:: start_odoo_services
+

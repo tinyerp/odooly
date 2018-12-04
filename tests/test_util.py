@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import unittest2
 
-from erppeek import issearchdomain, searchargs
+from odooly import issearchdomain, searchargs
 
 
 class TestUtils(unittest2.TestCase):
@@ -94,7 +94,7 @@ class TestUtils(unittest2.TestCase):
 
     def test_searchargs_invalid(self):
 
-        # No longer recognized as a search domain, since 1.6
+        # Not recognized as a search domain
         self.assertEqual(searchargs(('state != draft',)), ('state != draft',))
         self.assertEqual(searchargs((('state', '!=', 'draft'),)),
                          (('state', '!=', 'draft'),))

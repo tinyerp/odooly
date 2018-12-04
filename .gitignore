@@ -1,6 +1,7 @@
 *.egg
 *.egg-info
 *.pyc
+.eggs
 build
 dist
 docs/_build

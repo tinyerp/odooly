@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from mock import sentinel, ANY
 
-import erppeek
+import odooly
 from ._common import XmlRpcTestCase, OBJ, callable
 
 PY2 = ('' == ''.encode())
@@ -15,21 +15,20 @@ class TestCase(XmlRpcTestCase):
     password = 'passwd'
     uid = 1
 
-    def obj_exec(self, *args):
-        (model, method) = args[3:5]
+    def obj_exec(self, db_name, uid, passwd, model, method, args, kw=None):
         if method == 'search':
-            domain = args[5]
+            domain = args[0]
             if model.startswith('ir.model') and 'foo' in str(domain):
                 if "'in', []" in str(domain) or 'other_module' in str(domain):
                     return []
-                return sentinel.FOO
+                return [777]
             if domain == [('name', '=', 'Morice')]:
                 return [1003]
             if 'missing' in str(domain):
                 return []
             return [1001, 1002]
         if method == 'read':
-            if args[5] is sentinel.FOO:
+            if args[0] == [777]:
                 if model == 'ir.model.data':
                     return [{'model': 'foo.bar', 'module': 'this_module',
                              'name': 'xml_name', 'id': 1733, 'res_id': 42}]
@@ -38,7 +37,7 @@ class TestCase(XmlRpcTestCase):
                         {'model': 'ir.model.data', 'id': 17}]
 
             # We no longer read single ids
-            self.assertIsInstance(args[5], list)
+            self.assertIsInstance(args[0], list)
 
             class IdentDict(dict):
                 def __init__(self, id_, fields=()):
@@ -50,14 +49,14 @@ class TestCase(XmlRpcTestCase):
                     if key in self:
                         return dict.__getitem__(self, key)
                     return 'v_' + key
-            if model == 'foo.bar' and args[6] is None:
+            if model == 'foo.bar' and (len(args) < 2 or args[1] is None):
                 records = {}
-                for res_id in set(args[5]):
+                for res_id in set(args[0]):
                     rdic = IdentDict(res_id, ('name', 'message', 'spam'))
                     rdic['misc_id'] = 421
                     records[res_id] = rdic
-                return [records[res_id] for res_id in args[5]]
-            return [IdentDict(arg, args[6]) for arg in args[5]]
+                return [records[res_id] for res_id in args[0]]
+            return [IdentDict(arg, args[1]) for arg in args[0]]
         if method == 'fields_get_keys':
             return ['id', 'name', 'message', 'misc_id']
         if method == 'fields_get':
@@ -71,7 +70,7 @@ class TestCase(XmlRpcTestCase):
             fields['many_ids'] = {'type': 'many2many', 'relation': 'foo.many'}
             return fields
         if method == 'name_get':
-            ids = list(args[5])
+            ids = list(args[0])
             if 404 in ids:
                 1 / 0
             if 8888 in ids:
@@ -83,10 +82,9 @@ class TestCase(XmlRpcTestCase):
 
     def setUp(self):
         super(TestCase, self).setUp()
-        self.service.object.execute.side_effect = self.obj_exec
-        self.model = self.client.model
+        self.service.object.execute_kw.side_effect = self.obj_exec
         # preload 'foo.bar'
-        self.model('foo.bar')
+        self.env['foo.bar']
         self.service.reset_mock()
 
 
@@ -95,66 +93,65 @@ class TestModel(TestCase):
 
     def test_model(self):
         # Reset cache for this test
-        self.client._models.clear()
+        self.env._model_names.clear()
 
-        self.assertRaises(erppeek.Error, self.client.model, 'mic.mac')
-        self.assertRaises(erppeek.Error, getattr, self.client, 'MicMac')
-        self.assertCalls(ANY, ANY, ANY, ANY)
+        self.assertRaises(odooly.Error, self.env.__getitem__, 'mic.mac')
+        self.assertRaises(AttributeError, getattr, self.client, 'MicMac')
+        self.assertCalls(ANY, ANY)
         self.assertOutput('')
 
-        self.assertIs(self.client.model('foo.bar'),
-                      erppeek.Model(self.client, 'foo.bar'))
-        self.assertIs(self.client.model('foo.bar'),
-                      self.client.FooBar)
+        self.assertIs(self.env['foo.bar'],
+                      odooly.Model(self.env, 'foo.bar'))
+        # self.assertIs(self.client.model('foo.bar'),
+        #               self.client.FooBar)
         self.assertCalls(
             OBJ('ir.model', 'search', [('model', 'like', 'foo.bar')]),
-            OBJ('ir.model', 'read', sentinel.FOO, ('model',)),
+            OBJ('ir.model', 'read', [777], ('model',)),
         )
         self.assertOutput('')
 
     def test_keys(self):
-        self.assertTrue(self.client.FooBar.keys())
-        self.assertTrue(self.model('foo.bar').keys())
+        self.assertTrue(self.env['foo.bar'].keys())
         self.assertCalls(OBJ('foo.bar', 'fields_get_keys'))
         self.assertOutput('')
 
     def test_fields(self):
-        self.assertEqual(self.model('foo.bar').fields('bis'), {})
-        self.assertEqual(self.model('foo.bar').fields('alp bis'), {})
-        self.assertEqual(self.model('foo.bar').fields('spam bis'),
+        self.assertEqual(self.env['foo.bar'].fields('bis'), {})
+        self.assertEqual(self.env['foo.bar'].fields('alp bis'), {})
+        self.assertEqual(self.env['foo.bar'].fields('spam bis'),
                          {'spam': {'type': sentinel.FIELD_TYPE}})
-        self.assertTrue(self.model('foo.bar').fields())
+        self.assertTrue(self.env['foo.bar'].fields())
 
-        self.assertRaises(TypeError, self.model('foo.bar').fields, 42)
+        self.assertRaises(TypeError, self.env['foo.bar'].fields, 42)
 
         self.assertCalls(OBJ('foo.bar', 'fields_get'))
         self.assertOutput('')
 
     def test_field(self):
-        self.assertTrue(self.model('foo.bar').field('spam'))
+        self.assertTrue(self.env['foo.bar'].field('spam'))
 
-        self.assertRaises(TypeError, self.model('foo.bar').field)
+        self.assertRaises(TypeError, self.env['foo.bar'].field)
 
         self.assertCalls(OBJ('foo.bar', 'fields_get'))
         self.assertOutput('')
 
     def test_access(self):
-        self.assertTrue(self.model('foo.bar').access())
+        self.assertTrue(self.env['foo.bar'].access())
         self.assertCalls(OBJ('ir.model.access', 'check', 'foo.bar', 'read'))
         self.assertOutput('')
 
     def test_search(self):
-        FooBar = self.model('foo.bar')
+        FooBar = self.env['foo.bar']
 
-        FooBar.search(['name like Morice'])
-        FooBar.search(['name like Morice'], limit=2)
-        FooBar.search(['name like Morice'], offset=80, limit=99)
-        FooBar.search(['name like Morice'], order='name ASC')
+        searchterm = 'name like Morice'
+        self.assertIsInstance(FooBar.search([searchterm]), odooly.RecordList)
+        FooBar.search([searchterm], limit=2)
+        FooBar.search([searchterm], offset=80, limit=99)
+        FooBar.search([searchterm], order='name ASC')
         FooBar.search(['name = mushroom', 'state != draft'])
         FooBar.search([('name', 'like', 'Morice')])
         FooBar._execute('search', [('name like Morice')])
         FooBar.search([])
-        FooBar.search()
         domain = [('name', 'like', 'Morice')]
         domain2 = [('name', '=', 'mushroom'), ('state', '!=', 'draft')]
         self.assertCalls(
@@ -166,18 +163,19 @@ class TestModel(TestCase):
             OBJ('foo.bar', 'search', domain),
             OBJ('foo.bar', 'search', domain),
             OBJ('foo.bar', 'search', []),
-            OBJ('foo.bar', 'search', []),
         )
         self.assertOutput('')
 
-        # No longer supported since 1.6
+        # Not supported
         FooBar.search('name like Morice')
         self.assertCalls(OBJ('foo.bar', 'search', 'name like Morice'))
 
         FooBar.search(['name like Morice'], missingkey=42)
-        self.assertCalls(OBJ('foo.bar', 'search', domain))
-        self.assertOutput('Ignoring: missingkey = 42\n')
+        self.assertCalls(OBJ('foo.bar', 'search', domain, missingkey=42))
+        # self.assertOutput('Ignoring: missingkey = 42\n')
+        self.assertOutput('')
 
+        self.assertRaises(TypeError, FooBar.search)
         self.assertRaises(ValueError, FooBar.search, ['abc'])
         self.assertRaises(ValueError, FooBar.search, ['< id'])
         self.assertRaises(ValueError, FooBar.search, ['name Morice'])
@@ -185,16 +183,16 @@ class TestModel(TestCase):
         self.assertCalls()
         self.assertOutput('')
 
-    def test_count(self):
-        FooBar = self.model('foo.bar')
+    def test_search_count(self):
+        FooBar = self.env['foo.bar']
         searchterm = 'name like Morice'
 
-        FooBar.count([searchterm])
-        FooBar.count(['name = mushroom', 'state != draft'])
-        FooBar.count([('name', 'like', 'Morice')])
+        FooBar.search_count([searchterm])
+        FooBar.search_count(['name = mushroom', 'state != draft'])
+        FooBar.search_count([('name', 'like', 'Morice')])
         FooBar._execute('search_count', [searchterm])
-        FooBar.count([])
-        FooBar.count()
+        FooBar.search_count([])
+        FooBar.search_count()
         domain = [('name', 'like', 'Morice')]
         domain2 = [('name', '=', 'mushroom'), ('state', '!=', 'draft')]
         self.assertCalls(
@@ -207,37 +205,45 @@ class TestModel(TestCase):
         )
         self.assertOutput('')
 
-        # No longer supported since 1.6
-        FooBar.count(searchterm)
+        # Invalid keyword arguments are passed to the API
+        FooBar.search([searchterm], limit=2, fields=['birthdate', 'city'])
+        FooBar.search([searchterm], missingkey=42)
+        self.assertCalls(
+            OBJ('foo.bar', 'search', domain, 0, 2, None, fields=['birthdate', 'city']),
+            OBJ('foo.bar', 'search', domain, missingkey=42))
+        self.assertOutput('')
+
+        # Not supported
+        FooBar.search_count(searchterm)
         self.assertCalls(OBJ('foo.bar', 'search_count', searchterm))
 
-        self.assertRaises(TypeError, FooBar.count,
+        self.assertRaises(TypeError, FooBar.search_count,
                           [searchterm], limit=2)
-        self.assertRaises(TypeError, FooBar.count,
+        self.assertRaises(TypeError, FooBar.search_count,
                           [searchterm], offset=80, limit=99)
-        self.assertRaises(TypeError, FooBar.count,
+        self.assertRaises(TypeError, FooBar.search_count,
                           [searchterm], order='name ASC')
-        self.assertRaises(ValueError, FooBar.count, ['abc'])
-        self.assertRaises(ValueError, FooBar.count, ['< id'])
-        self.assertRaises(ValueError, FooBar.count, ['name Morice'])
+        self.assertRaises(ValueError, FooBar.search_count, ['abc'])
+        self.assertRaises(ValueError, FooBar.search_count, ['< id'])
+        self.assertRaises(ValueError, FooBar.search_count, ['name Morice'])
 
         self.assertCalls()
         self.assertOutput('')
 
     def test_read(self):
-        FooBar = self.model('foo.bar')
+        FooBar = self.env['foo.bar']
 
-        def call_read(fields=None):
-            return OBJ('foo.bar', 'read', [1001, 1002], fields)
+        def call_read(*args, **kw):
+            return OBJ('foo.bar', 'read', [1001, 1002], *args, **kw)
 
         FooBar.read(42)
         FooBar.read([42])
         FooBar.read([13, 17])
         FooBar.read([42], 'first_name')
         self.assertCalls(
-            OBJ('foo.bar', 'read', [42], None),
-            OBJ('foo.bar', 'read', [42], None),
-            OBJ('foo.bar', 'read', [13, 17], None),
+            OBJ('foo.bar', 'read', [42]),
+            OBJ('foo.bar', 'read', [42]),
+            OBJ('foo.bar', 'read', [13, 17]),
             OBJ('foo.bar', 'read', [42], ['first_name']),
         )
         self.assertOutput('')
@@ -271,7 +277,7 @@ class TestModel(TestCase):
             OBJ('foo.bar', 'search', domain, 0, 2, None),
             call_read(['birthdate', 'city']),
             OBJ('foo.bar', 'search', domain, 0, 2, None),
-            call_read(['birthdate', 'city']),
+            call_read(fields=['birthdate', 'city']),
             OBJ('foo.bar', 'search', domain, 0, None, 'name ASC'),
             call_read(),
             OBJ('foo.bar', 'search', domain2), call_read(),
@@ -282,20 +288,20 @@ class TestModel(TestCase):
         )
         self.assertOutput('')
 
-        self.assertEqual(FooBar.read([]), False)
-        self.assertEqual(FooBar.read([], order='name ASC'), False)
+        self.assertEqual(FooBar.read([]), [])
+        self.assertEqual(FooBar.read([], order='name ASC'), [])
         self.assertEqual(FooBar.read([False]), [])
         self.assertEqual(FooBar.read([False, False]), [])
         self.assertCalls()
         self.assertOutput('')
 
-        # No longer supported since 1.6
+        # Not supported
         FooBar.read(searchterm)
-        self.assertCalls(OBJ('foo.bar', 'read', [searchterm], None))
+        self.assertCalls(OBJ('foo.bar', 'read', [searchterm]))
 
         FooBar.read([searchterm], missingkey=42)
-        self.assertCalls(OBJ('foo.bar', 'search', domain), call_read())
-        self.assertOutput('Ignoring: missingkey = 42\n')
+        self.assertCalls(OBJ('foo.bar', 'search', domain), call_read(missingkey=42))
+        self.assertOutput('')
 
         self.assertRaises(AssertionError, FooBar.read)
         self.assertRaises(ValueError, FooBar.read, ['abc'])
@@ -306,91 +312,79 @@ class TestModel(TestCase):
         self.assertOutput('')
 
     def test_browse(self):
-        FooBar = self.model('foo.bar')
+        FooBar = self.env['foo.bar']
 
-        self.assertIsInstance(FooBar.browse(42), erppeek.Record)
-        self.assertIsInstance(FooBar.browse([42]), erppeek.RecordList)
+        self.assertIsInstance(FooBar.browse(42), odooly.Record)
+        self.assertIsInstance(FooBar.browse([42]), odooly.RecordList)
         self.assertEqual(len(FooBar.browse([13, 17])), 2)
-        self.assertCalls()
-        self.assertOutput('')
-
-        searchterm = 'name like Morice'
-        self.assertIsInstance(FooBar.browse([searchterm]), erppeek.RecordList)
-        FooBar.browse([searchterm], limit=2)
-        FooBar.browse([searchterm], offset=80, limit=99)
-        FooBar.browse([searchterm], order='name ASC')
-        FooBar.browse([searchterm], limit=2)
-        FooBar.browse([searchterm], order='name ASC')
-        FooBar.browse(['name = mushroom', 'state != draft'])
-        FooBar.browse([('name', 'like', 'Morice')])
-
-        domain = [('name', 'like', 'Morice')]
-        domain2 = [('name', '=', 'mushroom'), ('state', '!=', 'draft')]
-        self.assertCalls(
-            OBJ('foo.bar', 'search', domain),
-            OBJ('foo.bar', 'search', domain, 0, 2, None),
-            OBJ('foo.bar', 'search', domain, 80, 99, None),
-            OBJ('foo.bar', 'search', domain, 0, None, 'name ASC'),
-            OBJ('foo.bar', 'search', domain, 0, 2, None),
-            OBJ('foo.bar', 'search', domain, 0, None, 'name ASC'),
-            OBJ('foo.bar', 'search', domain2),
-            OBJ('foo.bar', 'search', domain),
-        )
-        self.assertOutput('')
-
-        # No longer supported since 1.6
-        self.assertRaises(AssertionError, FooBar.browse, searchterm)
-
-        FooBar.browse([searchterm], limit=2, fields=['birthdate', 'city'])
-        FooBar.browse([searchterm], missingkey=42)
-        self.assertCalls(
-            OBJ('foo.bar', 'search', domain, 0, 2, None),
-            OBJ('foo.bar', 'search', domain))
-        self.assertOutput("Ignoring: fields = ['birthdate', 'city']\n"
-                          "Ignoring: missingkey = 42\n")
-
-        self.assertRaises(TypeError, FooBar.browse)
-        self.assertRaises(ValueError, FooBar.browse, ['abc'])
-        self.assertRaises(ValueError, FooBar.browse, ['< id'])
-        self.assertRaises(ValueError, FooBar.browse, ['name Morice'])
-
-        self.assertCalls()
-        self.assertOutput('')
-
-    def test_browse_empty(self):
-        FooBar = self.model('foo.bar')
 
         records = FooBar.browse([])
-        self.assertIsInstance(records, erppeek.RecordList)
+        self.assertIsInstance(records, odooly.RecordList)
         self.assertFalse(records)
 
-        records = FooBar.browse([], limit=12)
-        self.assertIsInstance(records, erppeek.RecordList)
+        records = FooBar.with_context({'lang': 'fr_CA'}).browse([])
+        self.assertIsInstance(records, odooly.RecordList)
+        self.assertFalse(records)
+        self.assertEqual(records.env.lang, 'fr_CA')
+
+        records = FooBar.browse([])
+        self.assertIsInstance(records, odooly.RecordList)
+        self.assertFalse(records)
+        self.assertIsNone(records.env.lang)
+
+        self.assertCalls()
+        self.assertOutput('')
+
+        # No longer supported
+        self.assertRaises(AssertionError, FooBar.browse, ['name like Morice'])
+        self.assertRaises(AssertionError, FooBar.browse, 'name like Morice')
+
+        self.assertRaises(TypeError, FooBar.browse)
+        self.assertRaises(AssertionError, FooBar.browse, ['abc'])
+        self.assertRaises(AssertionError, FooBar.browse, ['< id'])
+        self.assertRaises(AssertionError, FooBar.browse, ['name Morice'])
+        self.assertRaises(TypeError, FooBar.browse, [], limit=12)
+        self.assertRaises(TypeError, FooBar.browse, [], limit=None)
+        self.assertRaises(TypeError, FooBar.browse, [], context={})
+
+        self.assertCalls()
+        self.assertOutput('')
+
+    def test_search_all(self):
+        FooBar = self.env['foo.bar']
+
+        records = FooBar.search([])
+        self.assertIsInstance(records, odooly.RecordList)
         self.assertTrue(records)
 
-        records = FooBar.browse([], context={'lang': 'fr_CA'})
-        self.assertIsInstance(records, erppeek.RecordList)
-        self.assertFalse(records)
+        records = FooBar.search([], limit=12)
+        self.assertIsInstance(records, odooly.RecordList)
+        self.assertTrue(records)
 
-        records = FooBar.browse([], limit=None)
-        self.assertIsInstance(records, erppeek.RecordList)
+        records = FooBar.with_context({'lang': 'fr_CA'}).search([])
+        self.assertIsInstance(records, odooly.RecordList)
+        self.assertTrue(records)
+
+        records = FooBar.search([], limit=None)
+        self.assertIsInstance(records, odooly.RecordList)
         self.assertTrue(records)
 
         self.assertCalls(
+            OBJ('foo.bar', 'search', []),
             OBJ('foo.bar', 'search', [], 0, 12, None),
+            OBJ('foo.bar', 'search', [], context={'lang': 'fr_CA'}),
             OBJ('foo.bar', 'search', []),
         )
         self.assertOutput('')
 
     def test_get(self):
-        OBJ = self.get_OBJ()
-        FooBar = self.model('foo.bar')
+        FooBar = self.env['foo.bar']
 
-        self.assertIsInstance(FooBar.get(42), erppeek.Record)
+        self.assertIsInstance(FooBar.get(42), odooly.Record)
         self.assertCalls()
         self.assertOutput('')
 
-        self.assertIsInstance(FooBar.get(['name = Morice']), erppeek.Record)
+        self.assertIsInstance(FooBar.get(['name = Morice']), odooly.Record)
         self.assertIsNone(FooBar.get(['name = Blinky', 'missing = False']))
 
         # domain matches too many records (2)
@@ -398,28 +392,28 @@ class TestModel(TestCase):
 
         # set default context
         ctx = {'lang': 'en_GB', 'location': 'somewhere'}
-        self.client.context = dict(ctx)
+        self.env.context = dict(ctx)
 
         # with context
-        value = FooBar.get(['name = Morice'], context={'lang': 'fr_FR'})
-        self.assertEqual(type(value), erppeek.Record)
+        value = FooBar.with_context({'lang': 'fr_FR'}).get(['name = Morice'])
+        self.assertEqual(type(value), odooly.Record)
         self.assertIsInstance(value.name, str)
 
         # with default context
         value = FooBar.get(['name = Morice'])
-        self.assertEqual(type(value), erppeek.Record)
+        self.assertEqual(type(value), odooly.Record)
         self.assertIsInstance(value.name, str)
 
         self.assertCalls(
             OBJ('foo.bar', 'search', [('name', '=', 'Morice')]),
             OBJ('foo.bar', 'search', [('name', '=', 'Blinky'), ('missing', '=', False)]),
             OBJ('foo.bar', 'search', [('name', 'like', 'Morice')]),
-            OBJ('foo.bar', 'search', [('name', '=', 'Morice')], 0, None, None, False, {'lang': 'fr_FR'}),
-            OBJ('foo.bar', 'fields_get_keys'),
-            OBJ('foo.bar', 'read', [1003], ['name'], {'lang': 'fr_FR'}),
-            OBJ('foo.bar', 'fields_get'),
-            OBJ('foo.bar', 'search', [('name', '=', 'Morice')], 0, None, None, False, ctx),
-            OBJ('foo.bar', 'read', [1003], ['name'], ctx),
+            OBJ('foo.bar', 'search', [('name', '=', 'Morice')], context={'lang': 'fr_FR'}),
+            OBJ('foo.bar', 'fields_get_keys', context={'lang': 'fr_FR'}),
+            OBJ('foo.bar', 'read', [1003], ['name'], context={'lang': 'fr_FR'}),
+            OBJ('foo.bar', 'fields_get', context={'lang': 'fr_FR'}),
+            OBJ('foo.bar', 'search', [('name', '=', 'Morice')], context=ctx),
+            OBJ('foo.bar', 'read', [1003], ['name'], context=ctx),
         )
         self.assertOutput('')
 
@@ -438,12 +432,12 @@ class TestModel(TestCase):
         self.assertOutput('')
 
     def test_get_xml_id(self):
-        FooBar = self.model('foo.bar')
-        BabarFoo = self.model('babar.foo', check=False)
-        self.assertIsInstance(BabarFoo, erppeek.Model)
+        FooBar = self.env['foo.bar']
+        BabarFoo = self.env._get('babar.foo', check=False)
+        self.assertIsInstance(BabarFoo, odooly.Model)
 
         self.assertIsNone(FooBar.get('base.missing_company'))
-        self.assertIsInstance(FooBar.get('base.foo_company'), erppeek.Record)
+        self.assertIsInstance(FooBar.get('base.foo_company'), odooly.Record)
 
         # model mismatch
         self.assertRaises(AssertionError, BabarFoo.get, 'base.foo_company')
@@ -451,15 +445,15 @@ class TestModel(TestCase):
         self.assertCalls(
             OBJ('ir.model.data', 'search', [('module', '=', 'base'), ('name', '=', 'missing_company')]),
             OBJ('ir.model.data', 'search', [('module', '=', 'base'), ('name', '=', 'foo_company')]),
-            OBJ('ir.model.data', 'read', sentinel.FOO, ['model', 'res_id']),
+            OBJ('ir.model.data', 'read', [777], ['model', 'res_id']),
             OBJ('ir.model.data', 'search', [('module', '=', 'base'), ('name', '=', 'foo_company')]),
-            OBJ('ir.model.data', 'read', sentinel.FOO, ['model', 'res_id']),
+            OBJ('ir.model.data', 'read', [777], ['model', 'res_id']),
         )
 
         self.assertOutput('')
 
     def test_create(self):
-        FooBar = self.model('foo.bar')
+        FooBar = self.env['foo.bar']
 
         record42 = FooBar.browse(42)
         recordlist42 = FooBar.browse([4, 2])
@@ -480,7 +474,7 @@ class TestModel(TestCase):
         self.assertOutput('')
 
     def test_create_relation(self):
-        FooBar = self.model('foo.bar')
+        FooBar = self.env['foo.bar']
 
         record42 = FooBar.browse(42)
         recordlist42 = FooBar.browse([4, 2])
@@ -526,7 +520,7 @@ class TestModel(TestCase):
         self.assertOutput('')
 
     def test_method(self, method_name='method', single_id=True):
-        FooBar = self.model('foo.bar')
+        FooBar = self.env['foo.bar']
         FooBar_method = getattr(FooBar, method_name)
 
         single_id = single_id and 42 or [42]
@@ -546,23 +540,21 @@ class TestModel(TestCase):
         self.assertOutput('')
 
     def test_standard_methods(self):
-        for method in 'write', 'copy', 'unlink':
+        for method in 'write', 'copy', 'unlink', 'get_metadata':
             self.test_method(method)
 
-        self.test_method('perm_read', single_id=False)
-
     def test_get_external_ids(self):
-        FooBar = self.model('foo.bar')
+        FooBar = self.env['foo.bar']
 
         self.assertEqual(FooBar._get_external_ids(), {'this_module.xml_name': FooBar.get(42)})
         FooBar._get_external_ids([])
         FooBar._get_external_ids([2001, 2002])
         self.assertCalls(
             OBJ('ir.model.data', 'search', [('model', '=', 'foo.bar')]),
-            OBJ('ir.model.data', 'read', sentinel.FOO, ['module', 'name', 'res_id']),
+            OBJ('ir.model.data', 'read', [777], ['module', 'name', 'res_id']),
             OBJ('ir.model.data', 'search', [('model', '=', 'foo.bar'), ('res_id', 'in', [])]),
             OBJ('ir.model.data', 'search', [('model', '=', 'foo.bar'), ('res_id', 'in', [2001, 2002])]),
-            OBJ('ir.model.data', 'read', sentinel.FOO, ['module', 'name', 'res_id']),
+            OBJ('ir.model.data', 'read', [777], ['module', 'name', 'res_id']),
         )
         self.assertOutput('')
 
@@ -571,13 +563,13 @@ class TestRecord(TestCase):
     """Tests the Model class and methods."""
 
     def test_read(self):
-        records = self.model('foo.bar').browse([13, 17])
-        rec = self.model('foo.bar').browse(42)
-        rec_null = self.model('foo.bar').browse(False)
+        records = self.env['foo.bar'].browse([13, 17])
+        rec = self.env['foo.bar'].browse(42)
+        rec_null = self.env['foo.bar'].browse(False)
 
-        self.assertIsInstance(records, erppeek.RecordList)
-        self.assertIsInstance(rec, erppeek.Record)
-        self.assertIsInstance(rec_null, erppeek.Record)
+        self.assertIsInstance(records, odooly.RecordList)
+        self.assertIsInstance(rec, odooly.Record)
+        self.assertIsInstance(rec_null, odooly.Record)
 
         rec.read()
         records.read()
@@ -598,8 +590,8 @@ class TestRecord(TestCase):
         self.assertOutput('')
 
     def test_write(self):
-        records = self.model('foo.bar').browse([13, 17])
-        rec = self.model('foo.bar').browse(42)
+        records = self.env['foo.bar'].browse([13, 17])
+        rec = self.env['foo.bar'].browse(42)
 
         rec.write({})
         rec.write({'spam': 42})
@@ -623,9 +615,9 @@ class TestRecord(TestCase):
         self.assertOutput('')
 
     def test_write_relation(self):
-        records = self.model('foo.bar').browse([13, 17])
-        rec = self.model('foo.bar').browse(42)
-        rec_null = self.model('foo.bar').browse(False)
+        records = self.env['foo.bar'].browse([13, 17])
+        rec = self.env['foo.bar'].browse(42)
+        rec_null = self.env['foo.bar'].browse(False)
 
         # one2many
         rec.write({'line_ids': False})
@@ -711,11 +703,11 @@ class TestRecord(TestCase):
         self.assertOutput('')
 
     def test_copy(self):
-        rec = self.model('foo.bar').browse(42)
-        records = self.model('foo.bar').browse([13, 17])
+        rec = self.env['foo.bar'].browse(42)
+        records = self.env['foo.bar'].browse([13, 17])
 
         recopy = rec.copy()
-        self.assertIsInstance(recopy, erppeek.Record)
+        self.assertIsInstance(recopy, odooly.Record)
         self.assertEqual(recopy.id, 1999)
 
         rec.copy({'spam': 42})
@@ -733,8 +725,8 @@ class TestRecord(TestCase):
         self.assertOutput('')
 
     def test_unlink(self):
-        records = self.model('foo.bar').browse([13, 17])
-        rec = self.model('foo.bar').browse(42)
+        records = self.env['foo.bar'].browse([13, 17])
+        rec = self.env['foo.bar'].browse(42)
 
         records.unlink()
         rec.unlink()
@@ -744,29 +736,32 @@ class TestRecord(TestCase):
         )
         self.assertOutput('')
 
-    def test_perm_read(self):
-        records = self.model('foo.bar').browse([13, 17])
-        rec = self.model('foo.bar').browse(42)
+    def test_get_metadata(self):
+        records = self.env['foo.bar'].browse([13, 17])
+        rec = self.env['foo.bar'].browse(42)
 
-        records.perm_read()
-        rec.perm_read()
+        records.get_metadata()
+        rec.get_metadata()
+        if self.server_version in ('6.1', '7.0'):
+            method = 'perm_read'
+        else:
+            method = 'get_metadata'
         self.assertCalls(
-            OBJ('foo.bar', 'fields_get_keys'),
-            OBJ('foo.bar', 'perm_read', [13, 17]),
-            OBJ('foo.bar', 'perm_read', [42]),
+            OBJ('foo.bar', method, [13, 17]),
+            OBJ('foo.bar', method, [42]),
         )
         self.assertOutput('')
 
     def test_empty_recordlist(self):
-        records = self.model('foo.bar').browse([13, 17])
+        records = self.env['foo.bar'].browse([13, 17])
         empty = records[42:]
 
-        self.assertIsInstance(records, erppeek.RecordList)
+        self.assertIsInstance(records, odooly.RecordList)
         self.assertTrue(records)
         self.assertEqual(len(records), 2)
         self.assertEqual(records.name, ['v_name'] * 2)
 
-        self.assertIsInstance(empty, erppeek.RecordList)
+        self.assertIsInstance(empty, odooly.RecordList)
         self.assertFalse(empty)
         self.assertEqual(len(empty), 0)
         self.assertEqual(empty.name, [])
@@ -790,8 +785,8 @@ class TestRecord(TestCase):
         self.assertOutput('')
 
     def test_attr(self):
-        records = self.model('foo.bar').browse([13, 17])
-        rec = self.model('foo.bar').browse(42)
+        records = self.env['foo.bar'].browse([13, 17])
+        rec = self.env['foo.bar'].browse(42)
 
         # attribute "id" is always present
         self.assertEqual(rec.id, 42)
@@ -842,15 +837,15 @@ class TestRecord(TestCase):
         self.assertOutput('')
 
     def test_equal(self):
-        rec1 = self.model('foo.bar').get(42)
-        rec2 = self.model('foo.bar').get(42)
-        rec3 = self.model('foo.bar').get(2)
-        rec4 = self.model('foo.other').get(42)
-        records1 = self.model('foo.bar').browse([42])
-        records2 = self.model('foo.bar').browse([2, 4])
-        records3 = self.model('foo.bar').browse([2, 4])
-        records4 = self.model('foo.bar').browse([4, 2])
-        records5 = self.model('foo.other').browse([2, 4])
+        rec1 = self.env['foo.bar'].get(42)
+        rec2 = self.env['foo.bar'].get(42)
+        rec3 = self.env['foo.bar'].get(2)
+        rec4 = self.env['foo.other'].get(42)
+        records1 = self.env['foo.bar'].browse([42])
+        records2 = self.env['foo.bar'].browse([2, 4])
+        records3 = self.env['foo.bar'].browse([2, 4])
+        records4 = self.env['foo.bar'].browse([4, 2])
+        records5 = self.env['foo.other'].browse([2, 4])
 
         self.assertEqual(rec1.id, rec2.id)
         self.assertEqual(rec1, rec2)
@@ -874,45 +869,47 @@ class TestRecord(TestCase):
         self.assertOutput('')
 
     def test_add(self):
-        records1 = self.model('foo.bar').browse([42])
-        records2 = self.model('foo.bar').browse([42])
-        records3 = self.model('foo.bar').browse([13, 17])
-        records4 = self.model('foo.other').browse([4])
-        rec1 = self.model('foo.bar').get(42)
+        records1 = self.env['foo.bar'].browse([42])
+        records2 = self.env['foo.bar'].browse([42])
+        records3 = self.env['foo.bar'].browse([13, 17])
+        records4 = self.env['foo.other'].browse([4])
+        rec1 = self.env['foo.bar'].get(88)
 
         sum1 = records1 + records2
         sum2 = records1 + records3
         sum3 = records3
         sum3 += records1
-        self.assertIsInstance(sum1, erppeek.RecordList)
-        self.assertIsInstance(sum2, erppeek.RecordList)
-        self.assertIsInstance(sum3, erppeek.RecordList)
+        sum4 = rec1 + records1
+        sum5 = rec1 + rec1
+        self.assertIsInstance(sum1, odooly.RecordList)
+        self.assertIsInstance(sum2, odooly.RecordList)
+        self.assertIsInstance(sum3, odooly.RecordList)
+        self.assertIsInstance(sum4, odooly.RecordList)
+        self.assertIsInstance(sum5, odooly.RecordList)
         self.assertEqual(sum1.id, [42, 42])
         self.assertEqual(sum2.id, [42, 13, 17])
         self.assertEqual(sum3.id, [13, 17, 42])
         self.assertEqual(records3.id, [13, 17])
+        self.assertEqual(sum4.id, [88, 42])
+        self.assertEqual(sum5.id, [88, 88])
 
-        with self.assertRaises(AssertionError):
-            records1 + records4
-        with self.assertRaises(AttributeError):
-            records1 + rec1
-        with self.assertRaises(AttributeError):
-            records1 + [rec1]
         with self.assertRaises(TypeError):
-            rec1 + rec1
+            records1 + records4
+        with self.assertRaises(TypeError):
+            records1 + [rec1]
 
-        self.assertCalls(OBJ('foo.bar', 'fields_get_keys'))
+        self.assertCalls()
         self.assertOutput('')
 
     def test_read_duplicate(self):
-        records = self.model('foo.bar').browse([17, 17])
+        records = self.env['foo.bar'].browse([17, 17])
 
-        self.assertEqual(type(records), erppeek.RecordList)
+        self.assertEqual(type(records), odooly.RecordList)
 
         values = records.read()
         self.assertEqual(len(values), 2)
         self.assertEqual(*values)
-        self.assertEqual(type(values[0]['misc_id']), erppeek.Record)
+        self.assertEqual(type(values[0]['misc_id']), odooly.Record)
 
         values = records.read('message')
         self.assertEqual(values, ['v_message', 'v_message'])
@@ -932,10 +929,10 @@ class TestRecord(TestCase):
         self.assertOutput('')
 
     def test_str(self):
-        records = erppeek.RecordList(self.model('foo.bar'), [(13, 'treize'), (17, 'dix-sept')])
-        rec1 = self.model('foo.bar').browse(42)
+        records = odooly.RecordList(self.env['foo.bar'], [(13, 'treize'), (17, 'dix-sept')])
+        rec1 = self.env['foo.bar'].browse(42)
         rec2 = records[0]
-        rec3 = self.model('foo.bar').browse(404)
+        rec3 = self.env['foo.bar'].browse(404)
 
         self.assertEqual(str(rec1), 'name_42')
         self.assertEqual(str(rec2), 'treize')
@@ -963,7 +960,7 @@ class TestRecord(TestCase):
         self.assertOutput('')
 
     def test_str_unicode(self):
-        rec4 = self.model('foo.bar').browse(8888)
+        rec4 = self.env['foo.bar'].browse(8888)
         expected_str = expected_unicode = 'name_\xdan\xeecode'
         if PY2:
             expected_unicode = expected_str.decode('latin-1')
@@ -979,9 +976,9 @@ class TestRecord(TestCase):
         )
 
     def test_external_id(self):
-        records = self.model('foo.bar').browse([13, 17])
-        rec = self.model('foo.bar').browse(42)
-        rec3 = self.model('foo.bar').browse([17, 13, 42])
+        records = self.env['foo.bar'].browse([13, 17])
+        rec = self.env['foo.bar'].browse(42)
+        rec3 = self.env['foo.bar'].browse([17, 13, 42])
 
         self.assertEqual(rec._external_id, 'this_module.xml_name')
         self.assertEqual(records._external_id, [False, False])
@@ -989,18 +986,18 @@ class TestRecord(TestCase):
 
         self.assertCalls(
             OBJ('ir.model.data', 'search', [('model', '=', 'foo.bar'), ('res_id', 'in', [42])]),
-            OBJ('ir.model.data', 'read', sentinel.FOO, ['module', 'name', 'res_id']),
+            OBJ('ir.model.data', 'read', [777], ['module', 'name', 'res_id']),
             OBJ('ir.model.data', 'search', [('model', '=', 'foo.bar'), ('res_id', 'in', [13, 17])]),
-            OBJ('ir.model.data', 'read', sentinel.FOO, ['module', 'name', 'res_id']),
+            OBJ('ir.model.data', 'read', [777], ['module', 'name', 'res_id']),
             OBJ('ir.model.data', 'search', [('model', '=', 'foo.bar'), ('res_id', 'in', [17, 13, 42])]),
-            OBJ('ir.model.data', 'read', sentinel.FOO, ['module', 'name', 'res_id']),
+            OBJ('ir.model.data', 'read', [777], ['module', 'name', 'res_id']),
         )
         self.assertOutput('')
 
     def test_set_external_id(self):
-        records = self.model('foo.bar').browse([13, 17])
-        rec = self.model('foo.bar').browse(42)
-        rec3 = self.model('foo.bar').browse([17, 13, 42])
+        records = self.env['foo.bar'].browse([13, 17])
+        rec = self.env['foo.bar'].browse(42)
+        rec3 = self.env['foo.bar'].browse([17, 13, 42])
 
         # Assign an External ID on a record which does not have one
         records[0]._external_id = 'other_module.dummy'

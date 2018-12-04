@@ -1,4 +1,4 @@
-include CHANGES.rst LICENSE README.rst erppeek.ini
+include CHANGES.rst LICENSE README.rst odooly.ini
 recursive-include docs *
 recursive-include tests *
 recursive-exclude docs *.pyc

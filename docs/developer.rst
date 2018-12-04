@@ -1,4 +1,4 @@
-.. currentmodule:: erppeek
+.. currentmodule:: odooly
 
 =================
 Developer's notes
@@ -8,9 +8,9 @@ Developer's notes
 Source code
 -----------
 
-* `Source code <https://github.com/tinyerp/erppeek>`_ and
-  `issue tracker <https://github.com/tinyerp/erppeek/issues>`_ on GitHub.
-* `Continuous tests <http://travis-ci.org/tinyerp/erppeek>`_ against Python
+* `Source code <https://github.com/tinyerp/odooly>`_ and
+  `issue tracker <https://github.com/tinyerp/odooly/issues>`_ on GitHub.
+* `Continuous tests <http://travis-ci.org/tinyerp/odooly>`_ against Python
   2.7 through 3.7 and PyPy, on `Travis-CI platform
   <http://about.travis-ci.org/>`_.
 

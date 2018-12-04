@@ -1,18 +1,18 @@
-.. currentmodule:: erppeek
+.. currentmodule:: odooly
 
 Introduction
 ============
 
-This section gives the bare minimum to use ERPpeek as a :ref:`command line
+This section gives the bare minimum to use Odooly as a :ref:`command line
 tool <command-line>` or within an :ref:`interactive shell <interactive-mode>`.
 
 Installation
 ------------
 
 Download and install the `latest release
-<http://pypi.python.org/pypi/ERPpeek>`__ from PyPI::
+<http://pypi.python.org/pypi/Odooly>`__ from PyPI::
 
-    pip install -U erppeek
+    pip install -U odooly
 
 
 .. _command-line:

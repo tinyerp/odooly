@@ -1,24 +1,24 @@
-==========================================================
-ERPpeek, a versatile tool for browsing Odoo / OpenERP data
-==========================================================
+=========================================================
+Odooly, a versatile tool for browsing Odoo / OpenERP data
+=========================================================
 
 Download and install the latest release::
 
-    pip install -U erppeek
+    pip install -U odooly
 
 .. contents::
    :local:
    :backlinks: top
 
-Documentation and tutorial: http://erppeek.readthedocs.org
+Documentation and tutorial: http://odooly.readthedocs.org
 
-CI tests: https://travis-ci.org/tinyerp/erppeek
+CI tests: https://travis-ci.org/tinyerp/odooly
 
 
 Overview
 --------
 
-ERPpeek carries three completing uses:
+Odooly carries three completing uses:
 
 (1) with command line arguments
 (2) as an interactive shell
@@ -27,11 +27,13 @@ ERPpeek carries three completing uses:
 
 Key features:
 
-- single executable ``erppeek.py``, no external dependency
-- wrappers for ``search+read``, for data model introspection, etc...
-- simpler syntax for ``domain`` and ``fields``
-- full API accessible on the ``Client`` object for OpenERP 5.0 through Odoo 11.0
-- the module can be imported and used as a library: ``from erppeek import Client``
+- single executable ``odooly.py``, no external dependency
+- provides an API very close to the Odoo API 8.0, through JSON-RPC and XML-RPC
+- helpers for ``search``, for data model introspection, etc...
+- simplified syntax for ``domain`` and ``fields``
+- full API accessible on the ``Client.env`` environment
+- compatible with OpenERP 6.1 through Odoo 12.0
+- the module can be imported and used as a library: ``from odooly import Client``
 - supports Python 3 and Python 2.7
 
 
@@ -44,11 +46,12 @@ Command line arguments
 There are few arguments to query Odoo models from the command line.
 Although it is quite limited::
 
-    $ erppeek --help
-    Usage: erppeek [options] [search_term_or_id [search_term_or_id ...]]
+    $ odooly --help
 
-    Inspect data on Odoo objects.  Use interactively or query a model (-m)
-    and pass search terms or ids as positional parameters after the options.
+    Usage: odooly.py [options] [search_term_or_id [search_term_or_id ...]]
+
+    Inspect data on Odoo objects.  Use interactively or query a model (-m) and
+    pass search terms or ids as positional parameters after the options.
 
     Options:
       --version             show program's version number and exit
@@ -56,8 +59,9 @@ Although it is quite limited::
       -l, --list            list sections of the configuration
       --env=ENV             read connection settings from the given section
       -c CONFIG, --config=CONFIG
-                            specify alternate config file (default: 'erppeek.ini')
-      --server=SERVER       full URL of the server (default: http://localhost:8069/xmlrpc)
+                            specify alternate config file (default: 'odooly.ini')
+      --server=SERVER       full URL of the server (default:
+                            http://localhost:8069/xmlrpc)
       -d DB, --db=DB        database
       -u USER, --user=USER  username
       -p PASSWORD, --password=PASSWORD
@@ -65,7 +69,8 @@ Although it is quite limited::
       -m MODEL, --model=MODEL
                             the type of object to find
       -f FIELDS, --fields=FIELDS
-                            restrict the output to certain fields (multiple allowed)
+                            restrict the output to certain fields (multiple
+                            allowed)
       -i, --interact        use interactively; default when no model is queried
       -v, --verbose         verbose
     $ #
@@ -73,13 +78,13 @@ Although it is quite limited::
 
 Example::
 
-    $ erppeek -d demo -m res.partner -f name -f lang 1
+    $ odooly -d demo -m res.partner -f name -f lang 1
     "name","lang"
     "Your Company","en_US"
 
 ::
 
-    $ erppeek -d demo -m res.groups -f full_name 'id > 0'
+    $ odooly -d demo -m res.groups -f full_name 'id > 0'
     "full_name"
     "Administration / Access Rights"
     "Administration / Configuration"
@@ -98,7 +103,7 @@ Example::
 Interactive use
 ---------------
 
-Edit ``erppeek.ini`` and declare the environment(s)::
+Edit ``odooly.ini`` and declare the environment(s)::
 
     [DEFAULT]
     scheme = http
@@ -124,24 +129,24 @@ Edit ``erppeek.ini`` and declare the environment(s)::
 
 Connect to the Odoo server::
 
-    erppeek --list
-    erppeek --env demo
+    odooly --list
+    odooly --env demo
 
 
 This is a sample session::
 
-    >>> model('res.users')
+    >>> env['res.users']
     <Model 'res.users'>
-    >>> model('res.users').count()
+    >>> env['res.users'].search_count()
     4
-    >>> model('ir.cron').read(['active = False'], 'active function')
-    [{'active': False, 'function': 'run_mail_scheduler', 'id': 1},
-     {'active': False, 'function': 'run_bdr_scheduler', 'id': 2},
-     {'active': False, 'function': 'scheduled_fetch_new_scans', 'id': 9}]
+    >>> env['ir.cron'].search(['active = False']).read('active name')
+    >>> env['ir.cron'].search(['active = True']).read('active name')
+    [{'active': True, 'id': 5, 'name': 'Calendar: Event Reminder'},
+     {'active': False, 'id': 4, 'name': 'Mail: Fetchmail Service'}]
     >>> #
-    >>> client.modules('delivery')
-    {'uninstalled': ['delivery', 'sale_delivery_report']}
-    >>> client.upgrade('base')
+    >>> env.modules('delivery')
+    {'uninstalled': ['delivery', 'website_sale_delivery']}
+    >>> env.upgrade('base')
     1 module(s) selected
     42 module(s) to process:
       to upgrade    account
@@ -163,4 +168,4 @@ This is a sample session::
 
    To preserve the history of commands when closing the session, first
    create an empty file in your home directory:
-   ``touch ~/.erppeek_history``
+   ``touch ~/.odooly_history``

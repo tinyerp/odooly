@@ -3,7 +3,7 @@ import unittest2
 import mock
 from mock import call, sentinel
 
-import erppeek
+import odooly
 
 type_call = type(call)
 
@@ -27,16 +27,8 @@ class PseudoFile(list):
         return rv
 
 
-def OBJ(*args):
-    return ('object.execute', sentinel.AUTH) + args
-
-
-def OBJ_v9(*args):
-    if len(args) == 8 and args[1] == 'search':
-        args = args[:6] + args[7:5:-1]
-        if not args[-1]:
-            args = args[:-1]
-    return OBJ(*args)
+def OBJ(model, method, *params, **kw):
+    return ('object.execute_kw', sentinel.AUTH, model, method, params) + ((kw,) if kw else ())
 
 
 class XmlRpcTestCase(unittest2.TestCase):
@@ -51,7 +43,7 @@ class XmlRpcTestCase(unittest2.TestCase):
         self.stderr = mock.patch('sys.stderr', new=PseudoFile()).start()
 
         # Clear the login cache
-        mock.patch.dict('erppeek.Client._login.cache', clear=True).start()
+        mock.patch.dict('odooly.Env._cache', clear=True).start()
 
         # Avoid hanging on getpass
         mock.patch('getpass.getpass', side_effect=RuntimeError).start()
@@ -59,15 +51,16 @@ class XmlRpcTestCase(unittest2.TestCase):
         self.service = self._patch_service()
         if self.server and self.database:
             # create the client
-            self.client = erppeek.Client(
+            self.client = odooly.Client(
                 self.server, self.database, self.user, self.password)
+            self.env = self.client.env
             # reset the mock
             self.service.reset_mock()
 
     def _patch_service(self):
         def get_svc(server, name, *args, **kwargs):
             return getattr(svcs, name)
-        patcher = mock.patch('erppeek.Service', side_effect=get_svc)
+        patcher = mock.patch('odooly.Service', side_effect=get_svc)
         svcs = patcher.start()
         svcs.stop = patcher.stop
         for svc_name in 'db common object wizard report'.split():
@@ -77,10 +70,6 @@ class XmlRpcTestCase(unittest2.TestCase):
         svcs.db.list.return_value = [self.database]
         svcs.common.login.return_value = self.uid
         return svcs
-
-    def get_OBJ(self):
-        self.assertTrue(self.server_version)
-        return OBJ if (float(self.server_version) >= 10.0) else OBJ_v9
 
     def assertCalls(self, *expected_args):
         expected_calls = []
