@@ -275,7 +275,7 @@ class TestSampleSession(XmlRpcTestCase):
             ['delivery_a', 'delivery_b'],
             [{'state': 'not installed', 'name': 'dummy'}]]
 
-        modules = self.client.env.modules('delivery')
+        modules = self.env.modules('delivery')
         self.assertIsInstance(modules, dict)
         self.assertIn('not installed', modules)
 
@@ -290,7 +290,7 @@ class TestSampleSession(XmlRpcTestCase):
             (42, 0), [42], [], ANY, [42],
             [{'id': 42, 'state': ANY, 'name': ANY}], ANY]
 
-        result = self.client.env.upgrade('dummy')
+        result = self.env.upgrade('dummy')
         self.assertIsNone(result)
 
         self.assertCalls(
@@ -376,14 +376,14 @@ class TestClientApi(XmlRpcTestCase):
     def test_model(self):
         self.service.object.execute_kw.side_effect = self.obj_exec
 
-        self.assertTrue(self.client.env.models('foo.bar'))
+        self.assertTrue(self.env.models('foo.bar'))
         self.assertCalls(
             OBJ('ir.model', 'search', [('model', 'like', 'foo.bar')]),
             OBJ('ir.model', 'read', [ID2, ID1], ('model',)),
         )
         self.assertOutput('')
 
-        self.assertRaises(odooly.Error, self.client.env.__getitem__, 'foo.bar')
+        self.assertRaises(odooly.Error, self.env.__getitem__, 'foo.bar')
         self.assertCalls(
             OBJ('ir.model', 'search', [('model', 'like', 'foo.bar')]),
             OBJ('ir.model', 'read', [ID2, ID1], ('model',)),
@@ -392,9 +392,8 @@ class TestClientApi(XmlRpcTestCase):
 
         self.service.object.execute_kw.side_effect = [
             sentinel.IDS, [{'id': 13, 'model': 'foo.bar'}]]
-        self.assertIsInstance(self.client.env['foo.bar'], odooly.Model)
-        self.assertIs(self.client.env['foo.bar'],
-                      odooly.Model(self.client.env, 'foo.bar'))
+        self.assertIsInstance(self.env['foo.bar'], odooly.Model)
+        self.assertIs(self.env['foo.bar'], odooly.Model(self.env, 'foo.bar'))
         self.assertCalls(
             OBJ('ir.model', 'search', [('model', 'like', 'foo.bar')]),
             OBJ('ir.model', 'read', sentinel.IDS, ('model',)),
@@ -402,12 +401,12 @@ class TestClientApi(XmlRpcTestCase):
         self.assertOutput('')
 
     def test_access(self):
-        self.assertTrue(self.client.env.access('foo.bar'))
+        self.assertTrue(self.env.access('foo.bar'))
         self.assertCalls(OBJ('ir.model.access', 'check', 'foo.bar', 'read'))
         self.assertOutput('')
 
     def test_execute_kw(self):
-        execute_kw = self.client.env._execute_kw
+        execute_kw = self.env._execute_kw
 
         execute_kw('foo.bar', 'any_method', 42)
         execute_kw('foo.bar', 'any_method', [42])
@@ -420,7 +419,7 @@ class TestClientApi(XmlRpcTestCase):
         self.assertOutput('')
 
     def test_exec_workflow(self):
-        exec_workflow = self.client.env.exec_workflow
+        exec_workflow = self.env.exec_workflow
 
         self.assertTrue(exec_workflow('foo.bar', 'light', 42))
 
@@ -437,8 +436,8 @@ class TestClientApi(XmlRpcTestCase):
         self.assertOutput('')
 
     def test_wizard(self):
-        wizard_create = self.client.env.wizard_create
-        wizard_execute = self.client.env.wizard_execute
+        wizard_create = self.env.wizard_create
+        wizard_execute = self.env.wizard_execute
         self.service.wizard.create.return_value = ID1
 
         self.assertTrue(wizard_create('foo.bar'))
@@ -456,21 +455,21 @@ class TestClientApi(XmlRpcTestCase):
         self.assertOutput('')
 
     def test_report(self):
-        self.assertTrue(self.client.env.report('foo.bar', sentinel.IDS))
+        self.assertTrue(self.env.report('foo.bar', sentinel.IDS))
         self.assertCalls(
             ('report.report', AUTH, 'foo.bar', sentinel.IDS),
         )
         self.assertOutput('')
 
     def test_render_report(self):
-        self.assertTrue(self.client.env.render_report('foo.bar', sentinel.IDS))
+        self.assertTrue(self.env.render_report('foo.bar', sentinel.IDS))
         self.assertCalls(
             ('report.render_report', AUTH, 'foo.bar', sentinel.IDS),
         )
         self.assertOutput('')
 
     def test_report_get(self):
-        self.assertTrue(self.client.env.report_get(ID1))
+        self.assertTrue(self.env.report_get(ID1))
         self.assertCalls(
             ('report.report_get', AUTH, ID1),
         )
@@ -482,7 +481,7 @@ class TestClientApi(XmlRpcTestCase):
             [{'id': 4, 'state': ANY, 'name': ANY},
              {'id': 5, 'state': ANY, 'name': ANY},
              {'id': 42, 'state': ANY, 'name': ANY}], ANY]
-        action = getattr(self.client.env, button)
+        action = getattr(self.env, button)
 
         expected_calls = [
             imm('update_list'),
