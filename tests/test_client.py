@@ -423,13 +423,6 @@ class TestClientApi(XmlRpcTestCase):
 
         self.assertTrue(exec_workflow('foo.bar', 'light', 42))
 
-        self.assertRaises(TypeError, exec_workflow)
-        self.assertRaises(TypeError, exec_workflow, 'foo.bar')
-        self.assertRaises(TypeError, exec_workflow, 'foo.bar', 'rip')
-        self.assertRaises(TypeError, exec_workflow, 'foo.bar', 'rip', 42, None)
-        self.assertRaises(AssertionError, exec_workflow, 42, 'rip', 42)
-        self.assertRaises(AssertionError, exec_workflow, 'foo.bar', 42, 42)
-
         self.assertCalls(
             ('object.exec_workflow', AUTH, 'foo.bar', 'light', 42),
         )
@@ -522,9 +515,21 @@ class TestClientApi90(TestClientApi):
     server_version = '9.0'
     test_wizard = _skip_test
 
+    def test_obsolete_methods(self):
+        self.assertRaises(AttributeError, getattr, self.env, 'wizard_create')
+        self.assertRaises(AttributeError, getattr, self.env, 'wizard_execute')
+
 
 class TestClientApi11(TestClientApi):
     """Test the Client API for Odoo 11."""
     server_version = '11.0'
-    test_wizard = _skip_test
+    test_exec_workflow = test_wizard = _skip_test
     test_report = test_render_report = test_report_get = _skip_test
+
+    def test_obsolete_methods(self):
+        self.assertRaises(AttributeError, getattr, self.env, 'exec_workflow')
+        self.assertRaises(AttributeError, getattr, self.env, 'render_report')
+        self.assertRaises(AttributeError, getattr, self.env, 'report')
+        self.assertRaises(AttributeError, getattr, self.env, 'report_get')
+        self.assertRaises(AttributeError, getattr, self.env, 'wizard_create')
+        self.assertRaises(AttributeError, getattr, self.env, 'wizard_execute')

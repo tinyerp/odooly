@@ -454,16 +454,14 @@ class Env(object):
     _cache = {}
 
     def __init__(self, client):
-        self.name = None
         self.client = client
+        self.name = None
         self.db_name = ()
         self.uid = False
         self.user = None
         self.context = {}
         self._model_names = ()
         self._models = {}
-        self._execute = None
-        self._exec_workflow = None
 
     def __getitem__(self, name):
         """Return the given :class:`Model`."""
@@ -544,8 +542,8 @@ class Env(object):
             return functools.partial(method, self.db_name, uid, password)
         self._execute = authenticated(self.client._object.execute)
         self._execute_kw = authenticated(self.client._object.execute_kw)
-        self._exec_workflow = authenticated(self.client._object.exec_workflow)
         if self.client._report:     # Odoo <= 10
+            self.exec_workflow = authenticated(self.client._object.exec_workflow)
             self.report = authenticated(self.client._report.report)
             self.report_get = authenticated(self.client._report.report_get)
             self.render_report = authenticated(self.client._report.render_report)
@@ -554,7 +552,7 @@ class Env(object):
             self.wizard_create = authenticated(self.client._wizard.create)
 
     def set_methods(self, env):
-        for key in ('_execute', '_execute_kw', '_exec_workflow',
+        for key in ('_execute', '_execute_kw', 'exec_workflow',
                     'report', 'report_get', 'render_report',
                     'wizard_execute', 'wizard_create'):
             if hasattr(env, key):
@@ -681,16 +679,6 @@ class Env(object):
                 ordered = ids
             res = [resdic.get(id_, False) for id_ in ordered]
         return res[0] if single_id else res
-
-    def exec_workflow(self, obj, signal, obj_id):
-        """Wrapper around ``object.exec_workflow`` RPC method.
-
-        Argument `obj` is the name of the model.  The `signal`
-        is sent to the object identified by its integer ``id`` `obj_id`.
-        """
-        assert self.uid, 'Not connected'
-        assert isinstance(obj, basestring) and isinstance(signal, basestring)
-        return self._exec_workflow(obj, signal, obj_id)
 
     def access(self, model_name, mode="read"):
         """Check if the user has access to this model.
@@ -1565,7 +1553,7 @@ class BaseRecord(BaseModel):
             ids = [rec._idnames[0] for rec in self if func(rec)]
             return BaseRecord(self._model, ids)
         recs = rels = self[:]
-        one2many = False
+        one2many = False    # one2many or many2many
         while func:
             name, dot, func = func.partition('.')
             tups = zip(recs, rels.read(name))
@@ -1777,10 +1765,9 @@ class Record(BaseRecord):
 
     def _send(self, signal):
         """Trigger workflow `signal` for this :class:`Record`."""
-        exec_workflow = self.env.exec_workflow
-        rv = exec_workflow(self._model_name, signal, self.id)
+        assert self.env.client.version_info < 11.0, 'Not supported'
         self.refresh()
-        return rv
+        return self.env.exec_workflow(self._model_name, signal, self.id)
 
     @property
     def _external_id(self):

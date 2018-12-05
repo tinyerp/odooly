@@ -116,7 +116,7 @@ Environment
 -----------
 
 .. autoclass:: Env
-   :members: lang, execute, exec_workflow, access, models, ref, __getitem__, odoo_env, registry
+   :members: lang, execute, access, models, ref, __getitem__, odoo_env, registry
    :undoc-members:
 
    .. attribute:: db_name
@@ -142,10 +142,10 @@ Environment
 
 .. note::
 
-   In :ref:`interactive mode <interactive-mode>`, when connected to the local
-   Odoo server, the `Env.odoo_env` attribute grabs an Odoo Environment with the same
-   attribute as the `Env` instance (db_name, uid, context).
-   The cursor is retrieved with `Env.cr`.
+   When connected to the local Odoo server, the `Env.odoo_env` attribute
+   grabs an Odoo Environment with the same characteristics as the `Env`
+   instance (db_name, uid, context).
+   In this case a cursor on the database is available as `Env.cr`.
 
 
 Advanced methods
@@ -157,7 +157,14 @@ Please refer to `the Odoo documentation`_ for details.
 
 .. automethod:: Env.execute(obj, method, *params, **kwargs)
 
-.. automethod:: Env.exec_workflow
+.. method:: Env.exec_workflow(obj, signal, obj_id)
+
+   Wrapper around ``object.exec_workflow`` RPC method.
+
+   Argument `obj` is the name of the model.  The `signal` is sent to
+   the object identified by its integer ``id`` `obj_id`.
+
+   Removed in Odoo 11.
 
 .. method:: Env.report(obj, ids, datas=None)
 

@@ -2,6 +2,12 @@ Changelog
 ---------
 
 
+2.x (unreleased)
+~~~~~~~~~~~~~~~~
+
+* Workflows and method ``object.exec_workflow`` are removed in Odoo 11.
+
+
 2.0b2 (2018-12-05)
 ~~~~~~~~~~~~~~~~~~
 
@@ -23,7 +29,7 @@ Changelog
 * Fix method ``RecordList.ensure_one()`` when there's identical ids
   or ``False`` values.
 
-* Fix method :meth:`RecordList.union` and related boolean operations.
+* Fix method ``RecordList.union(...)`` and related boolean operations.
 
 
 2.0b1 (2018-12-04)
