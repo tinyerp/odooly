@@ -1031,6 +1031,23 @@ class TestRecord(TestCase):
         )
         self.assertOutput('')
 
+    def test_ensure_one(self):
+        records = self.env['foo.bar'].browse([13, 13, False])
+        self.service.object.execute_kw.side_effect = []
+        self.assertEqual(records.ensure_one(), records[0])
+        self.assertEqual(records.ensure_one()[0], records[0])
+        self.assertCalls()
+        self.assertOutput('')
+
+    def test_exists(self):
+        records = self.env['foo.bar'].browse([13, 13, False])
+        self.service.object.execute_kw.side_effect = [[13]]
+        self.assertEqual(records.exists(), records[:1])
+        self.assertCalls(
+            OBJ('foo.bar', 'exists', [13]),
+        )
+        self.assertOutput('')
+
 
 class TestModel90(TestModel):
     server_version = '9.0'

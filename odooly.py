@@ -34,7 +34,7 @@ try:
 except ImportError:
     requests = None
 
-__version__ = '2.0b1'
+__version__ = '2.0b2.dev0'
 __all__ = ['Client', 'Env', 'Service', 'BaseModel', 'Model',
            'BaseRecord', 'Record', 'RecordList',
            'format_exception', 'read_config', 'start_odoo_services']
@@ -1339,7 +1339,7 @@ class BaseRecord(BaseModel):
         if isinstance(arg, int_types):
             inst = object.__new__(Record)
             name = None
-            idnames = [(arg, name)]
+            idnames = [arg]
             ids = [arg]
         elif len(arg) == 2 and isinstance(arg[1], basestring):
             inst = object.__new__(Record)
@@ -1390,6 +1390,12 @@ class BaseRecord(BaseModel):
 
     def __len__(self):
         return len(self.ids)
+
+    def __getitem__(self, key):
+        idname = self._idnames[key]
+        if idname is False and not isinstance(key, slice):
+            return False
+        return BaseRecord(self._model, idname)
 
     def __iter__(self):
         for idname in self._idnames:
@@ -1459,11 +1465,23 @@ class BaseRecord(BaseModel):
         pass
 
     def ensure_one(self):
-        if not isinstance(self.id, list):
+        """Return the single record in this recordset.
+
+        Raise a ValueError it recordset has more records or is empty.
+        """
+        if self.id and not isinstance(self.id, list):
             return self
-        if len(self.id) == 1:
-            return self[0]
+        recs = self.union()
+        if len(recs.id) == 1:
+            return recs[0]
         raise ValueError("Expected singleton: %s" % self)
+
+    def exists(self):
+        """Return a subset of records that exist."""
+        ids = self._execute('exists', self.union().ids)
+        if ids and not isinstance(self.id, list):
+            ids = ids[0]
+        return BaseRecord(self._model, ids)
 
     def get_metadata(self):
         """Read the metadata of the record(s)
@@ -1499,14 +1517,18 @@ class BaseRecord(BaseModel):
         return BaseRecord(self._model, ids)
 
     def union(self, *args):
+        """Return the union of ``self`` with all the arguments.
+
+        Preserve first occurence order.
+        """
         ids = self._concat_ids(args)
         if len(ids) > 1:
             seen = set()
             uniqids = []
             for idn in ids:
                 (id_, name) = idn if isinstance(idn, seq_types) else (idn, None)
-                if id_ not in seen and not seen.add(id_):
-                    uniqids.append((id_, name))
+                if id_ not in seen and not seen.add(id_) and id_:
+                    uniqids.append((id_, name) if name else id_)
         return BaseRecord(self._model, uniqids)
 
     @classmethod
@@ -1619,12 +1641,6 @@ class RecordList(BaseRecord):
         xml_ids = {r.id: xml_id for (xml_id, r) in
                    self._model._get_external_ids(self.id).items()}
         return [xml_ids.get(res_id, False) for res_id in self.id]
-
-    def __getitem__(self, key):
-        idname = self._idnames[key]
-        if idname is False:
-            return False
-        return BaseRecord(self._model, idname)
 
     def __getattr__(self, attr):
         if attr in self._model._keys:

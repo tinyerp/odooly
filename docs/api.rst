@@ -271,6 +271,12 @@ Example: ``client.env['res.company']`` returns a :class:`Model`.
 
       Wrapper for the :meth:`Record.unlink` method.
 
+   .. automethod:: exists()
+
+   .. automethod:: ensure_one()
+
+   .. automethod:: union()
+
    .. method:: get_metadata()
 
       Wrapper for the :meth:`Record.get_metadata` method.
@@ -286,6 +292,10 @@ Example: ``client.env['res.company']`` returns a :class:`Model`.
 .. autoclass:: Record(model, id)
    :members: read, write, copy, unlink, _send, _external_id, refresh
    :undoc-members:
+
+   .. automethod:: exists()
+
+   .. automethod:: ensure_one()
 
    .. method:: get_metadata(details=True)
 
