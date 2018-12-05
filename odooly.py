@@ -1068,14 +1068,25 @@ class BaseModel(object):
     ids = ()
 
     def with_env(self, env):
+        """Attach to the provided environment."""
         return env[self._name]
 
     def sudo(self, user=SUPERUSER_ID):
+        """Attach to the provided user, or SUPERUSER."""
         return self.with_env(self.env(user=user))
 
     def with_context(self, *args, **kwargs):
+        """Attach to an extended context."""
         context = dict(args[0] if args else self.env.context, **kwargs)
         return self.with_env(self.env(context=context))
+
+    def with_odoo(self):
+        """Attach to an ``odoo.api.Environment``.
+
+        Use same (db_name, uid, context) as current ``Env``.
+        Only available in ``local`` mode.
+        """
+        return self.env.odoo_env[self._name]
 
 
 class Model(BaseModel):
@@ -1093,12 +1104,6 @@ class Model(BaseModel):
 
     def __repr__(self):
         return "<Model '%s'>" % (self._name,)
-
-    def with_odoo(self):
-        return self.env.odoo_env[self._name]
-
-    def with_env(self, env):
-        return env[self._name]
 
     def _get_keys(self):
         obj_keys = self._execute('fields_get_keys')

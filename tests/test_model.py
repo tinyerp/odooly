@@ -1202,7 +1202,6 @@ class TestRecord(TestCase):
         self.assertCalls()
         self.assertOutput('')
 
-
     def test_sorted(self):
         m = self.env['foo.bar']
         self.service.object.execute_kw.side_effect = [

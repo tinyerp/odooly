@@ -11,6 +11,10 @@ Changelog
 * Add documentation for methods :meth:`RecordList.mapped`,
   :meth:`RecordList.filtered` and :meth:`RecordList.sorted`.
 
+* Add documentation for methods :meth:`Model.with_env`,
+  :meth:`Model.sudo` and :meth:`Model.with_context`.  These methods
+  are also available on :class:`RecordList` and :class:`Record`.
+
 * Changed method ``exists`` on :class:`RecordList` and :class:`Record`
   to return record(s) instead of ids.
 

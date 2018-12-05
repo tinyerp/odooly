@@ -247,6 +247,12 @@ Example: ``client.env['res.company']`` returns a :class:`Model`.
 
    .. automethod:: create
 
+   .. automethod:: with_env(env)
+
+   .. automethod:: sudo(user=SUPERUSER_ID)
+
+   .. automethod:: with_context([context][, **overrides])
+
    .. automethod:: _get_external_ids
 
 ..
@@ -284,6 +290,12 @@ Example: ``client.env['res.company']`` returns a :class:`Model`.
    .. automethod:: union(*args)
 
    .. automethod:: concat(*args)
+
+   .. automethod:: with_env(env)
+
+   .. automethod:: sudo(user=SUPERUSER_ID)
+
+   .. automethod:: with_context([context][, **overrides])
 
    .. method:: get_metadata()
 
