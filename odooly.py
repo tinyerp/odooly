@@ -178,33 +178,6 @@ def is_list_of_dict(iterator):
     return False
 
 
-def mixedcase(s, _cache={}):
-    """Convert to MixedCase.
-
-    >>> mixedcase('res.company')
-    'ResCompany'
-    """
-    try:
-        return _cache[s]
-    except KeyError:
-        _cache[s] = s = ''.join([w.capitalize() for w in s.split('.')])
-    return s
-
-
-def lowercase(s, _sub=re.compile('[A-Z]').sub,
-              _repl=(lambda m: '.' + m.group(0).lower()), _cache={}):
-    """Convert to lowercase with dots.
-
-    >>> lowercase('ResCompany')
-    'res.company'
-    """
-    try:
-        return _cache[s]
-    except KeyError:
-        _cache[s] = s = _sub(_repl, s).lstrip('.')
-    return s
-
-
 def format_exception(exc_type, exc, tb, limit=None, chain=True,
                      _format_exception=traceback.format_exception):
     """Format a stack trace and the exception information.

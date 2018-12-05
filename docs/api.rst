@@ -304,10 +304,6 @@ Example: ``client.env['res.company']`` returns a :class:`Model`.
 Utilities
 ---------
 
-.. autofunction:: lowercase(s)
-
-.. autofunction:: mixedcase(s)
-
 .. autofunction:: issearchdomain
 
 .. autofunction:: searchargs
