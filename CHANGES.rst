@@ -2,8 +2,8 @@ Changelog
 ---------
 
 
-2.x (unreleased)
-~~~~~~~~~~~~~~~~
+2.0b2 (2018-12-05)
+~~~~~~~~~~~~~~~~~~
 
 * Add documentation for methods :meth:`RecordList.exists` and
   :meth:`RecordList.ensure_one`.
