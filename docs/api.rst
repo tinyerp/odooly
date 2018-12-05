@@ -313,4 +313,3 @@ Utilities
 .. autofunction:: read_config
 
 .. autofunction:: start_odoo_services
-
