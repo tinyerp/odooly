@@ -1048,6 +1048,226 @@ class TestRecord(TestCase):
         )
         self.assertOutput('')
 
+    def test_mapped(self):
+        m = self.env['foo.bar']
+        self.service.object.execute_kw.side_effect = [
+            [{'id':k, 'fld1': 'val%s' % k} for k in [4, 17, 7, 42, 112, 13]],
+            {'fld1': {'type': 'char'}, 'foo_categ_id': {'relation': 'foo.categ', 'type': 'many2one'}},
+            [{'id':k, 'foo_categ_id': [k * 10, 'Categ C%04d' % k]} for k in [4, 17, 7, 42, 112, 13]],
+            [{'id':k, 'foo_categ_id': [k * 10, 'Categ C%04d' % k]} for k in [4, 17, 7, 42, 112, 13]],
+            [{'id':k * 10, 'fld2': 'f2_%04d' % k} for k in [4, 17, 7, 42, 112, 13]],
+            {'fld2': {'type': 'char'}},
+            ['fld1'],
+            [(42, 'Record 42')],
+            [(False, '<none>')],
+            [(4, 'Record 4')],
+            [(42, 'Record 42')],
+            [(False, '<none>')],
+            [(4, 'Record 4')],
+
+            [{'id': 42, 'foo_categ_id': [33, 'Categ 33']}],
+            [{'id': 33, 'fld2': 'c33 f2'}],
+            [(42, 'Sample42')],
+            [(42, 'Sample42')],
+
+            [{'id': 88, 'foo_categ_id': [33, 'Categ 33']}],
+            [{'id': 33, 'fld2': 'c33 f2'}],
+            [(88, 'Sample88')],
+        ]
+
+        ids1 = [42, 13, 17, 112, 4, 7]
+        idns1 = [(42, 'qude'), (13, 'trz'), (17, 'dspt'), 42, (112, 'cdz'), False, 4, (7, 'spt')]
+        ids1_sorted = sorted(set(ids1) - {False})
+        records1 = m.browse(idns1)
+        categs = odooly.RecordList(self.env._get('foo.categ', False),
+                                   [420, 130, 170, 1120, 40, 70])
+        self.assertEqual(records1.mapped('fld1'),
+                         [id_ and 'val%s' % id_ for id_ in records1.ids])
+        self.assertEqual(records1.mapped('foo_categ_id'), categs)
+        self.assertEqual(records1.mapped('foo_categ_id.fld2'),
+                         ['f2_%04d' % (id_ / 10) for id_ in categs.ids])
+        self.assertEqual(records1.mapped(str), [str(r) for r in records1])
+
+        records2 = m.browse([42, 42])
+        self.assertEqual(records2.mapped('foo_categ_id.fld2'), ['c33 f2'])
+        self.assertEqual(records2.mapped(str), ['Sample42'] * 2)
+
+        rec1 = m.get(88)
+        self.assertEqual(rec1.mapped('foo_categ_id.fld2'), ['c33 f2'])
+        self.assertEqual(rec1.mapped(str), ['Sample88'])
+
+        self.assertRaises(TypeError, records1.mapped)
+
+        self.assertCalls(
+            OBJ('foo.bar', 'read', ids1_sorted, ['fld1']),
+            OBJ('foo.bar', 'fields_get'),
+            OBJ('foo.bar', 'read', ids1_sorted, ['foo_categ_id']),
+            OBJ('foo.bar', 'read', ids1_sorted, ['foo_categ_id']),
+            OBJ('foo.categ', 'read', [k * 10 for k in ids1_sorted], ['fld2']),
+            OBJ('foo.categ', 'fields_get'),
+            OBJ('foo.bar', 'fields_get_keys'),
+            OBJ('foo.bar', 'name_get', [42]),
+            OBJ('foo.bar', 'name_get', [False]),
+            OBJ('foo.bar', 'name_get', [4]),
+            OBJ('foo.bar', 'name_get', [42]),
+            OBJ('foo.bar', 'name_get', [False]),
+            OBJ('foo.bar', 'name_get', [4]),
+
+            OBJ('foo.bar', 'read', [42], ['foo_categ_id']),
+            OBJ('foo.categ', 'read', [33], ['fld2']),
+            OBJ('foo.bar', 'name_get', [42]),
+            OBJ('foo.bar', 'name_get', [42]),
+
+            OBJ('foo.bar', 'read', [88], ['foo_categ_id']),
+            OBJ('foo.categ', 'read', [33], ['fld2']),
+            OBJ('foo.bar', 'name_get', [88]),
+        )
+
+        records3 = m.browse([])
+        self.assertEqual(records3.mapped('foo_categ_id.fld2'), [])
+        self.assertEqual(records3.mapped(str), [])
+
+        self.assertCalls()
+        self.assertOutput('')
+
+    def test_filtered(self):
+        m = self.env['foo.bar']
+        items = [[k, 'Item %d' % k] for k in range(1, 21)]
+        self.service.object.execute_kw.side_effect = [
+            [{'id':k, 'flag1': not (k % 3)} for k in [4, 17, 7, 42, 112, 13]],
+            {'flag1': {'type': 'boolean'},
+             'foo_child_ids': {'relation': 'foo.child', 'type': 'one2many'},
+             'foo_categ_id': {'relation': 'foo.categ', 'type': 'many2one'}},
+            [{'id':k, 'foo_categ_id': [k * 10, 'Categ C%04d' % k]} for k in [4, 17, 7, 42, 112, 13]],
+            [{'id':k, 'foo_categ_id': [k * 10, 'Categ C%04d' % k]} for k in [4, 17, 7, 42, 112, 13]],
+            [{'id':k * 10, 'flag2': bool(k % 2)} for k in [4, 17, 7, 42, 112, 13]],
+            {'flag2': {'type': 'char'}},
+            [{'id': k, 'foo_child_ids': {}} for k in [4, 7, 112, 13]] +
+            [{'id': 42, 'foo_child_ids': items[0:6]}, {'id': 17, 'foo_child_ids': items[6:8]}],
+            [{'id': k, 'flag3': (k < 3)} for k in range(1, 8)],
+            {'flag3': {'type': 'boolean'}},
+            [{'id': k, 'flag3': (k < 3)} for k in range(1, 8)],
+            [{'id': k, 'flag3': (k < 3)} for k in range(1, 8)],
+
+            [{'id': 42, 'foo_categ_id': False}],
+            [{'id': 88, 'foo_categ_id': [33, 'Categ 33']}],
+            [{'id': 33, 'flag3': 'OK'}],
+        ]
+
+        ids1 = [42, 13, 17, 42, 112, 4, 7]
+        idns1 = [(42, 'qude'), (13, 'trz'), (17, 'dspt'), 42, (112, 'cdz'), False, 4, (7, 'spt')]
+        ids1_sorted = sorted(set(ids1) - {False})
+        records1 = m.browse(idns1)
+        self.assertEqual(records1.filtered('flag1'),
+                         odooly.RecordList(m, [42, 42]))
+        self.assertEqual(records1.filtered('foo_categ_id'),
+                         odooly.RecordList(m, ids1))
+        self.assertEqual(records1.filtered('foo_categ_id.flag2'),
+                         odooly.RecordList(m, [13, 17, 7]))
+        self.assertEqual(records1.filtered('foo_child_ids.flag3'),
+                         odooly.RecordList(m, [42, 42]))
+        self.assertEqual(records1.filtered(lambda m: m.id > 41),
+                         odooly.RecordList(m, [42, 42, 112]))
+
+        rec1 = m.get(88)
+        self.assertEqual(m.get(42).filtered('foo_categ_id.flag3'), m.browse([]))
+        self.assertEqual(rec1.filtered('foo_categ_id.flag3'), m.browse([88]))
+        self.assertEqual(rec1.filtered(bool), m.browse([88]))
+
+        self.assertRaises(TypeError, records1.filtered)
+
+        self.assertCalls(
+            OBJ('foo.bar', 'read', ids1_sorted, ['flag1']),
+            OBJ('foo.bar', 'fields_get'),
+            OBJ('foo.bar', 'read', ids1_sorted, ['foo_categ_id']),
+            OBJ('foo.bar', 'read', ids1_sorted, ['foo_categ_id']),
+            OBJ('foo.categ', 'read', [k * 10 for k in ids1_sorted], ['flag2']),
+            OBJ('foo.categ', 'fields_get'),
+
+            OBJ('foo.bar', 'read', ids1_sorted, ['foo_child_ids']),
+            OBJ('foo.child', 'read', [1, 2, 3, 4, 5, 6], ['flag3']),
+            OBJ('foo.child', 'fields_get'),
+            OBJ('foo.child', 'read', [7, 8], ['flag3']),
+            OBJ('foo.child', 'read', [1, 2, 3, 4, 5, 6], ['flag3']),
+
+            OBJ('foo.bar', 'read', [42], ['foo_categ_id']),
+            OBJ('foo.bar', 'read', [88], ['foo_categ_id']),
+            OBJ('foo.categ', 'read', [33], ['flag3']),
+        )
+
+        records3 = m.browse([])
+        self.assertEqual(records3.filtered('foo_categ_id.fld2'), records3)
+        self.assertEqual(records3.filtered(str), records3)
+
+        self.assertCalls()
+        self.assertOutput('')
+
+
+    def test_sorted(self):
+        m = self.env['foo.bar']
+        self.service.object.execute_kw.side_effect = [
+            [42, 4, 7, 17, 112],
+            [42, 4, 7, 17, 112],
+            [{'id':k, 'fld1': 'val%s' % k} for k in [4, 17, 7, 42, 112, 13]],
+            {'fld1': {'type': 'char'}},
+            [{'id':k, 'fld1': 'val%s' % k} for k in [4, 17, 7, 42, 112, 13]],
+            ['fld1'],
+            [(4, 'Record 4')],
+            [(4, 'Record 4')],
+
+            [{'id':k} for k in [4, 17, 7, 42, 112]],
+        ]
+
+        ids1 = [42, 13, 17, 112, 4, 7]
+        idns1 = [(42, 'qude'), (13, 'trz'), (17, 'dspt'), 42, (112, 'cdz'), False, 4, (7, 'spt')]
+        ids1_sorted = sorted(set(ids1) - {False})
+        records1 = m.browse(idns1)
+        self.assertEqual(records1.sorted(),
+                         odooly.RecordList(m, [42, 4, 7, 17, 112]))
+        self.assertEqual(records1.sorted(reverse=True),
+                         odooly.RecordList(m, [112, 17, 7, 4, 42]))
+        self.assertEqual(records1.sorted('fld1'),
+                         odooly.RecordList(m, [112, 13, 17, 4, 42, 7]))
+        self.assertEqual(records1.sorted('fld1', reverse=True),
+                         odooly.RecordList(m, [7, 42, 4, 17, 13, 112]))
+        self.assertEqual(records1.sorted(str),
+                         odooly.RecordList(m, [4, 112, 17, 42, 7, 13]))
+        self.assertEqual(records1.sorted(str, reverse=True),
+                         odooly.RecordList(m, [13, 7, 42, 17, 112, 4]))
+
+        self.assertRaises(KeyError, records1.sorted, 'fld1.fld2')
+
+        self.assertCalls(
+            OBJ('foo.bar', 'search', [('id', 'in', ids1)]),
+            OBJ('foo.bar', 'search', [('id', 'in', ids1)]),
+            OBJ('foo.bar', 'read', ids1_sorted, ['fld1']),
+            OBJ('foo.bar', 'fields_get'),
+            OBJ('foo.bar', 'read', ids1_sorted, ['fld1']),
+            OBJ('foo.bar', 'fields_get_keys'),
+            OBJ('foo.bar', 'name_get', [4]),
+            OBJ('foo.bar', 'name_get', [4]),
+
+            OBJ('foo.bar', 'read', ids1_sorted, ['fld1.fld2']),
+        )
+
+        records2 = m.browse([42, 42])
+        self.assertEqual(records2.sorted(reverse=True), records2[:1])
+        self.assertEqual(records2.sorted('foo_categ_id', reverse=True), records2[:1])
+        self.assertEqual(records2.sorted(str, reverse=True), records2[:1])
+
+        records3 = m.browse([])
+        self.assertEqual(records3.sorted(reverse=True), records3)
+        self.assertEqual(records3.sorted('foo_categ_id', reverse=True), records3)
+        self.assertEqual(records3.sorted(str, reverse=True), records3)
+
+        rec1, expected = m.get(88), odooly.RecordList(m, [88])
+        self.assertEqual(rec1.sorted(reverse=True), expected)
+        self.assertEqual(rec1.sorted('foo_categ_id', reverse=True), expected)
+        self.assertEqual(rec1.sorted(str, reverse=True), expected)
+
+        self.assertCalls()
+        self.assertOutput('')
+
 
 class TestModel90(TestModel):
     server_version = '9.0'

@@ -273,9 +273,17 @@ Example: ``client.env['res.company']`` returns a :class:`Model`.
 
    .. automethod:: exists()
 
+   .. automethod:: mapped(func)
+
+   .. automethod:: filtered(func)
+
+   .. automethod:: sorted(key=None, reverse=False)
+
    .. automethod:: ensure_one()
 
-   .. automethod:: union()
+   .. automethod:: union(*args)
+
+   .. automethod:: concat(*args)
 
    .. method:: get_metadata()
 
@@ -294,8 +302,6 @@ Example: ``client.env['res.company']`` returns a :class:`Model`.
    :undoc-members:
 
    .. automethod:: exists()
-
-   .. automethod:: ensure_one()
 
    .. method:: get_metadata(details=True)
 

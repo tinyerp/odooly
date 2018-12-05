@@ -1165,7 +1165,7 @@ class Model(BaseModel):
         """Search for records in the `domain`."""
         reverse = kwargs.pop('reverse', False)
         domain = self._execute('search', domain, *params, **kwargs)
-        return RecordList(self, reversed(domain) if reverse else domain)
+        return RecordList(self, domain[::-1] if reverse else domain)
 
     def search_count(self, domain=None):
         """Count the records in the `domain`."""
@@ -1513,11 +1513,12 @@ class BaseRecord(BaseModel):
         return ids
 
     def concat(self, *args):
+        """Return the concatenation of all records."""
         ids = self._concat_ids(args)
         return BaseRecord(self._model, ids)
 
     def union(self, *args):
-        """Return the union of ``self`` with all the arguments.
+        """Return the union of all records.
 
         Preserve first occurence order.
         """
@@ -1529,42 +1530,77 @@ class BaseRecord(BaseModel):
                 (id_, name) = idn if isinstance(idn, seq_types) else (idn, None)
                 if id_ not in seen and not seen.add(id_) and id_:
                     uniqids.append((id_, name) if name else id_)
-        return BaseRecord(self._model, uniqids)
+            ids = uniqids
+        return BaseRecord(self._model, ids)
 
     @classmethod
     def _union(cls, args):
+        if hasattr(args, 'union'):
+            return args.union()
         if not (args and isinstance(args, list) and
                 isinstance(args[0], BaseRecord)):
             return args
         return args[0].union(*args[1:])
 
     def mapped(self, func):
+        """Apply ``func`` on all records."""
         if not func:
             return self
         if callable(func):
-            return self._union(func(rec) for rec in self)
+            return self._union([func(rec) for rec in self])
         # func is a path
-        vals = self
+        vals = self[:]
         for name in func.split('.'):
             vals = self._union(vals.read(name))
         return vals
 
     def filtered(self, func):
-        if not callable(func):
-            name = func
-            func = lambda rec: any(rec.mapped(name))
-        return BaseRecord(self._model, [rec._idnames[0] for rec in self if func(rec)])
+        """Select the records such that ``func(rec)`` is true."""
+        if callable(func):
+            ids = [rec._idnames[0] for rec in self if func(rec)]
+            return BaseRecord(self._model, ids)
+        recs = rels = self[:]
+        one2many = False
+        while func:
+            name, dot, func = func.partition('.')
+            tups = zip(recs, rels.read(name))
+            recs, rels = [], []
+            for (rec, rel) in tups:
+                if not rel:
+                    continue
+                if hasattr(rel, 'ids'):
+                    if not rel.id:
+                        continue
+                    if func and len(rel.ids) > 1:
+                        one2many = True
+                recs.append(rec)
+                rels.append(rel)
+            if one2many:
+                recs = [rec for (rec, rel) in zip(recs, rels)
+                        if rel.filtered(func)]
+                break
+            if not rels:
+                return self[:0]
+            if hasattr(rels[0], 'ids'):
+                rels = rels[0].concat(*rels[1:])
+        return recs[0].concat(*recs[1:])
 
     def sorted(self, key=None, reverse=False):
+        """Return the records sorted by ``key``."""
+        recs = self.union()
+        if len(recs.ids) < 2:
+            return recs
         if key is None:
-            recs = self._model.search([('id', 'in', self.ids)], reverse=reverse)
-            idnames = dict(zip(self.ids, self._idnames))
+            idnames = dict(zip(recs.ids, recs._idnames))
+            recs = self._model.search([('id', 'in', recs.ids)], reverse=reverse)
             recs.__dict__['_idnames'] = [idnames[id_] for id_ in recs.ids]
+            return recs
         if isinstance(key, basestring):
-            vals = sorted(zip(self.read(key), self._idnames), reverse=reverse)
+            vals = sorted(zip(recs.read(key), recs._idnames), reverse=reverse)
             ids = [idn for (__, idn) in vals]
         else:
-            ids = [rec._idnames[0] for rec in sorted(self, key=key, reverse=reverse)]
+            ids = [rec._idnames[0]
+                   for rec in sorted(recs, key=key, reverse=reverse)]
         return BaseRecord(self._model, ids)
 
     def write(self, values):
