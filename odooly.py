@@ -602,7 +602,7 @@ class Env(object):
         return env
 
     def ref(self, xml_id):
-        """Return the record corresponding to the given ``xml_id`` external ID."""
+        """Return the record for the given ``xml_id`` external ID."""
         (module, name) = xml_id.split('.')
         data = self['ir.model.data'].read(
             [('module', '=', module), ('name', '=', name)], 'model res_id')
@@ -1260,21 +1260,18 @@ class Model(BaseModel):
         Return a dictionary with the same keys as the `values` argument.
         """
         for (key, value) in values.items():
-            if key == 'id' or hasattr(value, 'id'):
+            if key == 'id' or value is False or hasattr(value, 'id'):
                 continue
             field = self._fields[key]
-            field_type = field['type']
-            if field_type == 'many2one':
-                if value:
-                    rel_model = self.env._get(field['relation'], False)
-                    values[key] = Record(rel_model, value)
-            elif field_type in ('one2many', 'many2many'):
-                rel_model = self.env._get(field['relation'], False)
-                values[key] = RecordList(rel_model, value)
-            elif value and field_type == 'reference':
+            if field['type'] == 'reference':
                 (res_model, res_id) = value.split(',')
-                rel_model = self.env._get(res_model, False)
-                values[key] = Record(rel_model, int(res_id))
+                value = int(res_id)
+            elif 'relation' in field:
+                res_model = field['relation']
+            else:
+                continue
+            rel_model = self.env._get(res_model, False)
+            values[key] = BaseRecord(rel_model, value)
         return values
 
     def _unbrowse_values(self, values):
@@ -1568,12 +1565,12 @@ class BaseRecord(BaseModel):
                         one2many = True
                 recs.append(rec)
                 rels.append(rel)
+            if not rels:
+                return self[:0]
             if one2many:
                 recs = [rec for (rec, rel) in zip(recs, rels)
                         if rel.filtered(func)]
                 break
-            if not rels:
-                return self[:0]
             if hasattr(rels[0], 'ids'):
                 rels = rels[0].concat(*rels[1:])
         return recs[0].concat(*recs[1:])
