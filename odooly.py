@@ -1008,7 +1008,7 @@ class Client(object):
         del Client._set_interactive
         assert cls._globals is None
 
-        for name in ['__name__', '__doc__'] + __all__:
+        for name in ['__name__', '__version__', '__doc__', 'Client']:
             global_vars[name] = globals()[name]
         cls._globals = global_vars
         return global_vars
