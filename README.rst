@@ -28,11 +28,11 @@ Odooly carries three completing uses:
 Key features:
 
 - provides an API very close to the Odoo API 8.0, through JSON-RPC and XML-RPC
+- compatible with OpenERP 6.1 through Odoo 12.0
 - single executable ``odooly.py``, no external dependency
 - helpers for ``search``, for data model introspection, etc...
 - simplified syntax for search ``domain`` and ``fields``
 - full API accessible on the ``Client.env`` environment
-- compatible with OpenERP 6.1 through Odoo 12.0
 - the module can be imported and used as a library: ``from odooly import Client``
 - supports Python 3 and Python 2.7
 
@@ -139,8 +139,8 @@ This is a sample session::
     <Model 'res.users'>
     >>> env['res.users'].search_count()
     4
-    >>> env['ir.cron'].search(['active = False']).read('active name')
-    >>> env['ir.cron'].search(['active = True']).read('active name')
+    >>> crons = env['ir.cron'].with_context(active_test=False).search([])
+    >>> crons.read('active name')
     [{'active': True, 'id': 5, 'name': 'Calendar: Event Reminder'},
      {'active': False, 'id': 4, 'name': 'Mail: Fetchmail Service'}]
     >>> #

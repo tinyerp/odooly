@@ -210,7 +210,7 @@ Let's examine the ``'admin'`` user in details.
     ['Administration / Access Rights',
      'Administration / Configuration',
      'Human Resources / Employee']
-    >>> admin_user.perm_read()
+    >>> admin_user.get_metadata()
     {'create_date': False,
      'create_uid': False,
      'id': 1,
@@ -369,7 +369,7 @@ Query the ``"res.country"`` model::
     >>> #
 
 ..
-    model('res.country').browse(['code > Y'], order='code ASC').read('%(code)s %(name)s')
+    env['res.country'].search(['code > Y'], order='code ASC').read('%(code)s %(name)s')
 
 ... the tutorial is done.
 
