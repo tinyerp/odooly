@@ -5,6 +5,9 @@ Changelog
 2.x (unreleased)
 ~~~~~~~~~~~~~~~~
 
+* Provide :meth:`Env.sudo` in addition to existing method on ``Model``,
+  ``RecordList`` and ``Record`` instances.
+
 * Workflows and method ``object.exec_workflow`` are removed in Odoo 11.
 
 

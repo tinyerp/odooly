@@ -601,6 +601,10 @@ class Env(object):
             env.set_user(self.uid, self.user)
         return env
 
+    def sudo(self, user=SUPERUSER_ID):
+        """Attach to the provided user, or SUPERUSER."""
+        return self(user=user)
+
     def ref(self, xml_id):
         """Return the record for the given ``xml_id`` external ID."""
         (module, name) = xml_id.split('.')
@@ -1074,7 +1078,7 @@ class BaseModel(object):
         Use same (db_name, uid, context) as current ``Env``.
         Only available in ``local`` mode.
         """
-        return self.env.odoo_env[self._name]
+        return self.with_env(self.env.odoo_env)
 
 
 class Model(BaseModel):
@@ -1484,10 +1488,7 @@ class BaseRecord(BaseModel):
         return self._execute('get_metadata', self.ids)
 
     def with_env(self, env):
-        return BaseRecord(env[self._model_name], self.id)
-
-    def with_odoo(self):
-        return self._model.with_odoo().browse(self.ids)
+        return env[self._model_name].browse(self.id)
 
     def _check_model(self, other, oper):
         if not (isinstance(other, BaseRecord) and

@@ -116,7 +116,7 @@ Environment
 -----------
 
 .. autoclass:: Env
-   :members: lang, execute, access, models, ref, __getitem__, odoo_env, registry
+   :members: lang, execute, access, models, ref, __getitem__, sudo, odoo_env, registry
    :undoc-members:
 
    .. attribute:: db_name
