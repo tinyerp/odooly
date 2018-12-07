@@ -68,7 +68,7 @@ Odoo RPC Services
 The naked Odoo RPC services are exposed too.
 The :attr:`~Client.db` and the :attr:`~Client.common` services expose few
 methods which might be helpful for server administration.  Use the
-:func:`dir` function to introspect them.  The :attr:``~Client._object``
+:func:`dir` function to introspect them.  The :attr:`~Client._object`
 service should not be used directly because its methods are wrapped and
 exposed on the :class:`Env` object itself.
 The two last services are deprecated and removed in recent versions of Odoo.
