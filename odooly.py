@@ -442,7 +442,7 @@ class Service(object):
 class Env(object):
     """An environment wraps data for Odoo models and records:
 
-        - :attr:`cr`, the current database cursor;
+        - :attr:`db_name`, the current database;
         - :attr:`uid`, the current user id;
         - :attr:`context`, the current context dictionary.
 
@@ -451,17 +451,24 @@ class Env(object):
         >>> env["some.model"]
     """
 
+    name = uid = user = None
     _cache = {}
 
-    def __init__(self, client):
-        self.client = client
-        self.name = None
-        self.db_name = ()
-        self.uid = False
-        self.user = None
-        self.context = {}
-        self._model_names = ()
-        self._models = {}
+    def __new__(cls, client, db_name=()):
+        if not db_name:
+            env = object.__new__(cls)
+            env.client, env.db_name = client, db_name
+        else:
+            if client.env.db_name:
+                env = object.__new__(cls)
+                env.client = client
+            else:
+                env = client.env
+            env.db_name = db_name
+            env.context = {}
+            env._model_names = env._cache_get('model_names', set)
+            env._models = {}
+        return env
 
     def __getitem__(self, name):
         """Return the given :class:`Model`."""
@@ -471,7 +478,7 @@ class Env(object):
         return "<Env '%s@%s'>" % (self.user.login if self.uid else '',
                                   self.db_name)
 
-    def _auth(self, user, password, env):
+    def _auth(self, user, password):
         assert self.db_name, 'Not connected'
         auth_cache = self._cache_get('_auth', dict)
         uid = None
@@ -482,13 +489,12 @@ class Env(object):
             # Read from cache
             uid, password = auth_cache.get(user or uid) or (uid, None)
             # Read from table 'res.users'
-            if not uid and (self.db_name == env.db_name and
-                            env.access('res.users', 'write')):
+            if not uid and self.access('res.users', 'write'):
                 if isinstance(user, int_types):
                     domain = [user]
                 else:
                     domain = [('login', '=', user)]
-                obj = env['res.users'].read(domain, 'id login password')
+                obj = self['res.users'].read(domain, 'id login password')
                 if obj:
                     uid = obj[0]['id']
                     user = obj[0]['login']
@@ -521,20 +527,17 @@ class Env(object):
         return (uid, password)
 
     def set_user(self, uid, login):
-        self.uid = uid
         if isinstance(login, int_types):
-            if uid == SUPERUSER_ID:
-                login = 'admin'
-            else:
-                login = None
+            login = 'admin' if uid == SUPERUSER_ID else None
         elif isinstance(login, Record):
             if 'login' in login._cached_keys:
                 login = login.login
-        self.user = user = self._get('res.users', False).browse(uid)
+        self.uid = uid
+        self.user = self._get('res.users', False).browse(uid)
         if login:
             assert isinstance(login, basestring), repr(login)
-            user.__dict__['login'] = login
-            user._cached_keys.add('login')
+            self.user.__dict__['login'] = login
+            self.user._cached_keys.add('login')
 
     def set_credentials(self, uid, password):
         # Authenticated endpoints
@@ -579,26 +582,32 @@ class Env(object):
         """Return the environment's registry."""
         return self.client._server._get_pool(self.db_name)
 
-    def __call__(self, db_name=None, user=None, password=None, context=None):
+    def __call__(self, user=None, password=None, context=None):
         """Return an environment based on ``self`` with modified parameters."""
-        if not self.uid and (not db_name or not self.db_name):
-            env = self
+        if user is None:
+            (uid, user) = (self.uid, self.user)
         else:
-            env = Env(self.client)
-            if db_name in (None, self.db_name):
-                env.name = self.name
-        env.db_name = self.db_name if db_name is None else db_name
-        env._model_names = env._cache_get('model_names', set)
-        env.context = self.context if context is None else context
-        if user is not None:
-            (uid, password) = env._auth(user, password, self)
+            (uid, password) = self._auth(user, password)
             if not uid:
                 raise Error('Invalid username or password')
-            env.set_credentials(uid, password)
+        env_key = tuple([uid] + sorted((context or self.context).items()))
+        env = self._cache_get(env_key)
+        if not env:
+            if self.uid:    # Create a new Env() instance
+                env = Env(self.client)
+                env.db_name = self.db_name
+                env.name = self.name
+                env.context = dict(self.context if context is None else context)
+                env._model_names = self._model_names
+                env._models = {}
+            else:           # Configure the Env() instance
+                env = self
+            if uid == self.uid:
+                env.set_methods(self)
+            else:
+                env.set_credentials(uid, password)
             env.set_user(uid, user)
-        elif self is not env and self.db_name == env.db_name:
-            env.set_methods(self)
-            env.set_user(self.uid, self.user)
+            self._cache_set(env_key, env)
         return env
 
     def sudo(self, user=SUPERUSER_ID):
@@ -941,7 +950,7 @@ class Client(object):
                     raise Error("Database '%s' does not exist: %s" %
                                 (database, dbs))
             if env.db_name != database:
-                env = env(database)
+                env = Env(self, database)
             # Used for logging, copied from odoo.sql_db.db_connect
             current_thread().dbname = database
         elif not env.db_name:
@@ -1045,12 +1054,12 @@ class Client(object):
         Supported since OpenERP 7.
         """
         self.db.duplicate_database(passwd, self.env.db_name, db_name)
-        # Copy the cache
+        # Copy the cache for authentication
         auth_cache = self.env._cache_get('_auth')
         self.env._cache_set('_auth', dict(auth_cache), db_name=db_name)
 
         # Login with the current user into the new database
-        (uid, password) = self.env._auth(self.env.uid, None, self.env)
+        (uid, password) = self.env._auth(self.env.uid, None)
         return self.login(self.env.user.login, password, database=db_name)
 
 

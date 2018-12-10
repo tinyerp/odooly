@@ -12,6 +12,8 @@ Changelog
 
 * Do not prevent login if access to ``Client.db.list()`` is denied.
 
+* Use a cache of :class:`Env` instances.
+
 
 2.0b2 (2018-12-05)
 ~~~~~~~~~~~~~~~~~~
