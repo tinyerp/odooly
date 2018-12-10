@@ -10,6 +10,8 @@ Changelog
 
 * Workflows and method ``object.exec_workflow`` are removed in Odoo 11.
 
+* Do not prevent login if access to ``Client.db.list()`` is denied.
+
 
 2.0b2 (2018-12-05)
 ~~~~~~~~~~~~~~~~~~

@@ -935,7 +935,6 @@ class Client(object):
             try:
                 dbs = self.db.list()
             except Exception:
-                raise
                 pass    # AccessDenied: simply ignore this check
             else:
                 if database not in dbs:
