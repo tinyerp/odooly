@@ -2,8 +2,8 @@ Changelog
 ---------
 
 
-2.x (unreleased)
-~~~~~~~~~~~~~~~~
+2.0b3 (2018-12-10)
+~~~~~~~~~~~~~~~~~~
 
 * Provide :meth:`Env.sudo` in addition to existing method on ``Model``,
   ``RecordList`` and ``Record`` instances.
