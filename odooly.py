@@ -1008,8 +1008,8 @@ class Client(object):
 
     def _check_valid(self, database, uid, password):
         try:
-            self._object.execute(database, uid, password,
-                                 'ir.model', 'fields_get', [None])
+            self._object.execute_kw(database, uid, password,
+                                    'ir.model', 'fields_get', ([None],))
             return True
         except Exception:
             return False

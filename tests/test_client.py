@@ -205,8 +205,8 @@ class TestCreateClient(XmlRpcTestCase):
 
         client = odooly.Client('http://127.0.0.1:8069', 'database', 'usr')
         expected_calls = self.startup_calls + (
-            ('object.execute', 'database', 1, 'password',
-             'ir.model', 'fields_get', [None]),)
+            ('object.execute_kw', 'database', 1, 'password',
+             'ir.model', 'fields_get', ([None],)),)
         self.assertIsInstance(client, odooly.Client)
         self.assertCalls(*expected_calls)
         self.assertOutput('')
@@ -409,13 +409,13 @@ class TestClientApi(XmlRpcTestCase):
     def test_execute_kw(self):
         execute_kw = self.env._execute_kw
 
-        execute_kw('foo.bar', 'any_method', 42)
-        execute_kw('foo.bar', 'any_method', [42])
-        execute_kw('foo.bar', 'any_method', [13, 17])
+        execute_kw('foo.bar', 'any_method', (42,))
+        execute_kw('foo.bar', 'any_method', ([42],))
+        execute_kw('foo.bar', 'any_method', ([13, 17],))
         self.assertCalls(
-            ('object.execute_kw', AUTH, 'foo.bar', 'any_method', 42),
-            ('object.execute_kw', AUTH, 'foo.bar', 'any_method', [42]),
-            ('object.execute_kw', AUTH, 'foo.bar', 'any_method', [13, 17]),
+            ('object.execute_kw', AUTH, 'foo.bar', 'any_method', (42,)),
+            ('object.execute_kw', AUTH, 'foo.bar', 'any_method', ([42],)),
+            ('object.execute_kw', AUTH, 'foo.bar', 'any_method', ([13, 17],)),
         )
         self.assertOutput('')
 
