@@ -102,8 +102,6 @@ class TestModel(TestCase):
 
         self.assertIs(self.env['foo.bar'],
                       odooly.Model(self.env, 'foo.bar'))
-        # self.assertIs(self.client.model('foo.bar'),
-        #               self.client.FooBar)
         self.assertCalls(
             OBJ('ir.model', 'search', [('model', 'like', 'foo.bar')]),
             OBJ('ir.model', 'read', [777], ('model',)),
@@ -172,7 +170,6 @@ class TestModel(TestCase):
 
         FooBar.search(['name like Morice'], missingkey=42)
         self.assertCalls(OBJ('foo.bar', 'search', domain, missingkey=42))
-        # self.assertOutput('Ignoring: missingkey = 42\n')
         self.assertOutput('')
 
         self.assertRaises(TypeError, FooBar.search)

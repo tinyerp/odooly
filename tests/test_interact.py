@@ -51,7 +51,6 @@ class TestInteract(XmlRpcTestCase):
             EOFError('Finished')]
         odooly.main()
 
-        # self.assertSequenceEqual(self.stdout.popvalue().splitlines(), [])
         self.assertEqual(sys.ps1, 'demo >>> ')
         self.assertEqual(sys.ps2, 'demo ... ')
         expected_calls = self.startup_calls + (
