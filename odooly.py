@@ -1041,22 +1041,22 @@ class Client(object):
                                     user_password, login, country_code)
         return self.login(login, user_password, database=database)
 
-    def clone_database(self, passwd, db_name):
+    def clone_database(self, passwd, database):
         """Clone the current database.
 
-        The superadmin `passwd` and `db_name` are mandatory.
+        The superadmin `passwd` and `database` are mandatory.
         Login if successful.
 
         Supported since OpenERP 7.
         """
-        self.db.duplicate_database(passwd, self.env.db_name, db_name)
+        self.db.duplicate_database(passwd, self.env.db_name, database)
         # Copy the cache for authentication
         auth_cache = self.env._cache_get('_auth')
-        self.env._cache_set('_auth', dict(auth_cache), db_name=db_name)
+        self.env._cache_set('_auth', dict(auth_cache), db_name=database)
 
         # Login with the current user into the new database
         (uid, password) = self.env._auth(self.env.uid, None)
-        return self.login(self.env.user.login, password, database=db_name)
+        return self.login(self.env.user.login, password, database=database)
 
 
 class BaseModel(object):
