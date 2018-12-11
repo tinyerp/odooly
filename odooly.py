@@ -624,9 +624,13 @@ class Env(object):
         """Return the current language code."""
         return self.context.get('lang')
 
-    @classmethod
-    def refresh(cls):
-        cls._cache = {}
+    def refresh(self):
+        db_key = (self.db_name, self.client._server)
+        for key in list(self._cache):
+            if key[1:] == db_key and key[0] != '_auth':
+                del self._cache[key]
+        self._model_names = self._cache_set('model_names', set())
+        self._models = {}
 
     def _cache_get(self, key, func=None):
         try:
@@ -818,9 +822,8 @@ class Env(object):
         for mod in mods:
             print('  %(state)s\t%(name)s' % mod)
 
-        # Empty the models' cache
-        self._models.clear()
-        self._model_names.clear()
+        # Empty the cache for this database
+        self.refresh()
 
         # Apply scheduled upgrades
         self.execute('base.module.upgrade', 'upgrade_module', [])

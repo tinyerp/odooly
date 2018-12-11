@@ -5,13 +5,15 @@ Changelog
 2.x (unreleased)
 ~~~~~~~~~~~~~~~~
 
+* Correctly invalidate the cache after installing/upgrading add-ons.
+
 * Change interactive prompt ``sys.ps2`` to ``"     ... "``.
 
 
 2.0b3 (2018-12-10)
 ~~~~~~~~~~~~~~~~~~
 
-* Provide :meth:`Env.sudo` in addition to existing method on ``Model``,
+* Provide :meth:`Env.sudo` in addition to same method on ``Model``,
   ``RecordList`` and ``Record`` instances.
 
 * Workflows and method ``object.exec_workflow`` are removed in Odoo 11.
