@@ -52,7 +52,7 @@ class TestInteract(XmlRpcTestCase):
         odooly.main()
 
         self.assertEqual(sys.ps1, 'demo >>> ')
-        self.assertEqual(sys.ps2, 'demo ... ')
+        self.assertEqual(sys.ps2, '     ... ')
         expected_calls = self.startup_calls + (
             ('common.login', 'database', 'usr', 'password'),
             ('object.execute_kw', 'database', 17, 'password',

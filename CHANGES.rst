@@ -2,6 +2,12 @@ Changelog
 ---------
 
 
+2.x (unreleased)
+~~~~~~~~~~~~~~~~
+
+* Change interactive prompt ``sys.ps2`` to ``"     ... "``.
+
+
 2.0b3 (2018-12-10)
 ~~~~~~~~~~~~~~~~~~
 

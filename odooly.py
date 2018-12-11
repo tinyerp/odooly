@@ -991,7 +991,7 @@ class Client(object):
         self._globals['env'] = client.env
         # Tweak prompt
         sys.ps1 = '%s >>> ' % (env_name,)
-        sys.ps2 = '%s ... ' % (env_name,)
+        sys.ps2 = '... '.rjust(len(sys.ps1))
         # Logged in?
         if client.env.uid:
             print('Logged in as %r' % (client.env.user.login,))
