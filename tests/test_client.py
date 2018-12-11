@@ -204,11 +204,8 @@ class TestCreateClient(XmlRpcTestCase):
                         {('auth', 'database', url_xmlrpc): {'usr': (1, 'password')}}).start()
 
         client = odooly.Client('http://127.0.0.1:8069', 'database', 'usr')
-        expected_calls = self.startup_calls + (
-            ('object.execute_kw', 'database', 1, 'password',
-             'ir.model', 'fields_get', ([None],)),)
         self.assertIsInstance(client, odooly.Client)
-        self.assertCalls(*expected_calls)
+        self.assertCalls(*self.startup_calls)
         self.assertOutput('')
 
     def test_create_from_config(self):

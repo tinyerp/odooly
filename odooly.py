@@ -474,22 +474,34 @@ class Env(object):
         return "<Env '%s@%s'>" % (self.user.login if self.uid else '',
                                   self.db_name)
 
+    def check_uid(self, uid, password=None):
+        """Check if ``(uid, password)`` is valid.
+
+        Return ``uid`` on success, ``False`` on failure.
+        The invalid entry is removed from the authentication cache.
+        """
+        try:
+            self.client._object.execute_kw(self.db_name, uid, password,
+                                           'ir.model', 'fields_get', ([None],))
+        except Exception:
+            auth_cache = self._cache_get('auth')
+            if uid in auth_cache:
+                del auth_cache[uid]
+            uid = False
+        return uid
+
     def _auth(self, user, password):
         assert self.db_name, 'Not connected'
-        auth_cache = self._cache_get('auth', dict)
-        uid = None
+        uid = verified = None
         if isinstance(user, int_types):
             (user, uid) = (uid, user)
-        # If password is explicit, call the 'login' method
+        auth_cache = self._cache_get('auth', dict)
         if not password:
             # Read from cache
-            uid, password = auth_cache.get(user or uid) or (uid, None)
-            # Read from table 'res.users'
-            if not uid and self.access('res.users', 'write'):
-                if isinstance(user, int_types):
-                    domain = [user]
-                else:
-                    domain = [('login', '=', user)]
+            (uid, password) = auth_cache.get(user or uid) or (uid, None)
+            # Read from model 'res.users'
+            if not password and self.access('res.users', 'write'):
+                domain = [('login', '=', user)] if user else [uid]
                 obj = self['res.users'].read(domain, 'id login password')
                 if obj:
                     uid = obj[0]['id']
@@ -498,46 +510,30 @@ class Env(object):
                 else:
                     # Invalid user
                     uid = False
+            verified = password and uid
             # Ask for password
             if not password and uid is not False:
                 from getpass import getpass
                 if user is None:
-                    name = 'admin' if uid == 1 else ('UID %d' % uid)
+                    name = 'admin' if uid == SUPERUSER_ID else ('UID %d' % uid)
                 else:
                     name = user
                 password = getpass('Password for %r: ' % name)
-        if uid:
-            # Check if password changed
-            if not self.client._check_valid(self.db_name, uid, password):
-                if user in auth_cache:
-                    del auth_cache[user]
-                uid = False
-        elif uid is None:
+        # Check if password is valid
+        uid = self.check_uid(uid, password) if (uid and not verified) else uid
+        if uid is None:
             # Do a standard 'login'
             uid = self.client.common.login(self.db_name, user, password)
-        if uid:
-            # Update the cache
-            auth_cache[uid] = (uid, password)
-            if user:
-                auth_cache[user] = auth_cache[uid]
+        if not uid:
+            raise Error('Invalid username or password')
+        # Update the cache
+        auth_cache[uid] = (uid, password)
+        if user:
+            auth_cache[user] = auth_cache[uid]
         return (uid, password)
 
-    def set_user(self, uid, login):
-        if isinstance(login, int_types):
-            login = 'admin' if uid == SUPERUSER_ID else None
-        elif isinstance(login, Record):
-            if 'login' in login._cached_keys:
-                login = login.login
-        self.uid = uid
-        self.user = self._get('res.users', False).browse(uid)
-        if login:
-            assert isinstance(login, basestring), repr(login)
-            self.user.__dict__['login'] = login
-            self.user._cached_keys.add('login')
-
-    def set_credentials(self, uid, password):
-        # Authenticated endpoints
-        def authenticated(method):
+    def _set_credentials(self, uid, password):
+        def authenticated(method):  # Authenticated endpoints
             return functools.partial(method, self.db_name, uid, password)
         self._execute = authenticated(self.client._object.execute)
         self._execute_kw = authenticated(self.client._object.execute_kw)
@@ -550,12 +546,35 @@ class Env(object):
             self.wizard_execute = authenticated(self.client._wizard.execute)
             self.wizard_create = authenticated(self.client._wizard.create)
 
-    def set_methods(self, env):
-        for key in ('_execute', '_execute_kw', 'exec_workflow',
-                    'report', 'report_get', 'render_report',
-                    'wizard_execute', 'wizard_create'):
-            if hasattr(env, key):
-                setattr(self, key, getattr(env, key))
+    def _configure(self, uid, user, password, context):
+        if self.uid:    # Create a new Env() instance
+            env = Env(self.client)
+            (env.db_name, env.name) = (self.db_name, self.name)
+            env.context = dict(context)
+            env._model_names = self._model_names
+            env._models = {}
+        else:           # Configure the Env() instance
+            env = self
+        if uid == self.uid:     # Copy methods
+            for key in ('_execute', '_execute_kw', 'exec_workflow',
+                        'report', 'report_get', 'render_report',
+                        'wizard_execute', 'wizard_create'):
+                if hasattr(self, key):
+                    setattr(env, key, getattr(self, key))
+        else:                   # Create methods
+            env._set_credentials(uid, password)
+        # Setup uid and user
+        if isinstance(user, int_types):
+            user = 'admin' if uid == SUPERUSER_ID else None
+        elif isinstance(user, Record) and 'login' in user._cached_keys:
+            user = user.login
+        env.uid = uid
+        env.user = env._get('res.users', False).browse(uid)
+        if user:
+            assert isinstance(user, basestring), repr(user)
+            env.user.__dict__['login'] = user
+            env.user._cached_keys.add('login')
+        return env
 
     @property
     def odoo_env(self):
@@ -580,31 +599,19 @@ class Env(object):
 
     def __call__(self, user=None, password=None, context=None):
         """Return an environment based on ``self`` with modified parameters."""
-        if user is None:
-            if not self.uid:
-                self.context = self.context if context is None else context
-                return self
+        if context is None:
+            context = self.context
+        if user is not None:
+            (uid, password) = self._auth(user, password)
+        elif self.uid:
             (uid, user) = (self.uid, self.user)
         else:
-            (uid, password) = self._auth(user, password)
-            if not uid:
-                raise Error('Invalid username or password')
-        env_key = tuple([uid] + sorted((context or self.context).items()))
+            self.context = context
+            return self
+        env_key = tuple([uid] + sorted(context.items()))
         env = self._cache_get(env_key)
         if not env:
-            if self.uid:    # Create a new Env() instance
-                env = Env(self.client)
-                (env.db_name, env.name) = (self.db_name, self.name)
-                env.context = dict(self.context if context is None else context)
-                env._model_names = self._model_names
-                env._models = {}
-            else:           # Configure the Env() instance
-                env = self
-            if uid == self.uid:
-                env.set_methods(self)
-            else:
-                env.set_credentials(uid, password)
-            env.set_user(uid, user)
+            env = self._configure(uid, user, password, context)
             self._cache_set(env_key, env)
         return env
 
@@ -1007,14 +1014,6 @@ class Client(object):
         self.env = env = self.env(context=value)
         if self._globals and self._globals.get('client') is self:
             self._globals['env'] = env
-
-    def _check_valid(self, database, uid, password):
-        try:
-            self._object.execute_kw(database, uid, password,
-                                    'ir.model', 'fields_get', ([None],))
-            return True
-        except Exception:
-            return False
 
     @classmethod
     def _set_interactive(cls, global_vars={}):
