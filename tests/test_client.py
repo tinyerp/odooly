@@ -507,6 +507,26 @@ class TestClientApi(XmlRpcTestCase):
         self._module_upgrade('upgrade')
         self._module_upgrade('uninstall')
 
+    def test_sudo(self):
+        self.service.object.execute_kw.side_effect = [
+            False, 123, [{'id': 123, 'login': 'guest', 'password': 'xxx'}]]
+        env = self.env(user='guest')
+
+        self.service.object.execute_kw.side_effect = [False, RuntimeError]
+        self.assertTrue(env.sudo().access('res.users', 'write'))
+        self.assertFalse(env.access('res.users', 'write'))
+
+        self.assertCalls(
+            OBJ('ir.model.access', 'check', 'res.users', 'write'),
+            OBJ('res.users', 'search', [('login', '=', 'guest')]),
+            OBJ('res.users', 'read', 123, ['id', 'login', 'password']),
+
+            OBJ('ir.model.access', 'check', 'res.users', 'write'),
+            ('object.execute_kw', self.database, 123, 'xxx',
+             'ir.model.access', 'check', ('res.users', 'write')),
+        )
+        self.assertOutput('')
+
 
 class TestClientApi90(TestClientApi):
     """Test the Client API for Odoo 9."""

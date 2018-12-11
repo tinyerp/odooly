@@ -1264,6 +1264,62 @@ class TestRecord(TestCase):
         self.assertCalls()
         self.assertOutput('')
 
+    def test_sudo(self):
+        env = self.env(user='guest')
+        records = env['foo.bar'].browse([13, 17])
+        rec = env['foo.bar'].browse(42)
+        rec_null = env['foo.bar'].browse(False)
+
+        def guest(model, method, *params, **kw):
+            return ('object.execute_kw', self.database, 1001, 'v_password',
+                    model, method, params) + ((kw,) if kw else ())
+
+        self.assertCalls(
+            OBJ('ir.model.access', 'check', 'res.users', 'write'),
+            OBJ('res.users', 'search', [('login', '=', 'guest')]),
+            OBJ('res.users', 'read', [1001, 1002], ['id', 'login', 'password']),
+        )
+
+        records.read()
+        records.sudo().read()
+        rec.read('message')
+        rec.sudo().read('name message')
+        rec.read('message')
+        records.read()
+
+        self.assertCalls(
+            guest('foo.bar', 'read', [13, 17], None),
+            guest('foo.bar', 'fields_get'),
+            OBJ('foo.bar', 'read', [13, 17], None),
+            guest('foo.bar', 'read', [42], ['message']),
+            OBJ('foo.bar', 'read', [42], ['name', 'message']),
+            guest('foo.bar', 'read', [42], ['message']),
+            guest('foo.bar', 'read', [13, 17], None),
+        )
+        self.assertOutput('')
+
+    def test_with_context(self):
+        records = self.env['foo.bar'].browse([13, 17])
+        rec = self.env['foo.bar'].browse(42)
+
+        records.read()
+        records.with_context(lang='fr_CA').read()
+        rec.read('message')
+        rec.with_context(lang='fr_CA', prefetch_fields=False).read('name message')
+        rec.read('message')
+        records.read()
+
+        self.assertCalls(
+            OBJ('foo.bar', 'read', [13, 17], None),
+            OBJ('foo.bar', 'fields_get'),
+            OBJ('foo.bar', 'read', [13, 17], None, context={'lang': 'fr_CA'}),
+            OBJ('foo.bar', 'read', [42], ['message']),
+            OBJ('foo.bar', 'read', [42], ['name', 'message'], context={'lang': 'fr_CA', 'prefetch_fields': False}),
+            OBJ('foo.bar', 'read', [42], ['message']),
+            OBJ('foo.bar', 'read', [13, 17], None),
+        )
+        self.assertOutput('')
+
 
 class TestModel90(TestModel):
     server_version = '9.0'

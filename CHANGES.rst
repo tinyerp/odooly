@@ -9,6 +9,9 @@ Changelog
 
 * Correctly invalidate the cache after installing/upgrading add-ons.
 
+* Add tests for :meth:`Model.with_context`, :meth:`Model.sudo` and
+  :meth:`Env.sudo`.
+
 * Copy the context when switching database.
 
 * Change interactive prompt ``sys.ps2`` to ``"     ... "``.
