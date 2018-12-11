@@ -434,10 +434,6 @@ class Service(object):
             wrapper = lambda s, *args: s._dispatch(name, args)
         return _memoize(self, name, wrapper)
 
-    def __del__(self):
-        if hasattr(self, 'close'):
-            self.close()
-
 
 class Env(object):
     """An environment wraps data for Odoo models and records:
