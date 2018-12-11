@@ -169,8 +169,8 @@ class TestCreateClient(XmlRpcTestCase):
         self.assertEqual(
             client.env._cache,
             {((1,), 'newdb', url_xmlrpc): client.env,
-             ('_auth', 'newdb', url_xmlrpc): {1: (1, 'pss'),
-                                              'usr': (1, 'pss')},
+             ('auth', 'newdb', url_xmlrpc): {1: (1, 'pss'),
+                                             'usr': (1, 'pss')},
              ('model_names', 'newdb', url_xmlrpc): {'res.users'}})
         self.assertOutput('')
 
@@ -201,7 +201,7 @@ class TestCreateClient(XmlRpcTestCase):
         self.assertFalse(odooly.Env._cache)
         url_xmlrpc = 'http://127.0.0.1:8069/xmlrpc'
         mock.patch.dict(odooly.Env._cache,
-                        {('_auth', 'database', url_xmlrpc): {'usr': (1, 'password')}}).start()
+                        {('auth', 'database', url_xmlrpc): {'usr': (1, 'password')}}).start()
 
         client = odooly.Client('http://127.0.0.1:8069', 'database', 'usr')
         expected_calls = self.startup_calls + (

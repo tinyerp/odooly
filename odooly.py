@@ -476,7 +476,7 @@ class Env(object):
 
     def _auth(self, user, password):
         assert self.db_name, 'Not connected'
-        auth_cache = self._cache_get('_auth', dict)
+        auth_cache = self._cache_get('auth', dict)
         uid = None
         if isinstance(user, int_types):
             (user, uid) = (uid, user)
@@ -627,7 +627,7 @@ class Env(object):
     def refresh(self):
         db_key = (self.db_name, self.client._server)
         for key in list(self._cache):
-            if key[1:] == db_key and key[0] != '_auth':
+            if key[1:] == db_key and key[0] != 'auth':
                 del self._cache[key]
         self._model_names = self._cache_set('model_names', set())
         self._models = {}
@@ -1054,8 +1054,8 @@ class Client(object):
         """
         self.db.duplicate_database(passwd, self.env.db_name, database)
         # Copy the cache for authentication
-        auth_cache = self.env._cache_get('_auth')
-        self.env._cache_set('_auth', dict(auth_cache), db_name=database)
+        auth_cache = self.env._cache_get('auth')
+        self.env._cache_set('auth', dict(auth_cache), db_name=database)
 
         # Login with the current user into the new database
         (uid, password) = self.env._auth(self.env.uid, None)
