@@ -9,6 +9,8 @@ Changelog
 
 * Correctly invalidate the cache after installing/upgrading add-ons.
 
+* Copy the context when switching database.
+
 * Change interactive prompt ``sys.ps2`` to ``"     ... "``.
 
 

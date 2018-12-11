@@ -952,6 +952,7 @@ class Client(object):
                                 (database, dbs))
             if env.db_name != database:
                 env = Env(self, database)
+                env.context = self.env.context
             # Used for logging, copied from odoo.sql_db.db_connect
             current_thread().dbname = database
         elif not env.db_name:
@@ -985,7 +986,7 @@ class Client(object):
         client = self
         env_name = client.env.name or client.env.db_name
         try:  # copy the context to the new client
-            client.env.context = dict(self._globals['client'].env.context)
+            client.context = dict(self._globals['client'].env.context)
         except (KeyError, TypeError):
             pass  # client not yet in globals(), or context is None
         self._globals['client'] = client
