@@ -474,7 +474,7 @@ class Env(object):
         return "<Env '%s@%s'>" % (self.user.login if self.uid else '',
                                   self.db_name)
 
-    def check_uid(self, uid, password=None):
+    def check_uid(self, uid, password):
         """Check if ``(uid, password)`` is valid.
 
         Return ``uid`` on success, ``False`` on failure.
