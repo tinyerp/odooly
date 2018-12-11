@@ -5,6 +5,8 @@ Changelog
 2.x (unreleased)
 ~~~~~~~~~~~~~~~~
 
+* Fix cache of first ``Env`` in interactive mode.
+
 * Correctly invalidate the cache after installing/upgrading add-ons.
 
 * Change interactive prompt ``sys.ps2`` to ``"     ... "``.

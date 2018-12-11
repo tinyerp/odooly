@@ -39,7 +39,7 @@ class TestInteract(XmlRpcTestCase):
         getpass = mock.patch('getpass.getpass',
                              return_value='password').start()
         self.service.db.list.return_value = ['database']
-        self.service.common.login.return_value = 17
+        self.service.common.login.side_effect = [17, 51]
         self.service.object.execute_kw.side_effect = TypeError
 
         # Launch interactive

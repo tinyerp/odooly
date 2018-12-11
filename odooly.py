@@ -581,6 +581,9 @@ class Env(object):
     def __call__(self, user=None, password=None, context=None):
         """Return an environment based on ``self`` with modified parameters."""
         if user is None:
+            if not self.uid:
+                self.context = self.context if context is None else context
+                return self
             (uid, user) = (self.uid, self.user)
         else:
             (uid, password) = self._auth(user, password)
@@ -591,8 +594,7 @@ class Env(object):
         if not env:
             if self.uid:    # Create a new Env() instance
                 env = Env(self.client)
-                env.db_name = self.db_name
-                env.name = self.name
+                (env.db_name, env.name) = (self.db_name, self.name)
                 env.context = dict(self.context if context is None else context)
                 env._model_names = self._model_names
                 env._models = {}
@@ -1945,7 +1947,7 @@ def main(interact=_interact):
             args.user = DEFAULT_USER
         client = Client(args.server, args.db, args.user, args.password,
                         verbose=args.verbose)
-    client.env.context = {'lang': (os.getenv('LANG') or 'en_US').split('.')[0]}
+    client.context = {'lang': (os.getenv('LANG') or 'en_US').split('.')[0]}
 
     if args.model and client.env.uid:
         ids = client.env.execute(args.model, 'search', domain)
