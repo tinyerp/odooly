@@ -34,7 +34,7 @@ try:
 except ImportError:
     requests = None
 
-__version__ = '2.0b3'
+__version__ = '2.0'
 __all__ = ['Client', 'Env', 'Service', 'BaseModel', 'Model',
            'BaseRecord', 'Record', 'RecordList',
            'format_exception', 'read_config', 'start_odoo_services']
@@ -533,35 +533,35 @@ class Env(object):
         return (uid, password)
 
     def _set_credentials(self, uid, password):
-        def authenticated(method):  # Authenticated endpoints
+        def env_auth(method):     # Authenticated endpoints
             return functools.partial(method, self.db_name, uid, password)
-        self._execute = authenticated(self.client._object.execute)
-        self._execute_kw = authenticated(self.client._object.execute_kw)
-        if self.client._report:     # Odoo <= 10
-            self.exec_workflow = authenticated(self.client._object.exec_workflow)
-            self.report = authenticated(self.client._report.report)
-            self.report_get = authenticated(self.client._report.report_get)
-            self.render_report = authenticated(self.client._report.render_report)
-        if self.client._wizard:     # OpenERP 6.1
-            self.wizard_execute = authenticated(self.client._wizard.execute)
-            self.wizard_create = authenticated(self.client._wizard.create)
+        self._execute = env_auth(self.client._object.execute)
+        self._execute_kw = env_auth(self.client._object.execute_kw)
+        if self.client._report:   # Odoo <= 10
+            self.exec_workflow = env_auth(self.client._object.exec_workflow)
+            self.report = env_auth(self.client._report.report)
+            self.report_get = env_auth(self.client._report.report_get)
+            self.render_report = env_auth(self.client._report.render_report)
+        if self.client._wizard:   # OpenERP 6.1
+            self.wizard_execute = env_auth(self.client._wizard.execute)
+            self.wizard_create = env_auth(self.client._wizard.create)
 
     def _configure(self, uid, user, password, context):
-        if self.uid:    # Create a new Env() instance
+        if self.uid:              # Create a new Env() instance
             env = Env(self.client)
             (env.db_name, env.name) = (self.db_name, self.name)
             env.context = dict(context)
             env._model_names = self._model_names
             env._models = {}
-        else:           # Configure the Env() instance
+        else:                     # Configure the Env() instance
             env = self
-        if uid == self.uid:     # Copy methods
+        if uid == self.uid:       # Copy methods
             for key in ('_execute', '_execute_kw', 'exec_workflow',
                         'report', 'report_get', 'render_report',
                         'wizard_execute', 'wizard_create'):
                 if hasattr(self, key):
                     setattr(env, key, getattr(self, key))
-        else:                   # Create methods
+        else:                     # Create methods
             env._set_credentials(uid, password)
         # Setup uid and user
         if isinstance(user, int_types):
@@ -974,7 +974,7 @@ class Client(object):
 
     def login(self, user, password=None, database=None):
         """Switch `user` and (optionally) `database`."""
-        if not self._globals:
+        if not self._globals:   # Not interactive
             return self._login(user, password=password, database=database)
         try:
             self._login(user, password=password, database=database)
@@ -1961,10 +1961,9 @@ def main(interact=_interact):
         writer.writeheader()
         writer.writerows(data or ())
 
-    if client._globals is not None:
+    if client._globals is not None:   # Interactive mode
         if not client.env.uid:
             client.connect()
-        # Enter interactive mode
         return interact(global_vars) if interact else global_vars
 
 if __name__ == '__main__':

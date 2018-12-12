@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-2.x (unreleased)
+2.0 (2018-12-12)
 ~~~~~~~~~~~~~~~~
 
 * Fix cache of first ``Env`` in interactive mode.
@@ -59,4 +59,5 @@ Changelog
 
 * First release of Odooly, which mimics the new Odoo 8.0 API.
 
-* Other features are copied from ERPpeek 1.7.
+* Other features are copied from `ERPpeek
+  <https://github.com/tinyerp/erppeek>`__ 1.7.
