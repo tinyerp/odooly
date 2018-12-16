@@ -8,6 +8,9 @@ Changelog
 * Allow to bypass SSL verification if the server is misconfigured.
   Environment variable ``ODOOLY_SSL_UNVERIFIED=1`` is detected.
 
+* Accept multiple command line arguments for local mode. Example:
+  ``odooly -- --config path/to/odoo.conf --data-dir ./var``
+
 * Fix installation/upgrade with an empty list.
 
 * Catch error when database does not exist on login.

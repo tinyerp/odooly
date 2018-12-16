@@ -1959,6 +1959,8 @@ def main(interact=_interact):
     else:
         if not args.server:
             args.server = ['-c', args.config] if args.config else DEFAULT_URL
+            if domain and not args.model:
+                args.server = args.server + domain if args.config else domain
         if not args.user:
             args.user = DEFAULT_USER
         client = Client(args.server, args.db, args.user, args.password,
