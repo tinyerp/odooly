@@ -34,7 +34,7 @@ try:
 except ImportError:
     requests = None
 
-__version__ = '2.0'
+__version__ = '2.0.1.dev0'
 __all__ = ['Client', 'Env', 'Service', 'BaseModel', 'Model',
            'BaseRecord', 'Record', 'RecordList',
            'format_exception', 'read_config', 'start_odoo_services']
@@ -819,14 +819,14 @@ class Env(object):
                 raise
         mods = ir_module.read([_pending_state], 'name state')
         if not mods:
-            if sel.ids:
+            if sel:
                 print('Already up-to-date: %s' %
                       self.modules([('id', 'in', sel.ids)]))
             elif modules:
                 raise Error('Module(s) not found: %s' % ', '.join(modules))
             print('%s module(s) updated' % updated)
             return
-        print('%s module(s) selected' % len(sel.ids))
+        print('%s module(s) selected' % len(sel))
         print('%s module(s) to process:' % len(mods))
         for mod in mods:
             print('  %(state)s\t%(name)s' % mod)

@@ -498,9 +498,15 @@ class TestClientApi(XmlRpcTestCase):
         result = action('dummy', 'spam')
         self.assertIsNone(result)
         self.assertCalls(*expected_calls)
-
         self.assertIn('to process', self.stdout.popvalue())
-        self.assertOutput('')
+
+        self.service.object.execute_kw.side_effect = [[0, 0], []]
+        self.assertIsNone(action())
+        self.assertCalls(
+            imm('update_list'),
+            imm('search', [('state', 'not in', STABLE)]),
+        )
+        self.assertOutput('0 module(s) updated\n')
 
     def test_module_upgrade(self):
         self._module_upgrade('install')

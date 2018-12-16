@@ -2,6 +2,12 @@ Changelog
 ---------
 
 
+2.x (unreleased)
+~~~~~~~~~~~~~~~~
+
+* Fix installation/upgrade with an empty list.
+
+
 2.0 (2018-12-12)
 ~~~~~~~~~~~~~~~~
 
