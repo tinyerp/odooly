@@ -11,6 +11,9 @@ Changelog
 * Accept multiple command line arguments for local mode. Example:
   ``odooly -- --config path/to/odoo.conf --data-dir ./var``
 
+* Add ``self`` to the ``globals()`` in interactive mode, to mimic
+  Odoo shell.
+
 * Fix installation/upgrade with an empty list.
 
 * Catch error when database does not exist on login.

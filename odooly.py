@@ -1014,6 +1014,7 @@ class Client(object):
             pass  # client not yet in globals(), or context is None
         self._globals['client'] = client
         self._globals['env'] = client.env
+        self._globals['self'] = client.env.user if client.env.uid else None
         # Tweak prompt
         sys.ps1 = '%s >>> ' % (env_name,)
         sys.ps2 = '... '.rjust(len(sys.ps1))
@@ -1030,6 +1031,7 @@ class Client(object):
         self.env = env = self.env(context=value)
         if self._globals and self._globals.get('client') is self:
             self._globals['env'] = env
+            self._globals['self'] = env.user if env.uid else None
 
     @classmethod
     def _set_interactive(cls, global_vars={}):
