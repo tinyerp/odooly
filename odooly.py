@@ -523,7 +523,12 @@ class Env(object):
         uid = self.check_uid(uid, password) if (uid and not verified) else uid
         if uid is None:
             # Do a standard 'login'
-            uid = self.client.common.login(self.db_name, user, password)
+            try:
+                uid = self.client.common.login(self.db_name, user, password)
+            except Exception as exc:
+                if 'does not exist' in str(exc):    # Heuristic
+                    raise Error('Database does not exist')
+                raise
         if not uid:
             raise Error('Invalid username or password')
         # Update the cache
@@ -966,7 +971,7 @@ class Client(object):
             raise Error('Not connected')
         try:
             env = env(user=user, password=password)
-        except Error:
+        except Exception:
             current_thread().dbname = self.env.db_name
             raise
         self.env = env

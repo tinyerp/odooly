@@ -7,6 +7,8 @@ Changelog
 
 * Fix installation/upgrade with an empty list.
 
+* Catch error when database does not exist on login.
+
 * Format other Odoo errors like ``DatabaseExists``.
 
 
