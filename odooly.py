@@ -346,6 +346,17 @@ def searchargs(params, kwargs=None):
     return params
 
 
+if os.getenv('ODOOLY_SSL_UNVERIFIED'):
+    import ssl
+
+    def urlopen(url, _urlopen=urlopen):
+        return _urlopen(url, context=ssl._create_unverified_context())
+
+    def ServerProxy(url, transport, allow_none, _ServerProxy=ServerProxy):
+        return _ServerProxy(url, transport=transport, allow_none=allow_none,
+                            context=ssl._create_unverified_context())
+    requests = False
+
 if requests:
     def http_post(url, data, headers={'Content-Type': 'application/json'}):
         resp = requests.post(url, data=data, headers=headers)

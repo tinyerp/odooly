@@ -5,6 +5,9 @@ Changelog
 2.x (unreleased)
 ~~~~~~~~~~~~~~~~
 
+* Allow to bypass SSL verification if the server is misconfigured.
+  Environment variable ``ODOOLY_SSL_UNVERIFIED=1`` is detected.
+
 * Fix installation/upgrade with an empty list.
 
 * Catch error when database does not exist on login.

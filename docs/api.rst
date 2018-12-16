@@ -61,6 +61,12 @@ list or install Odoo add-ons.
    :attr:`Client.connect(env=None)` exists, to connect to another environment,
    and recreate the :func:`globals()`.
 
+.. note::
+
+   If the HTTPS server certificate is invalid, there's a trick to bypass the
+   certificate verification, when the environment variable is set
+   ``ODOOLY_SSL_UNVERIFIED=1``.
+
 
 Odoo RPC Services
 ~~~~~~~~~~~~~~~~~
