@@ -201,13 +201,13 @@ def format_exception(exc_type, exc, tb, limit=None, chain=True,
             message = re.sub(r'\((.*), None\)$',
                              lambda m: literal_eval(m.group(1)),
                              message.split(None, 2)[2])
-        else:       # ValidationError, etc ...
+        else:       # ValidationError, DatabaseExists, etc ...
             parts = message.rsplit('\n', 1)
             if parts[-1] == 'None':
                 warning, message = True, parts[0]
-                last_line = tb.rstrip().rsplit('\n', 1)[-1]
-                if last_line.startswith('odoo.exceptions'):
-                    exc_name = last_line.split(':', 1)[0]
+            last_line = tb.rstrip().rsplit('\n', 1)[-1]
+            if last_line.startswith('odoo.'):
+                warning, exc_name = True, last_line.split(':', 1)[0]
         server_error = {
             'exception_type': 'warning' if warning else 'internal_error',
             'name': exc_name,

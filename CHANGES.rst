@@ -7,6 +7,8 @@ Changelog
 
 * Fix installation/upgrade with an empty list.
 
+* Format other Odoo errors like ``DatabaseExists``.
+
 
 2.0 (2018-12-12)
 ~~~~~~~~~~~~~~~~
