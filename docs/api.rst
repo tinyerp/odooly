@@ -36,24 +36,6 @@ list or install Odoo add-ons.
 
 .. automethod:: Client.login
 
-.. attribute:: Client.context
-
-   Default context used for all the methods (default ``None``).
-   In :ref:`interactive mode <interactive-mode>`, this default context
-   contains the language of the shell environment (variable ``LANG``).
-   Do not update the context, either copy it or replace it::
-
-       # Set language to German
-       client.context = {'lang': 'de_DE', 'preferred_color': 'blue'}
-       # ... do something
-
-       # Switch to Italian
-       client.context = dict(client.context, lang='it_IT')
-       # ... do something
-
-       # and AVOID (because it changes the context of existing records)
-       client.context['lang'] = 'fr_FR'
-
 
 .. note::
 
@@ -140,6 +122,10 @@ Environment
    .. attribute:: context
 
       Environment's context dictionary.
+      It defaults to the ``lang`` and ``tz`` of the user.
+      Use :meth:`Model.with_context` to switch the context.
+      For example ``env['account.invoice'].with_context({})`` can be used
+      to call a method which does not accept the ``context`` argument.
 
    .. attribute:: cr
 

@@ -325,7 +325,7 @@ class TestModel(TestCase):
         self.assertFalse(records)
         self.assertEqual(records.env.lang, 'fr_CA')
 
-        records = FooBar.browse([])
+        records = FooBar.with_context({}).browse([])
         self.assertIsInstance(records, odooly.RecordList)
         self.assertFalse(records)
         self.assertIsNone(records.env.lang)
@@ -527,12 +527,14 @@ class TestModel(TestCase):
         FooBar_method([42])
         FooBar_method([13, 17])
         FooBar._execute(method_name, [42])
+        FooBar.with_context({})._execute(method_name, [42])
         FooBar_method([])
         self.assertCalls(
             OBJ('foo.bar', method_name, single_id),
             OBJ('foo.bar', method_name, [42]),
             OBJ('foo.bar', method_name, [13, 17]),
             OBJ('foo.bar', method_name, [42]),
+            OBJ('foo.bar', method_name, [42], context=None),
             OBJ('foo.bar', method_name, []),
         )
         self.assertOutput('')
@@ -1271,9 +1273,9 @@ class TestRecord(TestCase):
         rec = env['foo.bar'].browse(42)
         rec_null = env['foo.bar'].browse(False)
 
-        def guest(model, method, *params, **kw):
+        def guest(model, method, *params):
             return ('object.execute_kw', self.database, 1001, 'v_password',
-                    model, method, params) + ((kw,) if kw else ())
+                    model, method, params)
 
         self.assertCalls(
             OBJ('ir.model.access', 'check', 'res.users', 'write'),
@@ -1291,9 +1293,9 @@ class TestRecord(TestCase):
         self.assertCalls(
             guest('foo.bar', 'read', [13, 17], None),
             guest('foo.bar', 'fields_get'),
-            OBJ('foo.bar', 'read', [13, 17], None),
+            OBJ('foo.bar', 'read', [13, 17], None, context=None),
             guest('foo.bar', 'read', [42], ['message']),
-            OBJ('foo.bar', 'read', [42], ['name', 'message']),
+            OBJ('foo.bar', 'read', [42], ['name', 'message'], context=None),
             guest('foo.bar', 'read', [42], ['message']),
             guest('foo.bar', 'read', [13, 17], None),
         )
@@ -1305,6 +1307,7 @@ class TestRecord(TestCase):
 
         records.read()
         records.with_context(lang='fr_CA').read()
+        records.with_context({'lang': 'fr_CA'}).read()
         rec.read('message')
         rec.with_context(lang='fr_CA', prefetch_fields=False).read('name message')
         rec.with_context(active_id=7, active_ids=[7]).read('name')
@@ -1317,12 +1320,17 @@ class TestRecord(TestCase):
         self.assertCalls(
             OBJ('foo.bar', 'read', [13, 17], None),
             OBJ('foo.bar', 'fields_get'),
+            OBJ('foo.bar', 'read', [13, 17], None,
+                context={'lang': 'fr_CA', 'tz': 'Europe/Zurich'}),
             OBJ('foo.bar', 'read', [13, 17], None, context={'lang': 'fr_CA'}),
             OBJ('foo.bar', 'read', [42], ['message']),
-            OBJ('foo.bar', 'read', [42], ['name', 'message'], context={'lang': 'fr_CA', 'prefetch_fields': False}),
-            OBJ('foo.bar', 'read', [42], ['name'], context={'active_id': 7, 'active_ids': [7]}),
+            OBJ('foo.bar', 'read', [42], ['name', 'message'],
+                context={'lang': 'fr_CA', 'prefetch_fields': False, 'tz': 'Europe/Zurich'}),
+            OBJ('foo.bar', 'read', [42], ['name'],
+                context={'active_id': 7, 'active_ids': [7], 'lang': 'en_US', 'tz': 'Europe/Zurich'}),
             OBJ('foo.bar', 'read', [42], ['message']),
-            OBJ('foo.bar', 'read', [42], ['message'], context={'lang': 'fr_CA'}),
+            OBJ('foo.bar', 'read', [42], ['message'],
+                context={'lang': 'fr_CA', 'tz': 'Europe/Zurich'}),
             OBJ('foo.bar', 'read', [13, 17], None),
         )
         self.assertOutput('')

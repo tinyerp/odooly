@@ -462,17 +462,12 @@ class Env(object):
     _cache = {}
 
     def __new__(cls, client, db_name=()):
-        if not db_name:
+        if not db_name or client.env.db_name:
             env = object.__new__(cls)
-            env.client, env.db_name = client, db_name
+            env.client, env.db_name, env.context = client, db_name, {}
         else:
-            if client.env.db_name:
-                env = object.__new__(cls)
-                env.client = client
-            else:
-                env = client.env
-            env.db_name = db_name
-            env.context = {}
+            env, env.db_name = client.env, db_name
+        if db_name:
             env._model_names = env._cache_get('model_names', set)
             env._models = {}
         return env
@@ -615,14 +610,11 @@ class Env(object):
 
     def __call__(self, user=None, password=None, context=None):
         """Return an environment based on ``self`` with modified parameters."""
-        if context is None:
-            context = self.context
         if user is not None:
-            (uid, password) = self._auth(user, password)
-        elif self.uid:
+            (uid, password), context = self._auth(user, password), {}
+        elif context is not None:
             (uid, user) = (self.uid, self.user)
         else:
-            self.context = context
             return self
         env_key = json.dumps((uid, context), sort_keys=True)
         env = self._cache_get(env_key)
@@ -975,7 +967,6 @@ class Client(object):
                                 (database, dbs))
             if env.db_name != database:
                 env = Env(self, database)
-                env.context = self.env.context
             # Used for logging, copied from odoo.sql_db.db_connect
             current_thread().dbname = database
         elif not env.db_name:
@@ -985,7 +976,7 @@ class Client(object):
         except Exception:
             current_thread().dbname = self.env.db_name
             raise
-        self.env = env
+        self.env = env(context=env['res.users'].context_get())
         return env.uid
 
     def login(self, user, password=None, database=None):
@@ -1008,10 +999,6 @@ class Client(object):
             return
         client = self
         env_name = client.env.name or client.env.db_name
-        try:  # copy the context to the new client
-            client.context = dict(self._globals['client'].env.context)
-        except (KeyError, TypeError):
-            pass  # client not yet in globals(), or context is None
         self._globals['client'] = client
         self._globals['env'] = client.env
         self._globals['self'] = client.env.user if client.env.uid else None
@@ -1021,17 +1008,6 @@ class Client(object):
         # Logged in?
         if client.env.uid:
             print('Logged in as %r' % (client.env.user.login,))
-
-    @property
-    def context(self):
-        return self.env.context
-
-    @context.setter
-    def context(self, value):
-        self.env = env = self.env(context=value)
-        if self._globals and self._globals.get('client') is self:
-            self._globals['env'] = env
-            self._globals['self'] = env.user if env.uid else None
 
     @classmethod
     def _set_interactive(cls, global_vars={}):
@@ -1966,7 +1942,6 @@ def main(interact=_interact):
             args.user = DEFAULT_USER
         client = Client(args.server, args.db, args.user, args.password,
                         verbose=args.verbose)
-    client.context = {'lang': (os.getenv('LANG') or 'en_US').split('.')[0]}
 
     if args.model and client.env.uid:
         ids = client.env.execute(args.model, 'search', domain)

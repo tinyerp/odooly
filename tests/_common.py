@@ -5,6 +5,7 @@ from mock import call, sentinel
 
 import odooly
 
+sample_context = {'lang': 'en_US', 'tz': 'Europe/Zurich'}
 type_call = type(call)
 
 
@@ -28,6 +29,10 @@ class PseudoFile(list):
 
 
 def OBJ(model, method, *params, **kw):
+    if 'context' not in kw:
+        kw['context'] = sample_context
+    elif kw['context'] is None:
+        del kw['context']
     return ('object.execute_kw', sentinel.AUTH, model, method, params) + ((kw,) if kw else ())
 
 
@@ -69,6 +74,8 @@ class XmlRpcTestCase(unittest2.TestCase):
         svcs.db.server_version.return_value = self.server_version
         svcs.db.list.return_value = [self.database]
         svcs.common.login.return_value = self.uid
+        # env['res.users'].context_get()
+        svcs.object.execute_kw.return_value = sample_context
         return svcs
 
     def assertCalls(self, *expected_args):

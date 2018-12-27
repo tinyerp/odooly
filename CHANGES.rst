@@ -14,7 +14,14 @@ Changelog
 * Add ``self`` to the ``globals()`` in interactive mode, to mimic
   Odoo shell.
 
-* Fix hashing error when ``Env.context`` contains a list.
+* On login, assign the context of the user:
+  ``env['res.users'].context_get()``.  Do not copy the context when
+  switching database, or when connecting with a different user.
+
+* Drop attribute ``Client.context``.  It is only available as
+  :attr:`Env.context`.
+
+* Fix hashing error when :attr:`Env.context` contains a list.
 
 * Assign the model name to ``Record._name``.
 

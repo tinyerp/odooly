@@ -15,11 +15,11 @@ def _skip_test(test_case):
 
 
 def imm(method, *params):
-    return ('object.execute_kw', AUTH, 'ir.module.module', method, params)
+    return ('object.execute_kw', AUTH, 'ir.module.module', method, params, {'context': ANY})
 
 
 def bmu(method, *params):
-    return ('object.execute_kw', AUTH, 'base.module.upgrade', method, params)
+    return ('object.execute_kw', AUTH, 'base.module.upgrade', method, params, {'context': ANY})
 
 
 class IdentDict(object):
@@ -87,7 +87,7 @@ class TestService(XmlRpcTestCase):
 
     def test_service_openerp_client(self, server_version=11.0):
         server = 'http://127.0.0.1:8069/%s' % self.protocol
-        return_values = [str(server_version), ['newdb'], 1]
+        return_values = [str(server_version), ['newdb'], 1, {}]
         if self.protocol == 'jsonrpc':
             return_values = [{'result': rv} for rv in return_values]
         self.service.side_effect = return_values
@@ -118,7 +118,7 @@ class TestService(XmlRpcTestCase):
             self.assertIn('/%s|db' % self.protocol, str(client.db.create))
             self.assertIn('/%s|db' % self.protocol, str(client.db.get_progress))
 
-        self.assertCalls(ANY, ANY, ANY)
+        self.assertCalls(ANY, ANY, ANY, ANY)
         self.assertOutput('')
 
     def test_service_openerp_61_to_70(self):
@@ -162,13 +162,17 @@ class TestCreateClient(XmlRpcTestCase):
 
         client = odooly.Client('http://127.0.0.1:8069', 'newdb', 'usr', 'pss')
         expected_calls = self.startup_calls + (
-            ('common.login', 'newdb', 'usr', 'pss'),)
+            call.common.login('newdb', 'usr', 'pss'),
+            call.object.execute_kw('newdb', 1, 'pss', 'res.users', 'context_get', ()),
+        )
         url_xmlrpc = 'http://127.0.0.1:8069/xmlrpc'
         self.assertIsInstance(client, odooly.Client)
         self.assertCalls(*expected_calls)
         self.assertEqual(
             client.env._cache,
-            {('[1, {}]', 'newdb', url_xmlrpc): client.env,
+            {('[1, {}]', 'newdb', url_xmlrpc): client.env(context={}),
+             ('[1, {"lang": "en_US", "tz": "Europe/Zurich"}]',
+              'newdb', url_xmlrpc): client.env,
              ('auth', 'newdb', url_xmlrpc): {1: (1, 'pss'),
                                              'usr': (1, 'pss')},
              ('model_names', 'newdb', url_xmlrpc): {'res.users'}})
@@ -179,7 +183,8 @@ class TestCreateClient(XmlRpcTestCase):
                              return_value='password').start()
         self.service.db.list.return_value = ['database']
         expected_calls = self.startup_calls + (
-            ('common.login', 'database', 'usr', 'password'),)
+            call.common.login('database', 'usr', 'password'),
+        )
 
         # A: Invalid login
         self.assertRaises(odooly.Error, odooly.Client,
@@ -190,6 +195,9 @@ class TestCreateClient(XmlRpcTestCase):
         # B: Valid login
         self.service.common.login.return_value = 17
         getpass.reset_mock()
+        expected_calls = expected_calls + (
+            call.object.execute_kw('database', 17, 'password', 'res.users', 'context_get', ()),
+        )
 
         client = odooly.Client('http://127.0.0.1:8069', 'database', 'usr')
         self.assertIsInstance(client, odooly.Client)
@@ -205,7 +213,9 @@ class TestCreateClient(XmlRpcTestCase):
 
         client = odooly.Client('http://127.0.0.1:8069', 'database', 'usr')
         self.assertIsInstance(client, odooly.Client)
-        self.assertCalls(*self.startup_calls)
+        self.assertCalls(*(self.startup_calls + (
+            call.object.execute_kw('database', 1, 'password', 'res.users', 'context_get', ()),
+        )))
         self.assertOutput('')
 
     def test_create_from_config(self):
@@ -216,7 +226,8 @@ class TestCreateClient(XmlRpcTestCase):
                              return_value='password').start()
         self.service.db.list.return_value = ['database']
         expected_calls = self.startup_calls + (
-            ('common.login', 'database', 'usr', 'password'),)
+            call.common.login('database', 'usr', 'password'),
+        )
 
         # A: Invalid login
         self.assertRaises(odooly.Error, odooly.Client.from_config, 'test')
@@ -228,6 +239,9 @@ class TestCreateClient(XmlRpcTestCase):
         self.service.common.login.return_value = 17
         read_config.reset_mock()
         getpass.reset_mock()
+        expected_calls = expected_calls + (
+            call.object.execute_kw('database', 17, 'password', 'res.users', 'context_get', ()),
+        )
 
         client = odooly.Client.from_config('test')
         self.assertIsInstance(client, odooly.Client)
@@ -330,9 +344,11 @@ class TestClientApi(XmlRpcTestCase):
             call.db.create_database('abc', 'db1', False, 'en_US', 'admin'),
             call.db.list(),
             call.common.login('db1', 'admin', 'admin'),
+            call.object.execute_kw('db1', 1, 'admin', 'res.users', 'context_get', ()),
             call.db.create_database('xyz', 'db2', False, 'fr_FR', 'secret'),
             call.db.list(),
             call.common.login('db2', 'admin', 'secret'),
+            call.object.execute_kw('db2', 1, 'secret', 'res.users', 'context_get', ()),
         )
         self.assertOutput('')
 
@@ -351,6 +367,7 @@ class TestClientApi(XmlRpcTestCase):
             call.db.create_database('xyz', 'db2', False, 'fr_FR', 'secret', 'other_login', 'CA'),
             call.db.list(),
             call.common.login('db2', 'other_login', 'secret'),
+            call.object.execute_kw('db2', 1, 'secret', 'res.users', 'context_get', ()),
         )
         self.assertOutput('')
 
@@ -527,7 +544,7 @@ class TestClientApi(XmlRpcTestCase):
             OBJ('res.users', 'search', [('login', '=', 'guest')]),
             OBJ('res.users', 'read', 123, ['id', 'login', 'password']),
 
-            OBJ('ir.model.access', 'check', 'res.users', 'write'),
+            OBJ('ir.model.access', 'check', 'res.users', 'write', context=None),
             ('object.execute_kw', self.database, 123, 'xxx',
              'ir.model.access', 'check', ('res.users', 'write')),
         )
