@@ -1096,7 +1096,7 @@ class BaseModel(object):
 
     def with_context(self, *args, **kwargs):
         """Attach to an extended context."""
-        context = dict((args[0] or ()) if args else self.env.context, **kwargs)
+        context = dict(args[0] if args else self.env.context, **kwargs)
         return self.with_env(self.env(context=context))
 
     def with_odoo(self):

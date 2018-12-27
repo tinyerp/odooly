@@ -1309,7 +1309,10 @@ class TestRecord(TestCase):
         rec.with_context(lang='fr_CA', prefetch_fields=False).read('name message')
         rec.with_context(active_id=7, active_ids=[7]).read('name')
         rec.read('message')
+        rec.with_context(lang='fr_CA').with_context().read('message')
         records.read()
+
+        self.assertRaises(TypeError, rec.with_context, None)
 
         self.assertCalls(
             OBJ('foo.bar', 'read', [13, 17], None),
@@ -1319,6 +1322,7 @@ class TestRecord(TestCase):
             OBJ('foo.bar', 'read', [42], ['name', 'message'], context={'lang': 'fr_CA', 'prefetch_fields': False}),
             OBJ('foo.bar', 'read', [42], ['name'], context={'active_id': 7, 'active_ids': [7]}),
             OBJ('foo.bar', 'read', [42], ['message']),
+            OBJ('foo.bar', 'read', [42], ['message'], context={'lang': 'fr_CA'}),
             OBJ('foo.bar', 'read', [13, 17], None),
         )
         self.assertOutput('')
