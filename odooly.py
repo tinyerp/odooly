@@ -624,7 +624,7 @@ class Env(object):
         else:
             self.context = context
             return self
-        env_key = tuple([uid] + sorted(context.items()))
+        env_key = json.dumps((uid, context), sort_keys=True)
         env = self._cache_get(env_key)
         if not env:
             env = self._configure(uid, user, password, context)
@@ -1096,7 +1096,7 @@ class BaseModel(object):
 
     def with_context(self, *args, **kwargs):
         """Attach to an extended context."""
-        context = dict(args[0] if args else self.env.context, **kwargs)
+        context = dict((args[0] or ()) if args else self.env.context, **kwargs)
         return self.with_env(self.env(context=context))
 
     def with_odoo(self):

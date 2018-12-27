@@ -168,7 +168,7 @@ class TestCreateClient(XmlRpcTestCase):
         self.assertCalls(*expected_calls)
         self.assertEqual(
             client.env._cache,
-            {((1,), 'newdb', url_xmlrpc): client.env,
+            {('[1, {}]', 'newdb', url_xmlrpc): client.env,
              ('auth', 'newdb', url_xmlrpc): {1: (1, 'pss'),
                                              'usr': (1, 'pss')},
              ('model_names', 'newdb', url_xmlrpc): {'res.users'}})

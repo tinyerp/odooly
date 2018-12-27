@@ -1306,6 +1306,7 @@ class TestRecord(TestCase):
         records.with_context(lang='fr_CA').read()
         rec.read('message')
         rec.with_context(lang='fr_CA', prefetch_fields=False).read('name message')
+        rec.with_context(active_id=7, active_ids=[7]).read('name')
         rec.read('message')
         records.read()
 
@@ -1315,6 +1316,7 @@ class TestRecord(TestCase):
             OBJ('foo.bar', 'read', [13, 17], None, context={'lang': 'fr_CA'}),
             OBJ('foo.bar', 'read', [42], ['message']),
             OBJ('foo.bar', 'read', [42], ['name', 'message'], context={'lang': 'fr_CA', 'prefetch_fields': False}),
+            OBJ('foo.bar', 'read', [42], ['name'], context={'active_id': 7, 'active_ids': [7]}),
             OBJ('foo.bar', 'read', [42], ['message']),
             OBJ('foo.bar', 'read', [13, 17], None),
         )

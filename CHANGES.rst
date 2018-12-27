@@ -14,6 +14,8 @@ Changelog
 * Add ``self`` to the ``globals()`` in interactive mode, to mimic
   Odoo shell.
 
+* Fix hashing error when ``Env.context`` contains a list.
+
 * Fix installation/upgrade with an empty list.
 
 * Catch error when database does not exist on login.
