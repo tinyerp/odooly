@@ -1312,7 +1312,7 @@ class Model(BaseModel):
             field_type = self._fields[key]['type']
             if hasattr(value, 'id'):
                 if field_type == 'reference':
-                    new_values[key] = '%s,%s' % (value._model_name, value.id)
+                    new_values[key] = '%s,%s' % (value._name, value.id)
                 else:
                     new_values[key] = value = value.id
             if field_type in ('one2many', 'many2many'):
@@ -1380,7 +1380,7 @@ class BaseRecord(BaseModel):
             'id': arg,
             'ids': ids,
             'env': res_model.env,
-            '_model_name': res_model._name,
+            '_name': res_model._name,
             '_model': res_model,
             '_idnames': idnames,
             '_execute': res_model._execute,
@@ -1388,7 +1388,7 @@ class BaseRecord(BaseModel):
         if isinstance(inst, Record):
             attrs['_cached_keys'] = set()
             if name is not None:
-                attrs['_name'] = name
+                attrs['_Record__name'] = name
         # Bypass the __setattr__ method
         inst.__dict__.update(attrs)
         return inst
@@ -1399,7 +1399,7 @@ class BaseRecord(BaseModel):
         else:
             ids = self.id
         return "<%s '%s,%s'>" % (self.__class__.__name__,
-                                 self._model_name, ids)
+                                 self._name, ids)
 
     def __dir__(self):
         attrs = set(self.__dict__) + set(self._model._keys)
@@ -1515,7 +1515,7 @@ class BaseRecord(BaseModel):
         return self._execute('get_metadata', self.ids)
 
     def with_env(self, env):
-        return env[self._model_name].browse(self.id)
+        return env[self._name].browse(self.id)
 
     def _check_model(self, other, oper):
         if not (isinstance(other, BaseRecord) and
@@ -1706,7 +1706,7 @@ class RecordList(BaseRecord):
         def wrapper(self, *params, **kwargs):
             """Wrapper for client.execute(%r, %r, [...], *params, **kwargs)."""
             return self._execute(attr, self.id, *params, **kwargs)
-        return _memoize(self, attr, wrapper, (self._model_name, attr))
+        return _memoize(self, attr, wrapper, (self._name, attr))
 
     def __setattr__(self, attr, value):
         if attr in self._model._keys or attr == 'id':
@@ -1734,22 +1734,22 @@ class Record(BaseRecord):
     """
 
     def __str__(self):
-        return self._name
+        return self.__name
 
     if PY2:
         __unicode__ = __str__
 
         def __str__(self):
-            return self._name.encode('ascii', 'backslashreplace')
+            return self.__name.encode('ascii', 'backslashreplace')
 
     def _get_name(self):
         try:
             (id_name,) = self._execute('name_get', [self.id])
             name = '%s' % (id_name[1],)
         except Exception:
-            name = '%s,%d' % (self._model_name, self.id)
+            name = '%s,%d' % (self._name, self.id)
         self.__dict__['_idnames'] = [(self.id, name)]
-        return _memoize(self, '_name', name)
+        return _memoize(self, '_Record__name', name)
 
     def refresh(self):
         """Force refreshing the record's data."""
@@ -1792,7 +1792,7 @@ class Record(BaseRecord):
         """Trigger workflow `signal` for this :class:`Record`."""
         assert self.env.client.version_info < 11.0, 'Not supported'
         self.refresh()
-        return self.env.exec_workflow(self._model_name, signal, self.id)
+        return self.env.exec_workflow(self._name, signal, self.id)
 
     @property
     def _external_id(self):
@@ -1808,18 +1808,17 @@ class Record(BaseRecord):
     def _set_external_id(self, xml_id):
         """Set the External ID of this record."""
         (mod, name) = xml_id.split('.')
-        obj = self._model_name
-        domain = ['|', '&', ('model', '=', obj), ('res_id', '=', self.id),
+        domain = ['|', '&', ('model', '=', self._name), ('res_id', '=', self.id),
                   '&', ('module', '=', mod), ('name', '=', name)]
         if self.env['ir.model.data'].search(domain):
             raise ValueError('ID %r collides with another entry' % xml_id)
-        vals = {'model': obj, 'res_id': self.id, 'module': mod, 'name': name}
+        vals = {'model': self._name, 'res_id': self.id, 'module': mod, 'name': name}
         self.env['ir.model.data'].create(vals)
 
     def __getattr__(self, attr):
         if attr in self._model._keys:
             return self.read(attr)
-        if attr == '_name':
+        if attr == '_Record__name':
             return self._get_name()
         if attr.startswith('_'):
             raise AttributeError("'Record' object has no attribute %r" % attr)
@@ -1831,7 +1830,7 @@ class Record(BaseRecord):
             if isinstance(res, list) and len(res) == 1:
                 return res[0]
             return res
-        return _memoize(self, attr, wrapper, (self._model_name, attr, self.id))
+        return _memoize(self, attr, wrapper, (self._name, attr, self.id))
 
     def __setattr__(self, attr, value):
         if attr == '_external_id':

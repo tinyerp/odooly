@@ -16,6 +16,8 @@ Changelog
 
 * Fix hashing error when ``Env.context`` contains a list.
 
+* Assign the model name to ``Record._name``.
+
 * Fix installation/upgrade with an empty list.
 
 * Catch error when database does not exist on login.

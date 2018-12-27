@@ -102,6 +102,7 @@ class TestModel(TestCase):
 
         self.assertIs(self.env['foo.bar'],
                       odooly.Model(self.env, 'foo.bar'))
+        self.assertEqual(self.env['foo.bar']._name, 'foo.bar')
         self.assertCalls(
             OBJ('ir.model', 'search', [('model', 'like', 'foo.bar')]),
             OBJ('ir.model', 'read', [777], ('model',)),
@@ -811,6 +812,9 @@ class TestRecord(TestCase):
             OBJ('foo.bar', 'read', [13, 17], ['message']),
         )
 
+        self.assertEqual(rec._name, 'foo.bar')
+        self.assertEqual(records._name, 'foo.bar')
+
         # attribute "id" is never writable
         self.assertRaises(AttributeError, setattr, rec, 'id', 42)
         self.assertRaises(AttributeError, setattr, records, 'id', 42)
@@ -933,8 +937,6 @@ class TestRecord(TestCase):
 
         self.assertEqual(str(rec1), 'name_42')
         self.assertEqual(str(rec2), 'treize')
-        self.assertEqual(rec1._name, 'name_42')
-        self.assertEqual(rec2._name, 'treize')
 
         # Broken name_get
         self.assertEqual(str(rec3), 'foo.bar,404')
@@ -964,7 +966,6 @@ class TestRecord(TestCase):
             expected_str = expected_unicode.encode('ascii', 'backslashreplace')
             self.assertEqual(unicode(rec4), expected_unicode)
         self.assertEqual(str(rec4), expected_str)
-        self.assertEqual(rec4._name, expected_unicode)
         self.assertEqual(repr(rec4), "<Record 'foo.bar,8888'>")
 
         self.assertCalls(
