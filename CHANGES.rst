@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-2.x (unreleased)
+2.1 (2018-12-27)
 ~~~~~~~~~~~~~~~~
 
 * Allow to bypass SSL verification if the server is misconfigured.

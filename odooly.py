@@ -34,7 +34,7 @@ try:
 except ImportError:
     requests = None
 
-__version__ = '2.0.1.dev0'
+__version__ = '2.1'
 __all__ = ['Client', 'Env', 'Service', 'BaseModel', 'Model',
            'BaseRecord', 'Record', 'RecordList',
            'format_exception', 'read_config', 'start_odoo_services']
