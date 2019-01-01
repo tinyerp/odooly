@@ -593,14 +593,16 @@ class Env(object):
 
         Supported since Odoo 8.
         """
+        assert self.client.version_info >= 8.0, 'Not supported'
         cr = self.registry.cursor()
         env = self.client._server.api.Environment(cr, self.uid, self.context)
-        self.__dict__['odoo_env'] = env
-        return env
+        return _memoize(self, 'odoo_env', env)
 
     @property
     def cr(self):
         """Return a cursor on the database."""
+        if self.client.version_info < 8.0:
+            return _memoize(self, 'cr', self.registry.db.cursor())
         return self.odoo_env.cr
 
     @property
