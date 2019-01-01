@@ -1556,7 +1556,7 @@ class BaseRecord(BaseModel):
             ids = [rec._idnames[0] for rec in self if func(rec)]
             return BaseRecord(self._model, ids)
         recs = rels = self[:]
-        one2many = False    # one2many or many2many
+        tomany = False
         while func:
             name, dot, func = func.partition('.')
             tups = zip(recs, rels.read(name))
@@ -1565,21 +1565,20 @@ class BaseRecord(BaseModel):
                 if not rel:
                     continue
                 if hasattr(rel, 'ids'):
-                    if not rel.id:
+                    if not rel.id:  # record ID is False
                         continue
                     if func and len(rel.ids) > 1:
-                        one2many = True
+                        tomany = True
                 recs.append(rec)
                 rels.append(rel)
-            if not rels:
-                return self[:0]
-            if one2many:
-                recs = [rec for (rec, rel) in zip(recs, rels)
-                        if rel.filtered(func)]
+            if not rels:            # empty
                 break
-            if hasattr(rels[0], 'ids'):
-                rels = rels[0].concat(*rels[1:])
-        return recs[0].concat(*recs[1:])
+            if tomany:              # one2many or many2many
+                frels, func = BaseRecord.union(*rels).filtered(func), ''
+                recs = [rec for (rec, rel) in zip(recs, rels) if rel & frels]
+            elif hasattr(rels[0], 'ids'):
+                rels = BaseRecord.concat(*rels)
+        return BaseRecord.concat(*recs) if recs else self[:0]
 
     def sorted(self, key=None, reverse=False):
         """Return the records sorted by ``key``."""

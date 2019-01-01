@@ -1134,7 +1134,7 @@ class TestRecord(TestCase):
 
     def test_filtered(self):
         m = self.env['foo.bar']
-        items = [[k, 'Item %d' % k] for k in range(1, 21)]
+        items = [[k, 'Item %d' % k] for k in range(1, 9)]
         self.service.object.execute_kw.side_effect = [
             [{'id':k, 'flag1': not (k % 3)} for k in [4, 17, 7, 42, 112, 13]],
             {'flag1': {'type': 'boolean'},
@@ -1148,8 +1148,6 @@ class TestRecord(TestCase):
             [{'id': 42, 'foo_child_ids': items[0:6]}, {'id': 17, 'foo_child_ids': items[6:8]}],
             [{'id': k, 'flag3': (k < 3)} for k in range(1, 8)],
             {'flag3': {'type': 'boolean'}},
-            [{'id': k, 'flag3': (k < 3)} for k in range(1, 8)],
-            [{'id': k, 'flag3': (k < 3)} for k in range(1, 8)],
 
             [{'id': 42, 'foo_categ_id': False}],
             [{'id': 88, 'foo_categ_id': [33, 'Categ 33']}],
@@ -1187,10 +1185,8 @@ class TestRecord(TestCase):
             OBJ('foo.categ', 'fields_get'),
 
             OBJ('foo.bar', 'read', ids1_sorted, ['foo_child_ids']),
-            OBJ('foo.child', 'read', [1, 2, 3, 4, 5, 6], ['flag3']),
+            OBJ('foo.child', 'read', [1, 2, 3, 4, 5, 6, 7, 8], ['flag3']),
             OBJ('foo.child', 'fields_get'),
-            OBJ('foo.child', 'read', [7, 8], ['flag3']),
-            OBJ('foo.child', 'read', [1, 2, 3, 4, 5, 6], ['flag3']),
 
             OBJ('foo.bar', 'read', [42], ['foo_categ_id']),
             OBJ('foo.bar', 'read', [88], ['foo_categ_id']),

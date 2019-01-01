@@ -11,6 +11,8 @@ Changelog
 * Provide cursor :attr:`Env.cr` in local mode, even with OpenERP
   instances.
 
+* Optimize and fix method :meth:`RecordList.filtered`.
+
 
 2.1 (2018-12-27)
 ~~~~~~~~~~~~~~~~
