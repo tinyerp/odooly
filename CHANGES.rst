@@ -2,6 +2,13 @@ Changelog
 ---------
 
 
+2.x (unreleased)
+~~~~~~~~~~~~~~~~
+
+* Do not call method :meth:`RecordList.exists` on an empty list
+  because it fails with OpenERP.
+
+
 2.1 (2018-12-27)
 ~~~~~~~~~~~~~~~~
 

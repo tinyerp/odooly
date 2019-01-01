@@ -34,7 +34,7 @@ try:
 except ImportError:
     requests = None
 
-__version__ = '2.1'
+__version__ = '2.1.1.dev0'
 __all__ = ['Client', 'Env', 'Service', 'BaseModel', 'Model',
            'BaseRecord', 'Record', 'RecordList',
            'format_exception', 'read_config', 'start_odoo_services']
@@ -1475,7 +1475,7 @@ class BaseRecord(BaseModel):
 
     def exists(self):
         """Return a subset of records that exist."""
-        ids = self._execute('exists', self.union().ids)
+        ids = self.ids and self._execute('exists', self.union().ids)
         if ids and not isinstance(self.id, list):
             ids = ids[0]
         return BaseRecord(self._model, ids)
@@ -1788,8 +1788,12 @@ class Record(BaseRecord):
                   '&', ('module', '=', mod), ('name', '=', name)]
         if self.env['ir.model.data'].search(domain):
             raise ValueError('ID %r collides with another entry' % xml_id)
-        vals = {'model': self._name, 'res_id': self.id, 'module': mod, 'name': name}
-        self.env['ir.model.data'].create(vals)
+        self.env['ir.model.data'].create({
+            'model': self._name,
+            'res_id': self.id,
+            'module': mod,
+            'name': name,
+        })
 
     def __getattr__(self, attr):
         if attr in self._model._keys:

@@ -1043,6 +1043,8 @@ class TestRecord(TestCase):
         records = self.env['foo.bar'].browse([13, 13, False])
         self.service.object.execute_kw.side_effect = [[13]]
         self.assertEqual(records.exists(), records[:1])
+        # No RPC call if the list is empty
+        self.assertEqual(records[:0].exists(), records[:0])
         self.assertCalls(
             OBJ('foo.bar', 'exists', [13]),
         )
