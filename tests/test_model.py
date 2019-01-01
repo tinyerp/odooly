@@ -1140,14 +1140,21 @@ class TestRecord(TestCase):
             {'flag1': {'type': 'boolean'},
              'foo_child_ids': {'relation': 'foo.child', 'type': 'one2many'},
              'foo_categ_id': {'relation': 'foo.categ', 'type': 'many2one'}},
+
             [{'id':k, 'foo_categ_id': [k * 10, 'Categ C%04d' % k]} for k in [4, 17, 7, 42, 112, 13]],
+
             [{'id':k, 'foo_categ_id': [k * 10, 'Categ C%04d' % k]} for k in [4, 17, 7, 42, 112, 13]],
             [{'id':k * 10, 'flag2': bool(k % 2)} for k in [4, 17, 7, 42, 112, 13]],
             {'flag2': {'type': 'char'}},
+
             [{'id': k, 'foo_child_ids': {}} for k in [4, 7, 112, 13]] +
             [{'id': 42, 'foo_child_ids': items[0:6]}, {'id': 17, 'foo_child_ids': items[6:8]}],
-            [{'id': k, 'flag3': (k < 3)} for k in range(1, 8)],
+            [{'id': k, 'flag3': (k < 3)} for k in range(1, 9)],
             {'flag3': {'type': 'boolean'}},
+
+            [{'id': k, 'foo_child_ids': {}} for k in [4, 7, 112, 13]] +
+            [{'id': 42, 'foo_child_ids': items[0:6]}, {'id': 17, 'foo_child_ids': items[6:8]}],
+            [{'id': k, 'flag4': 0} for k in range(1, 9)],
 
             [{'id': 42, 'foo_categ_id': False}],
             [{'id': 88, 'foo_categ_id': [33, 'Categ 33']}],
@@ -1166,6 +1173,8 @@ class TestRecord(TestCase):
                          odooly.RecordList(m, [13, 17, 7]))
         self.assertEqual(records1.filtered('foo_child_ids.flag3'),
                          odooly.RecordList(m, [42, 42]))
+        self.assertEqual(records1.filtered('foo_child_ids.flag4'),
+                         odooly.RecordList(m, []))
         self.assertEqual(records1.filtered(lambda m: m.id > 41),
                          odooly.RecordList(m, [42, 42, 112]))
 
@@ -1180,6 +1189,7 @@ class TestRecord(TestCase):
             OBJ('foo.bar', 'read', ids1_sorted, ['flag1']),
             OBJ('foo.bar', 'fields_get'),
             OBJ('foo.bar', 'read', ids1_sorted, ['foo_categ_id']),
+
             OBJ('foo.bar', 'read', ids1_sorted, ['foo_categ_id']),
             OBJ('foo.categ', 'read', [k * 10 for k in ids1_sorted], ['flag2']),
             OBJ('foo.categ', 'fields_get'),
@@ -1187,6 +1197,9 @@ class TestRecord(TestCase):
             OBJ('foo.bar', 'read', ids1_sorted, ['foo_child_ids']),
             OBJ('foo.child', 'read', [1, 2, 3, 4, 5, 6, 7, 8], ['flag3']),
             OBJ('foo.child', 'fields_get'),
+
+            OBJ('foo.bar', 'read', ids1_sorted, ['foo_child_ids']),
+            OBJ('foo.child', 'read', [1, 2, 3, 4, 5, 6, 7, 8], ['flag4']),
 
             OBJ('foo.bar', 'read', [42], ['foo_categ_id']),
             OBJ('foo.bar', 'read', [88], ['foo_categ_id']),

@@ -1533,15 +1533,24 @@ class BaseRecord(BaseModel):
     def _union(cls, args):
         if hasattr(args, 'union'):
             return args.union()
-        if not (args and isinstance(args, list) and
-                hasattr(args[0], 'union')):
-            return args
-        return cls.union(*args)
+        if args and isinstance(args, list) and hasattr(args[0], 'union'):
+            return cls.union(*args)
+        return args
+
+    def _filter(self, attrs):
+        ids, rels = [], []
+        for (rec, rel) in zip(self, self.read(attrs.pop(0))):
+            if rel and (not hasattr(rel, 'ids') or rel.id):
+                ids.append(rec._idnames[0])
+                rels.append(rel)
+        if ids and attrs:
+            relids = {idn[0] for idn in BaseRecord.union(*rels)._filter(attrs)}
+            ids = [rec_id for (rec_id, rel) in zip(ids, rels)
+                   if any(rel_id in relids for rel_id in rel.ids)]
+        return ids
 
     def mapped(self, func):
         """Apply ``func`` on all records."""
-        if not func:
-            return self
         if callable(func):
             return self._union([func(rec) for rec in self])
         # func is a path
@@ -1554,31 +1563,9 @@ class BaseRecord(BaseModel):
         """Select the records such that ``func(rec)`` is true."""
         if callable(func):
             ids = [rec._idnames[0] for rec in self if func(rec)]
-            return BaseRecord(self._model, ids)
-        recs = rels = self[:]
-        tomany = False
-        while func:
-            name, dot, func = func.partition('.')
-            tups = zip(recs, rels.read(name))
-            recs, rels = [], []
-            for (rec, rel) in tups:
-                if not rel:
-                    continue
-                if hasattr(rel, 'ids'):
-                    if not rel.id:  # record ID is False
-                        continue
-                    if func and len(rel.ids) > 1:
-                        tomany = True
-                recs.append(rec)
-                rels.append(rel)
-            if not rels:            # empty
-                break
-            if tomany:              # one2many or many2many
-                frels, func = BaseRecord.union(*rels).filtered(func), ''
-                recs = [rec for (rec, rel) in zip(recs, rels) if rel & frels]
-            elif hasattr(rels[0], 'ids'):
-                rels = BaseRecord.concat(*rels)
-        return BaseRecord.concat(*recs) if recs else self[:0]
+        else:
+            ids = self[:]._filter(func.split('.')) if func else self._idnames
+        return BaseRecord(self._model, ids)
 
     def sorted(self, key=None, reverse=False):
         """Return the records sorted by ``key``."""
@@ -1589,9 +1576,8 @@ class BaseRecord(BaseModel):
             idnames = dict(zip(recs.ids, recs._idnames))
             recs = self._model.search([('id', 'in', recs.ids)],
                                       reverse=reverse)
-            recs.__dict__['_idnames'] = [idnames[id_] for id_ in recs.ids]
-            return recs
-        if isinstance(key, basestring):
+            ids = [idnames[id_] for id_ in recs.ids]
+        elif isinstance(key, basestring):
             vals = sorted(zip(recs.read(key), recs._idnames), reverse=reverse)
             ids = [idn for (__, idn) in vals]
         else:
