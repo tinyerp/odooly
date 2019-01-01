@@ -1184,11 +1184,11 @@ class Model(BaseModel):
         if isinstance(domain, int_types):   # a single id
             return Record(self, domain)
         if isinstance(domain, basestring):  # lookup the xml_id
-            record = self.env.ref(domain)
-            if not record:
+            rec = self.env.ref(domain)
+            if not rec:
                 return None
-            assert record._model is self, 'Model mismatch %r %r' % (record, self)
-            return record
+            assert rec._model is self, 'Model mismatch %r %r' % (rec, self)
+            return rec
         assert issearchdomain(domain)       # a search domain
         ids = self._execute('search', domain)
         if len(ids) > 1:
@@ -1523,7 +1523,7 @@ class BaseRecord(BaseModel):
             seen = set()
             uniqids = []
             for idn in ids:
-                (id_, name) = idn if isinstance(idn, seq_types) else (idn, None)
+                id_, name = idn if isinstance(idn, seq_types) else (idn, None)
                 if id_ not in seen and not seen.add(id_) and id_:
                     uniqids.append((id_, name) if name else id_)
             ids = uniqids
@@ -1534,9 +1534,9 @@ class BaseRecord(BaseModel):
         if hasattr(args, 'union'):
             return args.union()
         if not (args and isinstance(args, list) and
-                isinstance(args[0], BaseRecord)):
+                hasattr(args[0], 'union')):
             return args
-        return args[0].union(*args[1:])
+        return cls.union(*args)
 
     def mapped(self, func):
         """Apply ``func`` on all records."""
@@ -1588,7 +1588,8 @@ class BaseRecord(BaseModel):
             return recs
         if key is None:
             idnames = dict(zip(recs.ids, recs._idnames))
-            recs = self._model.search([('id', 'in', recs.ids)], reverse=reverse)
+            recs = self._model.search([('id', 'in', recs.ids)],
+                                      reverse=reverse)
             recs.__dict__['_idnames'] = [idnames[id_] for id_ in recs.ids]
             return recs
         if isinstance(key, basestring):
@@ -1786,7 +1787,8 @@ class Record(BaseRecord):
     def _set_external_id(self, xml_id):
         """Set the External ID of this record."""
         (mod, name) = xml_id.split('.')
-        domain = ['|', '&', ('model', '=', self._name), ('res_id', '=', self.id),
+        domain = ['|',
+                  '&', ('model', '=', self._name), ('res_id', '=', self.id),
                   '&', ('module', '=', mod), ('name', '=', name)]
         if self.env['ir.model.data'].search(domain):
             raise ValueError('ID %r collides with another entry' % xml_id)
