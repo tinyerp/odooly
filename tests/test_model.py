@@ -1001,8 +1001,8 @@ class TestRecord(TestCase):
 
         # Assign an External ID on a record which does not have one
         records[0]._external_id = 'other_module.dummy'
-        xml_domain = ['|', '&', ('model', '=', 'foo.bar'), ('res_id', '=', 13),
-                      '&', ('module', '=', 'other_module'), ('name', '=', 'dummy')]
+        xml_domain = ['|', '&', ('module', '=', 'other_module'), ('name', '=', 'dummy'),
+                      '&', ('model', '=', 'foo.bar'), ('res_id', '=', 13)]
         imd_values = {'model': 'foo.bar', 'name': 'dummy',
                       'res_id': 13, 'module': 'other_module'}
         self.assertCalls(
