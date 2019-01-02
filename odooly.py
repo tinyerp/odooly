@@ -34,7 +34,7 @@ try:
 except ImportError:
     requests = None
 
-__version__ = '2.1.1.dev0'
+__version__ = '2.1.1'
 __all__ = ['Client', 'Env', 'Service', 'BaseModel', 'Model',
            'BaseRecord', 'Record', 'RecordList',
            'format_exception', 'read_config', 'start_odoo_services']
@@ -1772,9 +1772,8 @@ class Record(BaseRecord):
     def _set_external_id(self, xml_id):
         """Set the External ID of this record."""
         (mod, name) = xml_id.split('.')
-        domain = ['|',
-                  '&', ('model', '=', self._name), ('res_id', '=', self.id),
-                  '&', ('module', '=', mod), ('name', '=', name)]
+        domain = ['|', '&', ('module', '=', mod), ('name', '=', name),
+                  '&', ('model', '=', self._name), ('res_id', '=', self.id)]
         if self.env['ir.model.data'].search(domain):
             raise ValueError('ID %r collides with another entry' % xml_id)
         self.env['ir.model.data'].create({

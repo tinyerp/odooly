@@ -2,11 +2,11 @@ Changelog
 ---------
 
 
-2.x (unreleased)
-~~~~~~~~~~~~~~~~
+2.1.1 (2019-01-02)
+~~~~~~~~~~~~~~~~~~
 
-* Do not call method :meth:`RecordList.exists` on an empty list
-  because it fails with OpenERP.
+* Do not call ORM method ``exists`` on an empty list because it fails
+  with OpenERP.
 
 * Provide cursor :attr:`Env.cr` in local mode, even with OpenERP
   instances.
