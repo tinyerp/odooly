@@ -2,8 +2,11 @@ Changelog
 ---------
 
 
-2.x (unreleased)
-~~~~~~~~~~~~~~~~
+2.1.2 (2019-01-02)
+~~~~~~~~~~~~~~~~~~
+
+* Store the cursor :attr:`Env.cr` on the :class:`Env` instance
+  in local mode.
 
 * Drop support for Python 3.2 and 3.3
 

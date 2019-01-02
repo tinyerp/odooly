@@ -34,7 +34,7 @@ try:
 except ImportError:
     requests = None
 
-__version__ = '2.1.1'
+__version__ = '2.1.2'
 __all__ = ['Client', 'Env', 'Service', 'BaseModel', 'Model',
            'BaseRecord', 'Record', 'RecordList',
            'format_exception', 'read_config', 'start_odoo_services']
@@ -288,14 +288,13 @@ def start_odoo_services(options=None, appname=None):
             odoo.api.Environment.reset()
 
         try:
-            odoo._manager_class = odoo.modules.registry.RegistryManager
-            odoo._get_pool = odoo._manager_class.get
+            manager_class = odoo.modules.registry.RegistryManager
+            odoo._get_pool = manager_class.get
         except AttributeError:  # Odoo >= 10
-            odoo._manager_class = odoo.modules.registry.Registry
-            odoo._get_pool = odoo._manager_class
+            odoo._get_pool = manager_class = odoo.modules.registry.Registry
 
         def close_all():
-            for db in odoo._manager_class.registries.keys():
+            for db in manager_class.registries.keys():
                 odoo.sql_db.close_db(db)
         atexit.register(close_all)
 
@@ -594,16 +593,18 @@ class Env(object):
         Supported since Odoo 8.
         """
         assert self.client.version_info >= 8.0, 'Not supported'
-        cr = self.registry.cursor()
-        env = self.client._server.api.Environment(cr, self.uid, self.context)
-        return _memoize(self, 'odoo_env', env)
+        return self.client._server.api.Environment(self.cr, self.uid,
+                                                   self.context)
 
     @property
     def cr(self):
         """Return a cursor on the database."""
-        if self.client.version_info < 8.0:
-            return _memoize(self, 'cr', self.registry.db.cursor())
-        return self.odoo_env.cr
+        try:
+            return self._cr
+        except AttributeError:
+            api_v7 = self.client.version_info < 8.0
+        cr = self.registry.db.cursor() if api_v7 else self.registry.cursor()
+        return _memoize(self, '_cr', cr)
 
     @property
     def registry(self):
