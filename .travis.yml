@@ -1,29 +1,17 @@
+dist: xenial
 language: python
+
 python:
   - 2.7
   - 3.4
   - 3.5
   - 3.6
-  - pypy
-  - pypy3.5
+  - 3.7
+  - 3.7-dev
+  - 3.8-dev
+  - pypy2.7-6.0
+  - pypy3.5-6.0
 install:
   - pip list
 script:
   - python setup.py test
-matrix:
-  include:
-    - python: 3.7
-      dist: xenial
-      sudo: true
-    - python: 3.7-dev
-      dist: xenial
-      sudo: true
-    - python: 3.8-dev
-      dist: xenial
-      sudo: true
-  allow_failures:
-    - python: 3.8-dev
-    - python: pypy
-    - python: pypy3.5
-  fast_finish: true
-sudo: false
