@@ -62,10 +62,14 @@ class TestCase(XmlRpcTestCase):
                 return [records[res_id] for res_id in args[0]]
             return [IdentDict(arg, args[1]) for arg in args[0]]
         if method == 'fields_get_keys':
+            if model == 'res.users':
+                return ['id', 'login', 'name', 'password']  # etc ...
             return ['id', 'name', 'message', 'misc_id']
         if method == 'fields_get':
             if model == 'ir.model.data':
                 keys = ('id', 'model', 'module', 'name', 'res_id')
+            elif model == 'res.users':
+                keys = ('id', 'login', 'name', 'password')  # etc ...
             else:
                 keys = ('id', 'name', 'message', 'spam', 'birthdate', 'city')
             fields = dict.fromkeys(keys, {'type': sentinel.FIELD_TYPE})
@@ -1358,6 +1362,26 @@ class TestRecord(TestCase):
             OBJ('foo.bar', 'read', [42], ['message'],
                 context={'lang': 'fr_CA', 'tz': 'Europe/Zurich'}),
             OBJ('foo.bar', 'read', [13, 17], None),
+        )
+        self.assertOutput('')
+
+    def test_user_login(self):
+        # Do not fail if the cached values of the user are cleared, due to 'write'
+        # before we change the context with 'with_context'.
+        records = self.env['foo.bar'].browse([13, 17])
+
+        self.env.user.name = 'Admin'
+        records.with_context(lang='fr_CA').read()
+
+        self.assertCalls(
+            OBJ('res.users', 'fields_get_keys'),
+            OBJ('res.users', 'fields_get'),
+            OBJ('res.users', 'write', [1], {'name': 'Admin'}),
+            OBJ('res.users', 'read', [1], ['login']),
+            OBJ('foo.bar', 'read', [13, 17], None,
+                context={'lang': 'fr_CA', 'tz': 'Europe/Zurich'}),
+            OBJ('foo.bar', 'fields_get',
+                context={'lang': 'fr_CA', 'tz': 'Europe/Zurich'}),
         )
         self.assertOutput('')
 

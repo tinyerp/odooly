@@ -576,7 +576,7 @@ class Env(object):
         # Setup uid and user
         if isinstance(user, int_types):
             user = 'admin' if uid == SUPERUSER_ID else None
-        elif isinstance(user, Record) and 'login' in user._cached_keys:
+        elif isinstance(user, Record):
             user = user.login
         env.uid = uid
         env.user = env._get('res.users', False).browse(uid)

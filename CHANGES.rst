@@ -5,6 +5,9 @@ Changelog
 2.x (unreleased)
 ~~~~~~~~~~~~~~~~
 
+* Fix a bug where method ``with_context`` returns an error if we update
+  the values of the logged-in user before.
+
 * Allow to call RPC method ``env['ir.default'].get(...)`` thanks to a
   passthrough in the :meth:`Model.get` method.
 
