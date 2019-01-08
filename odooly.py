@@ -599,12 +599,9 @@ class Env(object):
     @property
     def cr(self):
         """Return a cursor on the database."""
-        try:
-            return self._cr
-        except AttributeError:
-            api_v7 = self.client.version_info < 8.0
-        cr = self.registry.db.cursor() if api_v7 else self.registry.cursor()
-        return _memoize(self, '_cr', cr)
+        return self.__dict__.get('cr') or _memoize(
+            self, 'cr', self.registry.db.cursor()
+            if self.client.version_info < 8.0 else self.registry.cursor())
 
     @property
     def registry(self):
