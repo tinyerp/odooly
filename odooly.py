@@ -34,7 +34,7 @@ try:
 except ImportError:
     requests = None
 
-__version__ = '2.1.2'
+__version__ = '2.1.3.dev0'
 __all__ = ['Client', 'Env', 'Service', 'BaseModel', 'Model',
            'BaseRecord', 'Record', 'RecordList',
            'format_exception', 'read_config', 'start_odoo_services']
@@ -1174,7 +1174,7 @@ class Model(BaseModel):
         """Count the records in the `domain`."""
         return self._execute('search_count', domain or [])
 
-    def get(self, domain):
+    def get(self, domain, *args, **kwargs):
         """Return a single :class:`Record`.
 
         The argument `domain` accepts a single integer ``id`` or a search
@@ -1182,6 +1182,9 @@ class Model(BaseModel):
         :class:`Record` or None.  If multiple records are found,
         a ``ValueError`` is raised.
         """
+        if args or kwargs:
+            # Passthrough for env['ir.default'].get and alike
+            return self._execute('get', domain, *args, **kwargs)
         if isinstance(domain, int_types):   # a single id
             return Record(self, domain)
         if isinstance(domain, basestring):  # lookup the xml_id

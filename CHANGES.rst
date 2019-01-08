@@ -2,6 +2,13 @@ Changelog
 ---------
 
 
+2.x (unreleased)
+~~~~~~~~~~~~~~~~
+
+* Allow to call RPC method ``env['ir.default'].get(...)`` thanks to a
+  passthrough in the :meth:`Model.get` method.
+
+
 2.1.2 (2019-01-02)
 ~~~~~~~~~~~~~~~~~~
 

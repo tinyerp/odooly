@@ -18,22 +18,26 @@ class TestCase(XmlRpcTestCase):
     def obj_exec(self, db_name, uid, passwd, model, method, args, kw=None):
         if method == 'search':
             domain = args[0]
-            if model.startswith('ir.model') and 'foo' in str(domain):
+            if model.startswith('ir.model'):
                 if "'in', []" in str(domain) or 'other_module' in str(domain):
                     return []
-                return [777]
+                if 'foo' in str(domain):
+                    return [777]
+                if 'ir.default' in str(domain):
+                    return [50]
             if domain == [('name', '=', 'Morice')]:
                 return [1003]
             if 'missing' in str(domain):
                 return []
             return [1001, 1002]
         if method == 'read':
-            if args[0] == [777]:
+            if args[0] in ([777], [50]):
                 if model == 'ir.model.data':
                     return [{'model': 'foo.bar', 'module': 'this_module',
-                             'name': 'xml_name', 'id': 1733, 'res_id': 42}]
-                return [{'model': 'foo.bar', 'id': 371},
+                             'name': 'xml_name', 'id': 777, 'res_id': 42}]
+                return [{'model': 'foo.bar', 'id': 777},
                         {'model': 'foo.other', 'id': 99},
+                        {'model': 'ir.default', 'id': 50},
                         {'model': 'ir.model.data', 'id': 17}]
 
             # We no longer read single ids
@@ -421,7 +425,6 @@ class TestModel(TestCase):
         self.assertRaises(ValueError, FooBar.get, ['name Morice'])
 
         self.assertRaises(TypeError, FooBar.get)
-        self.assertRaises(TypeError, FooBar.get, ['name = Morice'], limit=1)
 
         self.assertRaises(AssertionError, FooBar.get, [42])
         self.assertRaises(AssertionError, FooBar.get, [13, 17])
@@ -448,6 +451,18 @@ class TestModel(TestCase):
             OBJ('ir.model.data', 'read', [777], ['model', 'res_id']),
         )
 
+        self.assertOutput('')
+
+    def test_get_passthrough(self):
+        lang = self.env['ir.default'].get('res.partner', 'lang')
+
+        # invalid arguments are passed to hypothetical method 'get' on the model
+        self.env['foo.bar'].get(['name = Morice'], limit=1)
+
+        self.assertCalls(
+            OBJ('ir.default', 'get', 'res.partner', 'lang'),
+            OBJ('foo.bar', 'get', ['name = Morice'], limit=1),
+        )
         self.assertOutput('')
 
     def test_create(self):
