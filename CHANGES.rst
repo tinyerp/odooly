@@ -2,6 +2,13 @@ Changelog
 ---------
 
 
+2.1.4 (2019-02-12)
+~~~~~~~~~~~~~~~~~~
+
+* Support ``env['res.partner'].browse()`` and return an empty
+  ``RecordList``.
+
+
 2.1.3 (2019-01-09)
 ~~~~~~~~~~~~~~~~~~
 

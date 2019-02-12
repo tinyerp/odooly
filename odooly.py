@@ -34,7 +34,7 @@ try:
 except ImportError:
     requests = None
 
-__version__ = '2.1.3'
+__version__ = '2.1.4'
 __all__ = ['Client', 'Env', 'Service', 'BaseModel', 'Model',
            'BaseRecord', 'Record', 'RecordList',
            'format_exception', 'read_config', 'start_odoo_services']
@@ -53,7 +53,7 @@ Usage (some commands):
     env[name].keys()                # List field names of the model
     env[name].fields(names=None)    # Return details for the fields
     env[name].field(name)           # Return details for the field
-    env[name].browse(ids)
+    env[name].browse(ids=None)
     env[name].search(domain)
     env[name].search(domain, offset=0, limit=None, order=None)
                                     # Return a RecordList
@@ -66,8 +66,9 @@ Usage (some commands):
     client.connect(env)             # Connect to another env.
     env.models(name)                # List models matching pattern
     env.modules(name)               # List modules matching pattern
+    env.install(module1, module2, ...)
     env.upgrade(module1, module2, ...)
-                                    # Upgrade the modules
+                                    # Install or upgrade the modules
 """
 
 DOMAIN_OPERATORS = frozenset('!|&')
@@ -1152,7 +1153,7 @@ class Model(BaseModel):
         """
         return self.env.access(self._name, mode)
 
-    def browse(self, ids):
+    def browse(self, ids=None):
         """Return a :class:`Record` or a :class:`RecordList`.
 
         The argument `ids` accepts a single integer ``id`` or a list of ids.
@@ -1164,8 +1165,8 @@ class Model(BaseModel):
     def search(self, domain, *params, **kwargs):
         """Search for records in the `domain`."""
         reverse = kwargs.pop('reverse', False)
-        domain = self._execute('search', domain, *params, **kwargs)
-        return RecordList(self, domain[::-1] if reverse else domain)
+        ids = self._execute('search', domain, *params, **kwargs)
+        return RecordList(self, ids[::-1] if reverse else ids)
 
     def search_count(self, domain=None):
         """Count the records in the `domain`."""
@@ -1348,8 +1349,8 @@ class BaseRecord(BaseModel):
             ids = [arg]
         else:
             inst = object.__new__(RecordList)
-            idnames = arg
-            ids = list(arg)
+            idnames = arg or ()
+            ids = list(idnames)
             for index, id_ in enumerate(arg):
                 if isinstance(id_, seq_types):
                     ids[index] = id_ = id_[0]

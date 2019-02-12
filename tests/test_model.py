@@ -327,6 +327,7 @@ class TestModel(TestCase):
         records = FooBar.browse([])
         self.assertIsInstance(records, odooly.RecordList)
         self.assertFalse(records)
+        self.assertEqual(FooBar.browse(), records)
 
         records = FooBar.with_context({'lang': 'fr_CA'}).browse([])
         self.assertIsInstance(records, odooly.RecordList)
