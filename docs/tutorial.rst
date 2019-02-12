@@ -48,7 +48,7 @@ On login, it prints few lines about the commands available.
         env[name].keys()                # List field names of the model
         env[name].fields(names=None)    # Return details for the fields
         env[name].field(name)           # Return details for the field
-        env[name].browse(ids=None)
+        env[name].browse(ids=())
         env[name].search(domain)
         env[name].search(domain, offset=0, limit=None, order=None)
                                         # Return a RecordList

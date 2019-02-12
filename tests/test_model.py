@@ -346,7 +346,6 @@ class TestModel(TestCase):
         self.assertRaises(AssertionError, FooBar.browse, ['name like Morice'])
         self.assertRaises(AssertionError, FooBar.browse, 'name like Morice')
 
-        self.assertRaises(TypeError, FooBar.browse)
         self.assertRaises(AssertionError, FooBar.browse, ['abc'])
         self.assertRaises(AssertionError, FooBar.browse, ['< id'])
         self.assertRaises(AssertionError, FooBar.browse, ['name Morice'])

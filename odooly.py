@@ -34,7 +34,7 @@ try:
 except ImportError:
     requests = None
 
-__version__ = '2.1.4'
+__version__ = '2.1.5'
 __all__ = ['Client', 'Env', 'Service', 'BaseModel', 'Model',
            'BaseRecord', 'Record', 'RecordList',
            'format_exception', 'read_config', 'start_odoo_services']
@@ -53,7 +53,7 @@ Usage (some commands):
     env[name].keys()                # List field names of the model
     env[name].fields(names=None)    # Return details for the fields
     env[name].field(name)           # Return details for the field
-    env[name].browse(ids=None)
+    env[name].browse(ids=())
     env[name].search(domain)
     env[name].search(domain, offset=0, limit=None, order=None)
                                     # Return a RecordList
@@ -1153,7 +1153,7 @@ class Model(BaseModel):
         """
         return self.env.access(self._name, mode)
 
-    def browse(self, ids=None):
+    def browse(self, ids=()):
         """Return a :class:`Record` or a :class:`RecordList`.
 
         The argument `ids` accepts a single integer ``id`` or a list of ids.
