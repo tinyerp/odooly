@@ -2,6 +2,15 @@ Changelog
 ---------
 
 
+2.1.6 (2019-03-20)
+~~~~~~~~~~~~~~~~~~
+
+* Fix :meth:`RecordList.mapped` method with empty one2many or
+  many2many fields.
+
+* Hide arguments of ``partial`` objects.
+
+
 2.1.5 (2019-02-12)
 ~~~~~~~~~~~~~~~~~~
 
