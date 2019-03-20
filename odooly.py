@@ -1641,11 +1641,10 @@ class RecordList(BaseRecord):
         if isinstance(fields, basestring):
             field = self._model._fields.get(fields)
             if field:
-                if field['type'] == 'many2one':
+                if 'relation' in field:
                     rel_model = self.env._get(field['relation'], False)
-                    return RecordList(rel_model, values)
-                if field['type'] in ('one2many', 'many2many'):
-                    rel_model = self.env._get(field['relation'], False)
+                    if not values or field['type'] == 'many2one':
+                        return RecordList(rel_model, values)
                     return [RecordList(rel_model, v) for v in values]
                 if field['type'] == 'reference':
                     records = []

@@ -1151,6 +1151,25 @@ class TestRecord(TestCase):
         self.assertCalls()
         self.assertOutput('')
 
+    def test_mapped_empty_relation(self):
+        m = self.env['foo.bar']
+        self.service.object.execute_kw.side_effect = [
+            {'child_ids': {'relation': 'foo.bar', 'type': 'one2many'},
+             'category_ids': {'relation': 'foo.bar', 'type': 'many2many'},
+             'parent_id': {'relation': 'foo.bar', 'type': 'many2one'}}
+        ]
+
+        records0 = m.browse()
+
+        self.assertEqual(records0.mapped('child_ids.child_ids.name'), [])
+        self.assertEqual(records0.mapped('parent_id.parent_id.name'), [])
+        self.assertEqual(records0.mapped('category_ids.category_ids.name'), [])
+
+        self.assertCalls(
+            OBJ('foo.bar', 'fields_get'),
+        )
+        self.assertOutput('')
+
     def test_filtered(self):
         m = self.env['foo.bar']
         items = [[k, 'Item %d' % k] for k in range(1, 9)]
