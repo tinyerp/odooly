@@ -381,6 +381,14 @@ def dispatch_jsonrpc(url, service_name, method, args):
     return resp['result']
 
 
+class partial(functools.partial):
+    __slots__ = ()
+
+    def __repr__(self):
+        # Hide arguments on Python 3
+        return '%s(%r, ...)' % (self.__class__.__name__, self.func)
+
+
 class Error(Exception):
     """An Odooly error."""
 
@@ -545,7 +553,7 @@ class Env(object):
 
     def _set_credentials(self, uid, password):
         def env_auth(method):     # Authenticated endpoints
-            return functools.partial(method, self.db_name, uid, password)
+            return partial(method, self.db_name, uid, password)
         self._execute = env_auth(self.client._object.execute)
         self._execute_kw = env_auth(self.client._object.execute_kw)
         if self.client._report:   # Odoo <= 10
@@ -922,7 +930,7 @@ class Client(object):
     def _proxy_dispatch(self, name):
         if self._server._api_v7:
             return self._server.netsvc.ExportService.getService(name).dispatch
-        return functools.partial(self._server.http.dispatch_rpc, name)
+        return partial(self._server.http.dispatch_rpc, name)
 
     def _proxy_xmlrpc(self, name):
         proxy = ServerProxy(self._server + '/' + name,
@@ -930,7 +938,7 @@ class Client(object):
         return proxy._ServerProxy__request
 
     def _proxy_jsonrpc(self, name):
-        return functools.partial(dispatch_jsonrpc, self._server, name)
+        return partial(dispatch_jsonrpc, self._server, name)
 
     @classmethod
     def from_config(cls, environment, user=None, verbose=False):
@@ -1095,7 +1103,7 @@ class Model(BaseModel):
     def _new(cls, env, name):
         m = object.__new__(cls)
         (m.env, m._name) = (env, name)
-        m._execute = functools.partial(env.execute, name)
+        m._execute = partial(env.execute, name)
         return m
 
     def __repr__(self):
