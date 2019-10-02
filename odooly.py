@@ -157,7 +157,12 @@ def _convert(node, _consts={'None': None, 'True': True, 'False': False}):
         return {_convert(k): _convert(v)
                 for (k, v) in zip(node.keys, node.values)}
     if isinstance(node, _ast.Name) and node.id in _consts:
-        return _consts[node.id]   # Python <= 3.3
+        return _consts[node.id]             # Python <= 3.3
+    if isinstance(node, _ast.UnaryOp):      # Python >= 3
+        if isinstance(node.op, _ast.USub):
+            return -_convert(node.operand)
+        if isinstance(node.op, _ast.UAdd):
+            return +_convert(node.operand)
     raise ValueError('malformed or disallowed expression')
 
 
@@ -480,9 +485,29 @@ class Env(object):
             env._models = {}
         return env
 
+    def __contains__(self, name):
+        """Test wether the given model exists."""
+        return name in self._model_names or name in self.models(name)
+
     def __getitem__(self, name):
         """Return the given :class:`Model`."""
         return self._get(name)
+
+    def __iter__(self):
+        """Return an iterator on model names."""
+        return iter(self.models())
+
+    def __len__(self):
+        """Return the size of the model registry."""
+        return len(self.models())
+
+    def __bool__(self):
+        return True
+    __nonzero__ = __bool__
+
+    __eq__ = object.__eq__
+    __ne__ = object.__ne__
+    __hash__ = object.__hash__
 
     def __repr__(self):
         return "<Env '%s@%s'>" % (self.user.login if self.uid else '',
@@ -627,7 +652,7 @@ class Env(object):
             return self
         env_key = json.dumps((uid, context), sort_keys=True)
         env = self._cache_get(env_key)
-        if not env:
+        if env is None:
             env = self._configure(uid, user, password, context)
             self._cache_set(env_key, env)
         return env
@@ -1570,9 +1595,15 @@ class BaseRecord(BaseModel):
         return vals
 
     def filtered(self, func):
-        """Select the records such that ``func(rec)`` is true."""
+        """Select the records such that ``func(rec)`` is true.
+
+        As an alternative ``func`` can be a search domain (list)
+        to search among the records.
+        """
         if callable(func):
             ids = [rec._idnames[0] for rec in self if func(rec)]
+        elif isinstance(func, list):
+            return self & self._model.search([('id', 'in', self.ids)] + func)
         else:
             ids = self[:]._filter(func.split('.')) if func else self._idnames
         return BaseRecord(self._model, ids)
@@ -1922,7 +1953,7 @@ def main(interact=_interact):
 
     (args, domain) = parser.parse_args()
 
-    Client._config_file = os.path.join(os.curdir, args.config or CONF_FILE)
+    Client._config_file = os.path.join(os.getcwd(), args.config or CONF_FILE)
     if args.list_env:
         print('Available settings:  ' + ' '.join(read_config()))
         return

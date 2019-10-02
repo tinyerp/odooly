@@ -1197,12 +1197,15 @@ class TestRecord(TestCase):
             [{'id': 42, 'foo_categ_id': False}],
             [{'id': 88, 'foo_categ_id': [33, 'Categ 33']}],
             [{'id': 33, 'flag3': 'OK'}],
+
+            [17],
         ]
 
         ids1 = [42, 13, 17, 42, 112, 4, 7]
         idns1 = [(42, 'qude'), (13, 'trz'), (17, 'dspt'), 42, (112, 'cdz'), False, 4, (7, 'spt')]
         ids1_sorted = sorted(set(ids1) - {False})
         records1 = m.browse(idns1)
+        domain1 = [('id', 'in', records1.ids), ('foo_categ_id.color', 'like', 'Magenta')]
         self.assertEqual(records1.filtered('flag1'),
                          odooly.RecordList(m, [42, 42]))
         self.assertEqual(records1.filtered('foo_categ_id'),
@@ -1220,6 +1223,9 @@ class TestRecord(TestCase):
         self.assertEqual(m.get(42).filtered('foo_categ_id.flag3'), m.browse([]))
         self.assertEqual(rec1.filtered('foo_categ_id.flag3'), m.browse([88]))
         self.assertEqual(rec1.filtered(bool), m.browse([88]))
+
+        self.assertEqual(records1.filtered(['foo_categ_id.color like Magenta']),
+                         odooly.RecordList(m, [17]))
 
         self.assertRaises(TypeError, records1.filtered)
 
@@ -1242,6 +1248,8 @@ class TestRecord(TestCase):
             OBJ('foo.bar', 'read', [42], ['foo_categ_id']),
             OBJ('foo.bar', 'read', [88], ['foo_categ_id']),
             OBJ('foo.categ', 'read', [33], ['flag3']),
+
+            OBJ('foo.bar', 'search', domain1),
         )
 
         records3 = m.browse([])

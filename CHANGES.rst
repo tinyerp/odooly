@@ -2,6 +2,21 @@ Changelog
 ---------
 
 
+2.x (unreleased)
+~~~~~~~~~~~~~~~~
+
+* Default location for the configuration file is the
+  initial working directory.
+
+* Enhanced syntax for method :meth:`RecordList.filtered`.
+  E.g. instead of ``records.filtered(lambda r: r.type == 'active')``
+  it's faster to use ``records.filtered(['type = active'])``.
+
+* Support unary operators even for Python 3.
+
+* Basic sequence operations on :class:`Env` instance.
+
+
 2.1.7 (2019-03-20)
 ~~~~~~~~~~~~~~~~~~
 

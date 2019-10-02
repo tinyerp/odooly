@@ -47,6 +47,10 @@ class TestUtils(unittest2.TestCase):
         self.assertEqual(searchargs((['ham<2'],)), ([('ham', '<', 2)],))
         self.assertEqual(searchargs((['ham<=2'],)), ([('ham', '<=', 2)],))
 
+        # Combine with unary operators
+        self.assertEqual(searchargs((['ham=- 2'],)), ([('ham', '=', -2)],))
+        self.assertEqual(searchargs((['ham<+ 2'],)), ([('ham', '<', 2)],))
+
         # Operators rarely used
         self.assertEqual(searchargs((['status =like Running'],)),
                          ([('status', '=like', 'Running')],))
