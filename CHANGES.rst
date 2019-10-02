@@ -2,8 +2,8 @@ Changelog
 ---------
 
 
-2.x (unreleased)
-~~~~~~~~~~~~~~~~
+2.1.8 (2019-10-02)
+~~~~~~~~~~~~~~~~~~
 
 * Default location for the configuration file is the
   initial working directory.
