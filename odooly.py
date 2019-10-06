@@ -909,6 +909,7 @@ class Client(object):
 
     def __init__(self, server, db=None, user=None, password=None,
                  transport=None, verbose=False):
+        self.connections = list()
         self._set_services(server, transport, verbose)
         self.env = Env(self)
         if db:    # Try to login
@@ -960,6 +961,7 @@ class Client(object):
     def _proxy_xmlrpc(self, name):
         proxy = ServerProxy(self._server + '/' + name,
                             transport=self._transport, allow_none=True)
+        self.connections.append(proxy)
         return proxy._ServerProxy__request
 
     def _proxy_jsonrpc(self, name):
@@ -983,6 +985,11 @@ class Client(object):
 
     def __repr__(self):
         return "<Client '%s#%s'>" % (self._server, self.env.db_name)
+
+    def close(self):
+        for conn in self.connections:
+            conn.__exit__()
+        return True
 
     def _login(self, user, password=None, database=None):
         """Switch `user` and (optionally) `database`.
