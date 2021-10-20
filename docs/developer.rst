@@ -11,7 +11,7 @@ Source code
 * `Source code <https://github.com/tinyerp/odooly>`_ and
   `issue tracker <https://github.com/tinyerp/odooly/issues>`_ on GitHub.
 * `Continuous tests <http://travis-ci.org/tinyerp/odooly>`_ against Python
-  2.7, 3.4 through 3.8 and PyPy, on `Travis-CI platform
+  2.7, 3.5 through 3.9 and PyPy, on `Travis-CI platform
   <http://about.travis-ci.org/>`_.
 
 

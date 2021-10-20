@@ -27,14 +27,14 @@ Odooly carries three completing uses:
 
 Key features:
 
-- provides an API very close to the Odoo API 8.0, through JSON-RPC and XML-RPC
-- compatible with OpenERP 6.1 through Odoo 12.0
+- provides an API very close to the Odoo API, through JSON-RPC and XML-RPC
+- compatible with OpenERP 6.1 through Odoo 15.0
 - single executable ``odooly.py``, no external dependency
 - helpers for ``search``, for data model introspection, etc...
 - simplified syntax for search ``domain`` and ``fields``
 - full API accessible on the ``Client.env`` environment
 - the module can be imported and used as a library: ``from odooly import Client``
-- supports Python 3.4 and above, and Python 2.7
+- supports Python 3.5 and above, and Python 2.7
 
 
 

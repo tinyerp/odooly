@@ -2,6 +2,12 @@ Changelog
 ---------
 
 
+2.x.x (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* Drop support for Python 3.4
+
+
 2.1.9 (2019-10-02)
 ~~~~~~~~~~~~~~~~~~
 
