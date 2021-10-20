@@ -10,9 +10,9 @@ Source code
 
 * `Source code <https://github.com/tinyerp/odooly>`_ and
   `issue tracker <https://github.com/tinyerp/odooly/issues>`_ on GitHub.
-* `Continuous tests <http://travis-ci.org/tinyerp/odooly>`_ against Python
+* `Continuous tests <https://app.travis-ci.com/github/tinyerp/odooly>`_ against Python
   2.7, 3.5 through 3.9 and PyPy, on `Travis-CI platform
-  <http://about.travis-ci.org/>`_.
+  <http://about.travis-ci.com/>`_.
 
 
 Third-party integration

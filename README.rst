@@ -12,7 +12,7 @@ Download and install the latest release::
 
 Documentation and tutorial: http://odooly.readthedocs.org
 
-CI tests: https://travis-ci.org/tinyerp/odooly
+CI tests: https://app.travis-ci.com/github/tinyerp/odooly
 
 
 Overview
