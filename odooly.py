@@ -383,7 +383,7 @@ def dispatch_jsonrpc(url, service_name, method, args):
     resp = http_post(url, json.dumps(data).encode('ascii'))
     if resp.get('error'):
         raise ServerError(resp['error'])
-    return resp['result']
+    return resp.get('result')
 
 
 class partial(functools.partial):
