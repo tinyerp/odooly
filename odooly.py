@@ -1415,7 +1415,7 @@ class BaseRecord(BaseModel):
                                  self._name, ids)
 
     def __dir__(self):
-        attrs = set(self.__dict__) + set(self._model._keys)
+        attrs = set(self.__dict__) | set(self._model._keys)
         return sorted(attrs)
 
     def __bool__(self):
