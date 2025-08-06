@@ -942,7 +942,7 @@ class Client(object):
 
         float_version = 99.0
         self.server_version = ver = get_service('db').server_version()
-        self.major_version = re.match(r'\d+\.?\d*', ver).group()
+        self.major_version = re.search(r'\d+\.?\d*', ver).group()
         self.version_info = float_version = float(self.major_version)
         assert float_version > 6.0, 'Not supported: %s' % ver
         # Create the RPC services
