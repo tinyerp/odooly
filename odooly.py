@@ -200,10 +200,13 @@ def format_exception(exc_type, exc, tb, limit=None, chain=True,
         }
     if server_error:
         # Format readable XML-RPC and JSON-RPC errors
-        message = server_error['arguments'][0]
+        try:
+            message = str(server_error['arguments'][0])
+        except Exception:
+            message = str(server_error['arguments'])
         fault = '%s: %s' % (server_error['name'], message)
-        if (server_error['exception_type'] != 'internal_error' or
-                message.startswith('FATAL:')):
+        exc_type = server_error.get('exception_type', 'internal_error')
+        if exc_type != 'internal_error' or message.startswith('FATAL:'):
             server_tb = None
         else:
             server_tb = server_error['debug']
