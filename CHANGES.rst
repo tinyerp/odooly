@@ -9,6 +9,8 @@ Changelog
 
 * Drop support for Python 2.7 and Python 3.4
 
+* Enable Github Actions CI. Remove Travis CI.
+
 
 2.1.9 (2019-10-02)
 ~~~~~~~~~~~~~~~~~~

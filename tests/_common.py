@@ -1,7 +1,6 @@
-# -*- coding: utf-8 -*-
-import unittest2
-import mock
-from mock import call, sentinel
+import unittest
+from unittest import mock
+from unittest.mock import call, sentinel
 
 import odooly
 
@@ -36,7 +35,7 @@ def OBJ(model, method, *params, **kw):
     return ('object.execute_kw', sentinel.AUTH, model, method, params) + ((kw,) if kw else ())
 
 
-class XmlRpcTestCase(unittest2.TestCase):
+class XmlRpcTestCase(unittest.TestCase):
     server_version = None
     server = None
     database = user = password = uid = None

@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-from mock import sentinel, ANY
+from unittest.mock import sentinel, ANY
 
 import odooly
 from ._common import XmlRpcTestCase, OBJ, callable

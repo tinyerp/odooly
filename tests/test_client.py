@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
-import mock
-from mock import call, sentinel, ANY
+from unittest import mock
+from unittest.mock import call, sentinel, ANY
 
 import odooly
 from ._common import XmlRpcTestCase, OBJ

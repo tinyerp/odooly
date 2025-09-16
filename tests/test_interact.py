@@ -1,8 +1,7 @@
-# -*- coding: utf-8 -*-
 import sys
 
-import mock
-from mock import call, ANY
+from unittest import mock
+from unittest.mock import call, ANY
 
 import odooly
 from ._common import XmlRpcTestCase
