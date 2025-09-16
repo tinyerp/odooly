@@ -26,7 +26,7 @@ try:
 except ImportError:
     requests = None
 
-__version__ = '2.1.10'
+__version__ = '2.2.0'
 __all__ = ['Client', 'Env', 'Service', 'BaseModel', 'Model',
            'BaseRecord', 'Record', 'RecordList',
            'format_exception', 'read_config', 'start_odoo_services']
@@ -66,7 +66,7 @@ Usage (some commands):
 DOMAIN_OPERATORS = frozenset('!|&')
 # Supported operators are:
 #   =, !=, >, >=, <, <=, like, ilike, in, not like, not ilike, not in,
-#   child_of, =like, =ilike, =?
+#   child_of, parent_of, =like, =ilike, =?, any, not any
 _term_re = re.compile(
     r'([\w._]+)\s*'   r'(=(?:like|ilike|\?)|[<>]=?|!?=(?!=)'
     r'|(?<= )(?:like|ilike|not like|not ilike|in|not in|any|not any|child_of|parent_of)\b)'
@@ -890,7 +890,7 @@ class Client(object):
 
     def __init__(self, server, db=None, user=None, password=None,
                  transport=None, verbose=False):
-        self.connections = list()
+        self._connections = []
         self._set_services(server, transport, verbose)
         self.env = Env(self)
         if db:    # Try to login
@@ -942,7 +942,7 @@ class Client(object):
     def _proxy_xmlrpc(self, name):
         proxy = ServerProxy(self._server + '/' + name,
                             transport=self._transport, allow_none=True)
-        self.connections.append(proxy)
+        self._connections.append(proxy)
         return proxy._ServerProxy__request
 
     def _proxy_jsonrpc(self, name):
@@ -968,9 +968,9 @@ class Client(object):
         return "<Client '%s#%s'>" % (self._server, self.env.db_name)
 
     def close(self):
-        for conn in self.connections:
+        for conn in self._connections:
             conn.__exit__()
-        return True
+        self._connections = []
 
     def _login(self, user, password=None, database=None):
         """Switch `user` and (optionally) `database`.

@@ -2,10 +2,12 @@ Changelog
 ---------
 
 
-2.x.x (unreleased)
+2.2.0 (2025-09-16)
 ~~~~~~~~~~~~~~~~~~
 
 * Support for Odoo 17.0, 18.0 and 19.0
+
+* Support Python 3.12 and 3.13
 
 * Drop support for Python 2.7 and Python 3.4
 
