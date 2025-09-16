@@ -11,6 +11,8 @@ Changelog
 
 * Enable Github Actions CI. Remove Travis CI.
 
+* Support new search operators: `any|not any|parent_of`
+
 
 2.1.9 (2019-10-02)
 ~~~~~~~~~~~~~~~~~~

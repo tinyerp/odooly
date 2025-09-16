@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """ odooly.py -- Odoo / OpenERP client library and command line tool
 
 Author: Florent Xicluna
@@ -70,7 +69,8 @@ DOMAIN_OPERATORS = frozenset('!|&')
 #   child_of, =like, =ilike, =?
 _term_re = re.compile(
     r'([\w._]+)\s*'   r'(=(?:like|ilike|\?)|[<>]=?|!?=(?!=)'
-    r'|(?<= )(?:like|ilike|in|not like|not ilike|not in|child_of))' r'\s*(.*)')
+    r'|(?<= )(?:like|ilike|not like|not ilike|in|not in|any|not any|child_of|parent_of)\b)'
+    r'\s*(.*)')
 _fields_re = re.compile(r'(?:[^%]|^)%\(([^)]+)\)')
 
 # Published object methods
@@ -1960,6 +1960,7 @@ def main(interact=_interact):
         if not client.env.uid:
             client.connect()
         return interact(global_vars) if interact else global_vars
+
 
 if __name__ == '__main__':
     main()

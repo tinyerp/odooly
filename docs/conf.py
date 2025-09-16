@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-#
 # Odooly documentation build configuration file, created by
 # sphinx-quickstart on Tue Aug 21 09:47:49 2012.
 #

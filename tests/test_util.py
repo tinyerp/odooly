@@ -62,6 +62,11 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(searchargs((['status=?Running'],)),
                          ([('status', '=?', 'Running')],))
 
+        for oper in ('like', 'not like', 'ilike', 'not ilike', 'in', 'not in',
+                     'any', 'not any', 'child_of', 'parent_of'):
+            self.assertEqual(searchargs((['status %s Running' % oper],)),
+                                        ([('status', oper, 'Running')],))
+
     def test_searchargs_date(self):
         # Do not interpret dates as integers
         self.assertEqual(searchargs((['create_date > "2001-12-31"'],)),
@@ -110,3 +115,5 @@ class TestUtils(unittest.TestCase):
         self.assertRaises(ValueError, searchargs, (['spam.hamin (1, 2)'],))
         self.assertRaises(ValueError, searchargs, (['spamin (1, 2)'],))
         self.assertRaises(ValueError, searchargs, (['[id = 1540]'],))
+        self.assertRaises(ValueError, searchargs, (['some_id child_off'],))
+        self.assertRaises(ValueError, searchargs, (['someth like3'],))
