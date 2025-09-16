@@ -58,10 +58,6 @@ class TestCase(XmlRpcTestCase):
                     records[res_id] = rdic
                 return [records[res_id] for res_id in args[0]]
             return [IdentDict(arg, args[1]) for arg in args[0]]
-        if method == 'fields_get_keys':
-            if model == 'res.users':
-                return ['id', 'login', 'name', 'password']  # etc ...
-            return ['id', 'name', 'message', 'misc_id']
         if method == 'fields_get':
             if model == 'ir.model.data':
                 keys = ('id', 'model', 'module', 'name', 'res_id')
@@ -116,7 +112,7 @@ class TestModel(TestCase):
 
     def test_keys(self):
         self.assertTrue(self.env['foo.bar'].keys())
-        self.assertCalls(OBJ('foo.bar', 'fields_get_keys'))
+        self.assertCalls(OBJ('foo.bar', 'fields_get'))
         self.assertOutput('')
 
     def test_fields(self):
@@ -412,9 +408,8 @@ class TestModel(TestCase):
             OBJ('foo.bar', 'search', [('name', '=', 'Blinky'), ('missing', '=', False)]),
             OBJ('foo.bar', 'search', [('name', 'like', 'Morice')]),
             OBJ('foo.bar', 'search', [('name', '=', 'Morice')], context={'lang': 'fr_FR'}),
-            OBJ('foo.bar', 'fields_get_keys', context={'lang': 'fr_FR'}),
-            OBJ('foo.bar', 'read', [1003], ['name'], context={'lang': 'fr_FR'}),
             OBJ('foo.bar', 'fields_get', context={'lang': 'fr_FR'}),
+            OBJ('foo.bar', 'read', [1003], ['name'], context={'lang': 'fr_FR'}),
             OBJ('foo.bar', 'search', [('name', '=', 'Morice')], context=ctx),
             OBJ('foo.bar', 'read', [1003], ['name'], context=ctx),
         )
@@ -783,9 +778,8 @@ class TestRecord(TestCase):
         self.assertEqual(empty.name, [])
 
         self.assertCalls(
-            OBJ('foo.bar', 'fields_get_keys'),
-            OBJ('foo.bar', 'read', [13, 17], ['name']),
             OBJ('foo.bar', 'fields_get'),
+            OBJ('foo.bar', 'read', [13, 17], ['name']),
         )
 
         # Calling methods on empty RecordList
@@ -820,11 +814,10 @@ class TestRecord(TestCase):
         self.assertEqual(records.message, ['v_message', 'v_message'])
 
         self.assertCalls(
-            OBJ('foo.bar', 'fields_get_keys'),
+            OBJ('foo.bar', 'fields_get'),
             OBJ('foo.bar', 'missingattr', [42]),
             OBJ('foo.bar', 'missingattr', [13, 17]),
             OBJ('foo.bar', 'read', [42], ['message']),
-            OBJ('foo.bar', 'fields_get'),
             OBJ('foo.bar', 'write', [42], {'message': 'one giant leap for mankind'}),
             OBJ('foo.bar', 'read', [42], ['message']),
             OBJ('foo.bar', 'read', [13, 17], ['message']),
@@ -960,7 +953,7 @@ class TestRecord(TestCase):
         self.assertEqual(str(rec3), 'foo.bar,404')
 
         self.assertCalls(
-            OBJ('foo.bar', 'fields_get_keys'),
+            OBJ('foo.bar', 'fields_get'),
             OBJ('foo.bar', 'name_get', [42]),
             OBJ('foo.bar', 'name_get', [404]),
         )
@@ -983,7 +976,7 @@ class TestRecord(TestCase):
         self.assertEqual(repr(rec4), "<Record 'foo.bar,8888'>")
 
         self.assertCalls(
-            OBJ('foo.bar', 'fields_get_keys'),
+            OBJ('foo.bar', 'fields_get'),
             OBJ('foo.bar', 'name_get', [8888]),
         )
 
@@ -1037,7 +1030,7 @@ class TestRecord(TestCase):
 
         self.assertCalls(
             OBJ('ir.model.data', 'search', ANY),
-            OBJ('foo.bar', 'fields_get_keys'),
+            OBJ('foo.bar', 'fields_get'),
             OBJ('ir.model.data', 'search', ANY),
             OBJ('ir.model.data', 'create', ANY),
         )
@@ -1071,7 +1064,6 @@ class TestRecord(TestCase):
             [{'id':k, 'foo_categ_id': [k * 10, 'Categ C%04d' % k]} for k in [4, 17, 7, 42, 112, 13]],
             [{'id':k * 10, 'fld2': 'f2_%04d' % k} for k in [4, 17, 7, 42, 112, 13]],
             {'fld2': {'type': 'char'}},
-            ['fld1'],
             [(42, 'Record 42')],
             [(False, '<none>')],
             [(4, 'Record 4')],
@@ -1119,7 +1111,6 @@ class TestRecord(TestCase):
             OBJ('foo.bar', 'read', ids1_sorted, ['foo_categ_id']),
             OBJ('foo.categ', 'read', [k * 10 for k in ids1_sorted], ['fld2']),
             OBJ('foo.categ', 'fields_get'),
-            OBJ('foo.bar', 'fields_get_keys'),
             OBJ('foo.bar', 'name_get', [42]),
             OBJ('foo.bar', 'name_get', [False]),
             OBJ('foo.bar', 'name_get', [4]),
@@ -1260,10 +1251,8 @@ class TestRecord(TestCase):
             [{'id':k, 'fld1': 'val%s' % k} for k in [4, 17, 7, 42, 112, 13]],
             {'fld1': {'type': 'char'}},
             [{'id':k, 'fld1': 'val%s' % k} for k in [4, 17, 7, 42, 112, 13]],
-            ['fld1'],
             [(4, 'Record 4')],
             [(4, 'Record 4')],
-
             [{'id':k} for k in [4, 17, 7, 42, 112]],
         ]
 
@@ -1292,10 +1281,8 @@ class TestRecord(TestCase):
             OBJ('foo.bar', 'read', ids1_sorted, ['fld1']),
             OBJ('foo.bar', 'fields_get'),
             OBJ('foo.bar', 'read', ids1_sorted, ['fld1']),
-            OBJ('foo.bar', 'fields_get_keys'),
             OBJ('foo.bar', 'name_get', [4]),
             OBJ('foo.bar', 'name_get', [4]),
-
             OBJ('foo.bar', 'read', ids1_sorted, ['fld1.fld2']),
         )
 
@@ -1394,7 +1381,6 @@ class TestRecord(TestCase):
         records.with_context(lang='fr_CA').read()
 
         self.assertCalls(
-            OBJ('res.users', 'fields_get_keys'),
             OBJ('res.users', 'fields_get'),
             OBJ('res.users', 'write', [1], {'name': 'Admin'}),
             OBJ('res.users', 'read', [1], ['login']),

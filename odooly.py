@@ -1119,14 +1119,6 @@ class Model(BaseModel):
     def __repr__(self):
         return "<Model '%s'>" % (self._name,)
 
-    def _get_keys(self):
-        obj_keys = list(self._execute('fields_get').keys()) if float(self.env.client.major_version) >= 17.0 else self._execute('fields_get_keys')
-        obj_keys.sort()
-        return obj_keys
-
-    def _get_fields(self):
-        return self._execute('fields_get')
-
     def keys(self):
         """Return the keys of the model."""
         return self._keys
@@ -1337,12 +1329,14 @@ class Model(BaseModel):
         return res
 
     def __getattr__(self, attr):
-        if attr in ('_keys', '_fields'):
+        if attr == '_fields':
             vals = self.env._cache_get((attr, self._name))
             if vals is None:
-                vals = getattr(self, '_get' + attr)()
+                vals = self._execute('fields_get')
                 self.env._cache_set((attr, self._name), vals)
             return _memoize(self, attr, vals)
+        if attr == '_keys':
+            return _memoize(self, attr, sorted(self._fields))
         if attr.startswith('_'):
             raise AttributeError("'Model' object has no attribute %r" % attr)
 
