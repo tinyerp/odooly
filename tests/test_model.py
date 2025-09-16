@@ -4,8 +4,6 @@ from mock import sentinel, ANY
 import odooly
 from ._common import XmlRpcTestCase, OBJ, callable
 
-PY2 = ('' == ''.encode())
-
 
 class TestCase(XmlRpcTestCase):
     server_version = '6.1'
@@ -982,10 +980,6 @@ class TestRecord(TestCase):
     def test_str_unicode(self):
         rec4 = self.env['foo.bar'].browse(8888)
         expected_str = expected_unicode = 'name_\xdan\xeecode'
-        if PY2:
-            expected_unicode = expected_str.decode('latin-1')
-            expected_str = expected_unicode.encode('ascii', 'backslashreplace')
-            self.assertEqual(unicode(rec4), expected_unicode)
         self.assertEqual(str(rec4), expected_str)
         self.assertEqual(repr(rec4), "<Record 'foo.bar,8888'>")
 

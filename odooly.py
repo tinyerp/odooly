@@ -17,17 +17,10 @@ import sys
 import time
 import traceback
 
-PY2 = (sys.version_info[0] == 2)
-if not PY2:             # Python 3
-    from configparser import ConfigParser
-    from threading import current_thread
-    from urllib.request import Request, urlopen
-    from xmlrpc.client import Fault, ServerProxy, MININT, MAXINT
-else:                   # Python 2
-    from ConfigParser import SafeConfigParser as ConfigParser
-    from threading import currentThread as current_thread
-    from urllib2 import Request, urlopen
-    from xmlrpclib import Fault, ServerProxy, MININT, MAXINT
+from configparser import ConfigParser
+from threading import current_thread
+from urllib.request import Request, urlopen
+from xmlrpc.client import Fault, ServerProxy, MININT, MAXINT
 
 try:
     import requests
@@ -107,21 +100,6 @@ _cause_message = ("\nThe above exception was the direct cause "
                   "of the following exception:\n\n")
 _pending_state = ('state', 'not in',
                   ['uninstallable', 'uninstalled', 'installed'])
-
-if PY2:
-    int_types = int, long
-
-    class _DictWriter(csv.DictWriter):
-        """Unicode CSV Writer, which encodes output to UTF-8."""
-
-        def _dict_to_list(self, rowdict):
-            rowlst = csv.DictWriter._dict_to_list(self, rowdict)
-            return [cell.encode('utf-8') if hasattr(cell, 'encode') else cell
-                    for cell in rowlst]
-else:   # Python 3
-    basestring = str
-    int_types = int
-    _DictWriter = csv.DictWriter
 seq_types = (list, tuple)
 
 
@@ -171,7 +149,7 @@ def literal_eval(expression, _octal_digits=frozenset('01234567')):
     if expression[:1] == '0' and expression[1:2] in _octal_digits:
         raise SyntaxError('unsupported octal notation')
     value = _convert(node.body)
-    if isinstance(value, int_types) and not MININT <= value <= MAXINT:
+    if isinstance(value, int) and not MININT <= value <= MAXINT:
         raise ValueError('overflow, int exceeds XML-RPC limits')
     return value
 
@@ -199,7 +177,7 @@ def format_exception(exc_type, exc, tb, limit=None, chain=True,
     elif issubclass(exc_type, ServerError):     # JSON-RPC
         server_error = exc.args[0]['data']
     elif (issubclass(exc_type, Fault) and       # XML-RPC
-          isinstance(exc.faultCode, basestring)):
+          isinstance(exc.faultCode, str)):
         (message, tb) = (exc.faultCode, exc.faultString)
         exc_name = exc_type.__name__
         warning = message.startswith('warning --')
@@ -250,7 +228,7 @@ def read_config(section=None):
     """
     p = ConfigParser()
     with open(Client._config_file) as f:
-        p.readfp(f) if PY2 else p.read_file(f)
+        p.read_file(f)
     if section is None:
         return p.sections()
     env = dict(p.items(section))
@@ -317,9 +295,9 @@ def issearchdomain(arg):
     """
     return isinstance(arg, list) and not (arg and (
         # Not a list of ids: [1, 2, 3]
-        isinstance(arg[0], int_types) or
+        isinstance(arg[0], int) or
         # Not a list of ids as str: ['1', '2', '3']
-        (isinstance(arg[0], basestring) and arg[0].isdigit())))
+        (isinstance(arg[0], str) and arg[0].isdigit())))
 
 
 def searchargs(params, kwargs=None):
@@ -330,7 +308,7 @@ def searchargs(params, kwargs=None):
     if not isinstance(domain, list):
         return params
     for (idx, term) in enumerate(domain):
-        if isinstance(term, basestring) and term not in DOMAIN_OPERATORS:
+        if isinstance(term, str) and term not in DOMAIN_OPERATORS:
             m = _term_re.match(term.strip())
             if not m:
                 raise ValueError('Cannot parse term %r' % term)
@@ -532,7 +510,7 @@ class Env(object):
     def _auth(self, user, password):
         assert self.db_name, 'Not connected'
         uid = verified = None
-        if isinstance(user, int_types):
+        if isinstance(user, int):
             (user, uid) = (uid, user)
         auth_cache = self._cache_get('auth', dict)
         if not password:
@@ -608,14 +586,14 @@ class Env(object):
         else:                     # Create methods
             env._set_credentials(uid, password)
         # Setup uid and user
-        if isinstance(user, int_types):
+        if isinstance(user, int):
             user = 'admin' if uid == SUPERUSER_ID else None
         elif isinstance(user, Record):
             user = user.login
         env.uid = uid
         env.user = env._get('res.users', False).browse(uid)
         if user:
-            assert isinstance(user, basestring), repr(user)
+            assert isinstance(user, str), repr(user)
             env.user.__dict__['login'] = user
             env.user._cached_keys.add('login')
         return env
@@ -704,8 +682,8 @@ class Env(object):
         arguments are collected in `kwargs`.
         """
         assert self.uid, 'Not connected'
-        assert isinstance(obj, basestring)
-        assert isinstance(method, basestring) and method != 'browse'
+        assert isinstance(obj, str)
+        assert isinstance(method, str) and method != 'browse'
         ordered = single_id = False
         if method == 'read':
             assert params, 'Missing parameter'
@@ -811,7 +789,7 @@ class Env(object):
         The return value is a dictionary where module names are grouped in
         lists according to their ``state``.
         """
-        if isinstance(name, basestring):
+        if isinstance(name, str):
             domain = [('name', 'like', name)]
         else:
             domain = name
@@ -919,11 +897,11 @@ class Client(object):
         if isinstance(server, list):
             appname = os.path.basename(__file__).rstrip('co')
             server = start_odoo_services(server, appname=appname)
-        elif isinstance(server, basestring) and server[-1:] == '/':
+        elif isinstance(server, str) and server[-1:] == '/':
             server = server.rstrip('/')
         self._server = server
 
-        if not isinstance(server, basestring):
+        if not isinstance(server, str):
             assert not transport, 'Not supported'
             self._proxy = self._proxy_dispatch
         elif '/jsonrpc' in server:
@@ -1163,9 +1141,9 @@ class Model(BaseModel):
         or a space separated string of these attributes.
         If omitted, all attributes are returned.
         """
-        if isinstance(names, basestring):
+        if isinstance(names, str):
             names = names.split()
-        if isinstance(attributes, basestring):
+        if isinstance(attributes, str):
             attributes = attributes.split()
         if names is None:
             if attributes is None:
@@ -1223,9 +1201,9 @@ class Model(BaseModel):
         if args or kwargs:
             # Passthrough for env['ir.default'].get and alike
             return self._execute('get', domain, *args, **kwargs)
-        if isinstance(domain, int_types):   # a single id
+        if isinstance(domain, int):   # a single id
             return Record(self, domain)
-        if isinstance(domain, basestring):  # lookup the xml_id
+        if isinstance(domain, str):  # lookup the xml_id
             rec = self.env.ref(domain)
             if not rec:
                 return None
@@ -1279,7 +1257,7 @@ class Model(BaseModel):
         not preserve the order of the results.
         """
         fmt = None
-        if len(params) > 1 and isinstance(params[1], basestring):
+        if len(params) > 1 and isinstance(params[1], str):
             fmt = ('%(' in params[1]) and params[1]
             if fmt:
                 fields = _fields_re.findall(fmt)
@@ -1338,7 +1316,7 @@ class Model(BaseModel):
             if field_type in ('one2many', 'many2many'):
                 if not value:
                     new_values[key] = [(6, 0, [])]
-                elif isinstance(value[0], int_types):
+                elif isinstance(value[0], int):
                     new_values[key] = [(6, 0, value)]
         return new_values
 
@@ -1377,12 +1355,12 @@ class Model(BaseModel):
 class BaseRecord(BaseModel):
 
     def __new__(cls, res_model, arg):
-        if isinstance(arg, int_types):
+        if isinstance(arg, int):
             inst = object.__new__(Record)
             name = None
             idnames = [arg]
             ids = [arg]
-        elif len(arg) == 2 and isinstance(arg[1], basestring):
+        elif len(arg) == 2 and isinstance(arg[1], str):
             inst = object.__new__(Record)
             (arg, name) = arg
             idnames = [(arg, name)]
@@ -1394,7 +1372,7 @@ class BaseRecord(BaseModel):
             for index, id_ in enumerate(arg):
                 if isinstance(id_, seq_types):
                     ids[index] = id_ = id_[0]
-                assert isinstance(id_, int_types), repr(id_)
+                assert isinstance(id_, int), repr(id_)
             arg = ids
         attrs = {
             'id': arg,
@@ -1625,7 +1603,7 @@ class BaseRecord(BaseModel):
             recs = self._model.search([('id', 'in', recs.ids)],
                                       reverse=reverse)
             ids = [idnames[id_] for id_ in recs.ids]
-        elif isinstance(key, basestring):
+        elif isinstance(key, str):
             vals = sorted(zip(recs.read(key), recs._idnames), reverse=reverse)
             ids = [idn for (__, idn) in vals]
         else:
@@ -1676,7 +1654,7 @@ class RecordList(BaseRecord):
         else:
             values = []
 
-        if isinstance(fields, basestring):
+        if isinstance(fields, str):
             field = self._model._fields.get(fields)
             if field:
                 if 'relation' in field:
@@ -1747,12 +1725,6 @@ class Record(BaseRecord):
     def __str__(self):
         return self.__name
 
-    if PY2:
-        __unicode__ = __str__
-
-        def __str__(self):
-            return self.__name.encode('ascii', 'backslashreplace')
-
     def _get_name(self):
         try:
             (id_name,) = self._execute('name_get', [self.id])
@@ -1784,7 +1756,7 @@ class Record(BaseRecord):
         rv = self._model.read(self.id, fields)
         if isinstance(rv, dict):
             return self._update(rv)
-        elif isinstance(fields, basestring) and '%(' not in fields:
+        elif isinstance(fields, str) and '%(' not in fields:
             return self._update({fields: rv})[fields]
         return rv
 
@@ -1862,16 +1834,9 @@ class Record(BaseRecord):
 
 
 def _interact(global_vars, use_pprint=True, usage=USAGE):
+    import builtins
     import code
     import pprint
-    if PY2:
-        import __builtin__ as builtins
-
-        def _exec(code, g):
-            exec('exec code in g')
-    else:
-        import builtins
-        _exec = getattr(builtins, 'exec')
 
     if use_pprint:
         def displayhook(value, _printer=pprint.pprint, _builtins=builtins):
@@ -1905,7 +1870,7 @@ def _interact(global_vars, use_pprint=True, usage=USAGE):
     class Console(code.InteractiveConsole):
         def runcode(self, code):
             try:
-                _exec(code, global_vars)
+                exec(code, global_vars)
             except SystemExit:
                 raise
             except:
@@ -1989,8 +1954,8 @@ def main(interact=_interact):
             args.fields = ['id']
             if data:
                 args.fields.extend([fld for fld in data[0] if fld != 'id'])
-        writer = _DictWriter(sys.stdout, args.fields, "", "ignore",
-                             quoting=csv.QUOTE_NONNUMERIC)
+        writer = csv.DictWriter(sys.stdout, args.fields, "", "ignore",
+                                quoting=csv.QUOTE_NONNUMERIC)
         writer.writeheader()
         writer.writerows(data or ())
 

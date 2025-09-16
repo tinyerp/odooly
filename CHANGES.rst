@@ -5,13 +5,10 @@ Changelog
 2.x.x (unreleased)
 ~~~~~~~~~~~~~~~~~~
 
-* Drop support for Python 3.4
+* Support for Odoo 17.0, 18.0 and 19.0
 
+* Drop support for Python 2.7 and Python 3.4
 
-2.1.10 (202024-03-05)
-~~~~~~~~~~~~~~~~~~
-
-* Support for Odoo v17.0 - 'fields_get_key' not supported from v17.0
 
 2.1.9 (2019-10-02)
 ~~~~~~~~~~~~~~~~~~
