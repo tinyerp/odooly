@@ -65,7 +65,7 @@ class TestUtils(TestCase):
         for oper in ('like', 'not like', 'ilike', 'not ilike', 'in', 'not in',
                      'any', 'not any', 'child_of', 'parent_of'):
             self.assertEqual(searchargs((['status %s Running' % oper],)),
-                                        ([('status', oper, 'Running')],))
+                             ([('status', oper, 'Running')],))
 
     def test_searchargs_date(self):
         # Do not interpret dates as integers

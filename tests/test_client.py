@@ -33,6 +33,8 @@ class IdentDict(object):
 
     def __eq__(self, other):
         return self._id == other._id
+
+
 DIC1 = IdentDict(ID1)
 DIC2 = IdentDict(ID2)
 
@@ -352,7 +354,10 @@ class TestClientApi(XmlRpcTestCase):
         self.assertOutput('')
 
         if float(self.server_version) < 9.0:
-            self.assertRaises(odooly.Error, create_database, 'xyz', 'db2', user_password='secret', lang='fr_FR', login='other_login', country_code='CA')
+            self.assertRaises(
+                odooly.Error, create_database, 'xyz', 'db2',
+                user_password='secret', lang='fr_FR', login='other_login', country_code='CA',
+            )
             self.assertRaises(odooly.Error, create_database, 'xyz', 'db2', login='other_login')
             self.assertRaises(odooly.Error, create_database, 'xyz', 'db2', country_code='CA')
             self.assertOutput('')

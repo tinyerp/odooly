@@ -450,9 +450,8 @@ class TestModel(TestCase):
         self.assertOutput('')
 
     def test_get_passthrough(self):
-        lang = self.env['ir.default'].get('res.partner', 'lang')
-
         # invalid arguments are passed to hypothetical method 'get' on the model
+        self.env['ir.default'].get('res.partner', 'lang')
         self.env['foo.bar'].get(['name = Morice'], limit=1)
 
         self.assertCalls(
@@ -971,8 +970,7 @@ class TestRecord(TestCase):
 
     def test_str_unicode(self):
         rec4 = self.env['foo.bar'].browse(8888)
-        expected_str = expected_unicode = 'name_\xdan\xeecode'
-        self.assertEqual(str(rec4), expected_str)
+        self.assertEqual(str(rec4), 'name_\xdan\xeecode')
         self.assertEqual(repr(rec4), "<Record 'foo.bar,8888'>")
 
         self.assertCalls(
@@ -1058,11 +1056,11 @@ class TestRecord(TestCase):
     def test_mapped(self):
         m = self.env['foo.bar']
         self.service.object.execute_kw.side_effect = [
-            [{'id':k, 'fld1': 'val%s' % k} for k in [4, 17, 7, 42, 112, 13]],
+            [{'id': k, 'fld1': 'val%s' % k} for k in [4, 17, 7, 42, 112, 13]],
             {'fld1': {'type': 'char'}, 'foo_categ_id': {'relation': 'foo.categ', 'type': 'many2one'}},
-            [{'id':k, 'foo_categ_id': [k * 10, 'Categ C%04d' % k]} for k in [4, 17, 7, 42, 112, 13]],
-            [{'id':k, 'foo_categ_id': [k * 10, 'Categ C%04d' % k]} for k in [4, 17, 7, 42, 112, 13]],
-            [{'id':k * 10, 'fld2': 'f2_%04d' % k} for k in [4, 17, 7, 42, 112, 13]],
+            [{'id': k, 'foo_categ_id': [k * 10, 'Categ C%04d' % k]} for k in [4, 17, 7, 42, 112, 13]],
+            [{'id': k, 'foo_categ_id': [k * 10, 'Categ C%04d' % k]} for k in [4, 17, 7, 42, 112, 13]],
+            [{'id': k * 10, 'fld2': 'f2_%04d' % k} for k in [4, 17, 7, 42, 112, 13]],
             {'fld2': {'type': 'char'}},
             [(42, 'Record 42')],
             [(False, '<none>')],
@@ -1158,15 +1156,15 @@ class TestRecord(TestCase):
         m = self.env['foo.bar']
         items = [[k, 'Item %d' % k] for k in range(1, 9)]
         self.service.object.execute_kw.side_effect = [
-            [{'id':k, 'flag1': not (k % 3)} for k in [4, 17, 7, 42, 112, 13]],
+            [{'id': k, 'flag1': not (k % 3)} for k in [4, 17, 7, 42, 112, 13]],
             {'flag1': {'type': 'boolean'},
              'foo_child_ids': {'relation': 'foo.child', 'type': 'one2many'},
              'foo_categ_id': {'relation': 'foo.categ', 'type': 'many2one'}},
 
-            [{'id':k, 'foo_categ_id': [k * 10, 'Categ C%04d' % k]} for k in [4, 17, 7, 42, 112, 13]],
+            [{'id': k, 'foo_categ_id': [k * 10, 'Categ C%04d' % k]} for k in [4, 17, 7, 42, 112, 13]],
 
-            [{'id':k, 'foo_categ_id': [k * 10, 'Categ C%04d' % k]} for k in [4, 17, 7, 42, 112, 13]],
-            [{'id':k * 10, 'flag2': bool(k % 2)} for k in [4, 17, 7, 42, 112, 13]],
+            [{'id': k, 'foo_categ_id': [k * 10, 'Categ C%04d' % k]} for k in [4, 17, 7, 42, 112, 13]],
+            [{'id': k * 10, 'flag2': bool(k % 2)} for k in [4, 17, 7, 42, 112, 13]],
             {'flag2': {'type': 'char'}},
 
             [{'id': k, 'foo_child_ids': {}} for k in [4, 7, 112, 13]] +
@@ -1248,12 +1246,12 @@ class TestRecord(TestCase):
         self.service.object.execute_kw.side_effect = [
             [42, 4, 7, 17, 112],
             [42, 4, 7, 17, 112],
-            [{'id':k, 'fld1': 'val%s' % k} for k in [4, 17, 7, 42, 112, 13]],
+            [{'id': k, 'fld1': 'val%s' % k} for k in [4, 17, 7, 42, 112, 13]],
             {'fld1': {'type': 'char'}},
-            [{'id':k, 'fld1': 'val%s' % k} for k in [4, 17, 7, 42, 112, 13]],
+            [{'id': k, 'fld1': 'val%s' % k} for k in [4, 17, 7, 42, 112, 13]],
             [(4, 'Record 4')],
             [(4, 'Record 4')],
-            [{'id':k} for k in [4, 17, 7, 42, 112]],
+            [{'id': k} for k in [4, 17, 7, 42, 112]],
         ]
 
         ids1 = [42, 13, 17, 112, 4, 7]
@@ -1308,7 +1306,6 @@ class TestRecord(TestCase):
         env = self.env(user='guest')
         records = env['foo.bar'].browse([13, 17])
         rec = env['foo.bar'].browse(42)
-        rec_null = env['foo.bar'].browse(False)
 
         def guest(model, method, *params):
             return ('object.execute_kw', self.database, 1001, 'v_password',
