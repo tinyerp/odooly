@@ -75,10 +75,10 @@ _fields_re = re.compile(r'(?:[^%]|^)%\(([^)]+)\)')
 
 # Published object methods
 _methods = {
+    'common': ['about', 'login', 'authenticate', 'version'],
     'db': ['create_database', 'duplicate_database', 'db_exist', 'drop', 'dump',
            'restore', 'rename', 'list', 'list_lang', 'list_countries',
            'change_admin_password', 'server_version', 'migrate_databases'],
-    'common': ['about', 'login', 'authenticate', 'version'],
     'object': ['execute', 'execute_kw'],
 }
 # New 6.1: (db) create_database db_exist,
@@ -1214,19 +1214,23 @@ class Model(BaseModel):
         return Record(self, ids[0]) if ids else None
 
     def create(self, values):
-        """Create a :class:`Record`.
+        """Create one or many :class:`Record`(s).
 
         The argument `values` is a dictionary of values which are used to
         create the record.  Relationship fields `one2many` and `many2many`
         accept either a list of ids or a RecordList or the extended Odoo
         syntax.  Relationship fields `many2one` and `reference` accept
         either a Record or the Odoo syntax.
+        Since Odoo 12.0, it can create multiple records.
 
-        The newly created :class:`Record` is returned.
+        The newly created :class:`Record` is returned (or :class:`RecordList`).
         """
-        values = self._unbrowse_values(values)
-        new_id = self._execute('create', values)
-        return Record(self, new_id)
+        if hasattr(values, "items"):
+            values = self._unbrowse_values(values)
+        else:  # Odoo >= 12.0
+            values = [self._unbrowse_values(vals) for vals in values]
+        new_ids = self._execute('create', values)
+        return Record(self, new_ids)
 
     def read(self, *params, **kwargs):
         """Wrapper for ``client.execute(model, 'read', [...], ('a', 'b'))``.
@@ -1673,6 +1677,17 @@ class RecordList(BaseRecord):
                     return records
         return values
 
+    def copy(self, default=None):
+        """Copy records and return :class:`RecordList`.  Odoo >= 18.0
+
+        The optional argument `default` is a mapping which overrides some
+        values of the new records.
+        """
+        if default:
+            default = self._model._unbrowse_values(default)
+        new_ids = self._execute('copy', self.ids, default)
+        return RecordList(self._model, new_ids)
+
     @property
     def _external_id(self):
         """Retrieve the External IDs of the :class:`RecordList`.
@@ -1769,6 +1784,8 @@ class Record(BaseRecord):
         if default:
             default = self._model._unbrowse_values(default)
         new_id = self._execute('copy', self.id, default)
+        if isinstance(new_id, list):
+            [new_id] = new_id or [False]
         return Record(self._model, new_id)
 
     def _send(self, signal):
