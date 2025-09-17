@@ -2,6 +2,16 @@ Changelog
 ---------
 
 
+2.x.x (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* Support :method:`Model.create` with a list of values.
+  With Odoo >= 12.0
+
+* Support :method:`RecordList.copy`.
+  With Odoo >= 18.0
+
+
 2.2.0 (2025-09-16)
 ~~~~~~~~~~~~~~~~~~
 

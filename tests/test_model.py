@@ -78,7 +78,11 @@ class TestCase(XmlRpcTestCase):
                 ids[ids.index(8888)] = b'\xdan\xeecode'.decode('latin-1')
             return [(res_id, b'name_%s'.decode() % res_id) for res_id in ids]
         if method in ('create', 'copy'):
-            return 1999
+            single_id = (
+                (method == 'copy' and isinstance(args[0], int)) or
+                (method == 'create' and hasattr(args[0], 'items'))
+            )
+            return 1999 if single_id else list(range(1001, 1001 + len(args[0])))
         return [sentinel.OTHER]
 
     def setUp(self):
@@ -464,6 +468,7 @@ class TestModel(TestCase):
         FooBar = self.env['foo.bar']
 
         record42 = FooBar.browse(42)
+        record100 = FooBar.browse(100)
         recordlist42 = FooBar.browse([4, 2])
 
         FooBar.create({'spam': 42})
@@ -471,6 +476,9 @@ class TestModel(TestCase):
         FooBar.create({'spam': recordlist42})
         FooBar._execute('create', {'spam': 42})
         FooBar.create({})
+        # Odoo >= 12.0
+        FooBar.create([{'spam': record42}])
+        FooBar.create([{'spam': record100}, {'spam': record42}])
         self.assertCalls(
             OBJ('foo.bar', 'fields_get'),
             OBJ('foo.bar', 'create', {'spam': 42}),
@@ -478,6 +486,8 @@ class TestModel(TestCase):
             OBJ('foo.bar', 'create', {'spam': [4, 2]}),
             OBJ('foo.bar', 'create', {'spam': 42}),
             OBJ('foo.bar', 'create', {}),
+            OBJ('foo.bar', 'create', [{'spam': 42}]),
+            OBJ('foo.bar', 'create', [{'spam': 100}, {'spam': 42}]),
         )
         self.assertOutput('')
 
@@ -724,6 +734,8 @@ class TestRecord(TestCase):
         rec.copy({'spam': rec})
         rec.copy({'spam': records})
         rec.copy({})
+        # Odoo >= 18.0
+        records.copy({'spam': rec})
         self.assertCalls(
             OBJ('foo.bar', 'copy', 42, None),
             OBJ('foo.bar', 'fields_get'),
@@ -731,6 +743,7 @@ class TestRecord(TestCase):
             OBJ('foo.bar', 'copy', 42, {'spam': 42}),
             OBJ('foo.bar', 'copy', 42, {'spam': [13, 17]}),
             OBJ('foo.bar', 'copy', 42, {}),
+            OBJ('foo.bar', 'copy', [13, 17], {'spam': 42}),
         )
         self.assertOutput('')
 
