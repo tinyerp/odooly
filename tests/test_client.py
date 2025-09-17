@@ -108,7 +108,7 @@ class TestService(XmlRpcTestCase):
 
         self.assertIn('/%s|db' % self.protocol, str(client.db.create_database))
         self.assertIn('/%s|db' % self.protocol, str(client.db.db_exist))
-        if server_version >= 8.0:
+        if server_version >= 11.0:
             self.assertRaises(AttributeError, getattr,
                               client.db, 'create')
             self.assertRaises(AttributeError, getattr,

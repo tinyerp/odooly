@@ -1,21 +1,10 @@
-import unittest
-from unittest import mock
+from unittest import mock, TestCase
 from unittest.mock import call, sentinel
 
 import odooly
 
 sample_context = {'lang': 'en_US', 'tz': 'Europe/Zurich'}
 type_call = type(call)
-
-
-try:
-    basestring
-except NameError:
-    basestring = str
-
-
-def callable(f):
-    return hasattr(f, '__call__')
 
 
 class PseudoFile(list):
@@ -35,7 +24,7 @@ def OBJ(model, method, *params, **kw):
     return ('object.execute_kw', sentinel.AUTH, model, method, params) + ((kw,) if kw else ())
 
 
-class XmlRpcTestCase(unittest.TestCase):
+class XmlRpcTestCase(TestCase):
     server_version = None
     server = None
     database = user = password = uid = None
@@ -80,7 +69,7 @@ class XmlRpcTestCase(unittest.TestCase):
     def assertCalls(self, *expected_args):
         expected_calls = []
         for expected in expected_args:
-            if isinstance(expected, basestring):
+            if isinstance(expected, str):
                 if expected[:4] == 'call':
                     expected = expected[4:].lstrip('.')
                 assert expected[-2:] != '()'

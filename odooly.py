@@ -69,31 +69,36 @@ DOMAIN_OPERATORS = frozenset('!|&')
 #   child_of, parent_of, =like, =ilike, =?, any, not any
 _term_re = re.compile(
     r'([\w._]+)\s*'   r'(=(?:like|ilike|\?)|[<>]=?|!?=(?!=)'
-    r'|(?<= )(?:like|ilike|not like|not ilike|in|not in|any|not any|child_of|parent_of)\b)'
+    r'|\b(?:like|ilike|not like|not ilike|in|not in|any|not any|child_of|parent_of)\b)'
     r'\s*(.*)')
 _fields_re = re.compile(r'(?:[^%]|^)%\(([^)]+)\)')
 
 # Published object methods
 _methods = {
-    'db': ['create_database', 'duplicate_database', 'db_exist',
-           'drop', 'dump', 'restore', 'rename', 'list', 'list_lang',
+    'db': ['create_database', 'duplicate_database', 'db_exist', 'drop', 'dump',
+           'restore', 'rename', 'list', 'list_lang', 'list_countries',
            'change_admin_password', 'server_version', 'migrate_databases'],
-    'common': ['about', 'login', 'timezone_get',
-               'authenticate', 'version', 'set_loglevel'],
-    'object': ['execute', 'execute_kw', 'exec_workflow'],
-    'report': ['render_report', 'report', 'report_get'],    # < 11.0
+    'common': ['about', 'login', 'authenticate', 'version'],
+    'object': ['execute', 'execute_kw'],
 }
 # New 6.1: (db) create_database db_exist,
 #          (common) authenticate version set_loglevel
 #          (object) execute_kw,  (report) render_report
 # New 7.0: (db) duplicate_database
+# New 9.0: (db) list_countries
+# No-op:   (common) set_loglevel
 
 _obsolete_methods = {
     'db': ['create', 'get_progress'],                       # < 8.0
-    'common': ['check_connectivity', 'get_available_updates', 'get_os_time',
-               'get_migration_scripts', 'get_server_environment',
-               'get_sqlcount', 'get_stats',
-               'list_http_services', 'login_message'],      # < 8.0
+    'common': [
+        'check_connectivity', 'get_available_updates',
+        'get_migration_scripts', 'get_os_time', 'get_stats',
+        'get_server_environment', 'get_sqlcount',
+        'list_http_services', 'login_message',              # < 8.0
+        'timezone_get',                                     # < 9.0
+    ],
+    'object': ['exec_workflow'],                            # < 11.0
+    'report': ['render_report', 'report', 'report_get'],    # < 11.0
     'wizard': ['execute', 'create'],                        # < 7.0
 }
 _cause_message = ("\nThe above exception was the direct cause "
@@ -123,7 +128,7 @@ for (cls, attr) in [('Constant', 'value'),      # Python >= 3.7
 
 
 # Simplified ast.literal_eval which does not parse operators
-def _convert(node, _consts={'None': None, 'True': True, 'False': False}):
+def _convert(node):
     for (ast_class, node_attr) in _ast_node_attrs:
         if isinstance(node, ast_class):
             return getattr(node, node_attr)
@@ -134,9 +139,7 @@ def _convert(node, _consts={'None': None, 'True': True, 'False': False}):
     if isinstance(node, _ast.Dict):
         return {_convert(k): _convert(v)
                 for (k, v) in zip(node.keys, node.values)}
-    if isinstance(node, _ast.Name) and node.id in _consts:
-        return _consts[node.id]             # Python <= 3.3
-    if isinstance(node, _ast.UnaryOp):      # Python >= 3
+    if isinstance(node, _ast.UnaryOp):
         if isinstance(node.op, _ast.USub):
             return -_convert(node.operand)
         if isinstance(node.op, _ast.UAdd):
@@ -371,7 +374,7 @@ class partial(functools.partial):
     __slots__ = ()
 
     def __repr__(self):
-        # Hide arguments on Python 3
+        # Hide arguments
         return '%s(%r, ...)' % (self.__class__.__name__, self.func)
 
 
@@ -918,7 +921,7 @@ class Client(object):
 
         def get_service(name):
             methods = list(_methods[name]) if (name in _methods) else []
-            if float_version < 8.0:
+            if float_version < 11.0:
                 methods += _obsolete_methods.get(name) or ()
             return Service(self, name, methods, verbose=verbose)
 
@@ -1877,7 +1880,6 @@ def _interact(global_vars, use_pprint=True, usage=USAGE):
                 msg = ''.join(format_exception(exc_type, exc, tb, chain=False))
                 print(msg.strip())
 
-    sys.exc_clear() if hasattr(sys, 'exc_clear') else None  # Python 2.x
     # Key UP to avoid an empty line
     Console().interact('\033[A')
 

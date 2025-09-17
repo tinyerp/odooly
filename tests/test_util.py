@@ -1,9 +1,9 @@
-import unittest
+from unittest import TestCase
 
 from odooly import issearchdomain, searchargs
 
 
-class TestUtils(unittest.TestCase):
+class TestUtils(TestCase):
 
     def test_issearchdomain(self):
         self.assertFalse(issearchdomain(None))

@@ -1,7 +1,7 @@
 from unittest.mock import sentinel, ANY
 
 import odooly
-from ._common import XmlRpcTestCase, OBJ, callable
+from ._common import XmlRpcTestCase, OBJ
 
 
 class TestCase(XmlRpcTestCase):
