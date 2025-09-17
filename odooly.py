@@ -925,6 +925,7 @@ class Client(object):
                 methods += _obsolete_methods.get(name) or ()
             return Service(self, name, methods, verbose=verbose)
 
+        float_version = 99.0
         self.server_version = ver = get_service('db').server_version()
         self.major_version = re.search(r'\d+\.?\d*', ver).group()
         self.version_info = float_version = float(self.major_version)
