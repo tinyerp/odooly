@@ -10,7 +10,7 @@ Source code
 
 * `Source code <https://github.com/tinyerp/odooly>`_ and
   `issue tracker <https://github.com/tinyerp/odooly/issues>`_ on GitHub.
-* Continuous tests with Python 3.5 through 3.13 and PyPy.
+* Continuous tests with Python 3.7 through 3.14 and PyPy.
 
 
 Third-party integration
