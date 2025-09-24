@@ -266,7 +266,7 @@ Example: ``client.env['res.company']`` returns a :class:`Model`.
 
    .. method:: read(fields=None)
 
-      Wrapper for the :meth:`Record.read` method.
+      Same as :meth:`Record.read` method.
 
       Return a :class:`RecordList` if `fields` is the name of a single
       ``many2one`` field, else return a :class:`list`.
@@ -274,11 +274,17 @@ Example: ``client.env['res.company']`` returns a :class:`Model`.
 
    .. method:: write(values)
 
-      Wrapper for the :meth:`Record.write` method.
+      Same as :meth:`Record.write` method.
 
    .. method:: unlink()
 
-      Wrapper for the :meth:`Record.unlink` method.
+      Same as :meth:`Record.unlink` method.
+
+   .. automethod:: copy()
+
+      Same as :meth:`Record.copy` method.
+
+      Supported since Odoo 18.0
 
    .. automethod:: exists()
 
@@ -302,7 +308,7 @@ Example: ``client.env['res.company']`` returns a :class:`Model`.
 
    .. method:: get_metadata()
 
-      Wrapper for the :meth:`Record.get_metadata` method.
+      Same as :meth:`Record.get_metadata` method.
 
    .. attribute:: _external_id
 
