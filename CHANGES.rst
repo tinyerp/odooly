@@ -5,17 +5,17 @@ Changelog
 2.2.1 (2025-09-24)
 ~~~~~~~~~~~~~~~~~~
 
-* Support :method:`Model.create` with a list of values.
+* Support method :meth:`Model.create` with a list of values.
   With Odoo >= 12.0
 
-* Support :method:`RecordList.copy`.
+* Support method :meth:`RecordList.copy`.
   With Odoo >= 18.0
 
 * Extend local mode to support Odoo >= 15.0.
 
-* Fix ``env.uninstall(...)``.
+* Fix :meth:`Env.uninstall`.
 
-* Add helper ``env.upgrade_cancel(...)`` to reset module states.
+* Add helper :meth:`Env.upgrade_cancel` to reset module states.
 
 
 2.2.0 (2025-09-16)
