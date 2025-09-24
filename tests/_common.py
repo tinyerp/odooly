@@ -28,6 +28,7 @@ class XmlRpcTestCase(TestCase):
     server_version = None
     server = None
     database = user = password = uid = None
+    maxDiff = None
 
     def setUp(self):
         self.maxDiff = 4096     # instead of 640

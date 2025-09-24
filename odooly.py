@@ -821,9 +821,9 @@ class Env(object):
             print('%s module(s) added to the list' % added)
         # Find modules
         sel = modules and ir_module.search([('name', 'in', modules)])
+        mods = ir_module.read([_pending_state], 'name state')
         if sel:
             # Safety check
-            mods = ir_module.read([_pending_state], 'name state')
             if any(mod['name'] not in modules for mod in mods):
                 raise Error('Pending actions:\n' + '\n'.join(
                     ('  %(state)s\t%(name)s' % mod) for mod in mods))
@@ -835,16 +835,13 @@ class Env(object):
                                         'state != to remove'], 'name')
                 if names:
                     raise Error('Not installed: %s' % ', '.join(names))
-                # A trick to uninstall dependent add-ons
-                sel.write({'state': 'to remove'})
-            try:
-                # Click upgrade/install/uninstall button
+                if self.client.version_info < 7.0:
+                    # A trick to uninstall dependent add-ons
+                    sel.write({'state': 'to remove'})
+            # Click upgrade/install/uninstall button
+            if button != 'cancel':
                 self.execute('ir.module.module', button, sel.ids)
-            except Exception:
-                if button == 'button_uninstall':
-                    sel.write({'state': 'installed'})
-                raise
-        mods = ir_module.read([_pending_state], 'name state')
+                mods = ir_module.read([_pending_state], 'name state')
         if not mods:
             if sel:
                 print('Already up-to-date: %s' %
@@ -861,8 +858,17 @@ class Env(object):
         # Empty the cache for this database
         self.refresh()
 
-        # Apply scheduled upgrades
-        self.execute('base.module.upgrade', 'upgrade_module', [])
+        if button == 'cancel':
+            # Reset module state
+            installed = [mod['id'] for mod in mods if mod['state'] != 'to install']
+            uninstalled = [mod['id'] for mod in mods if mod['state'] == 'to install']
+            if uninstalled:
+                self.execute('ir.module.module', 'button_install_cancel', uninstalled)
+            if installed:
+                self.execute('ir.module.module', 'button_upgrade_cancel', installed)
+        else:
+            # Apply scheduled upgrades
+            self.execute('base.module.upgrade', 'upgrade_module', [])
 
     def upgrade(self, *modules):
         """Press the button ``Upgrade``."""
@@ -875,6 +881,10 @@ class Env(object):
     def uninstall(self, *modules):
         """Press the button ``Uninstall``."""
         return self._upgrade(modules, button='button_uninstall')
+
+    def upgrade_cancel(self, *modules):
+        """Press the button ``Cancel Upgrade/Install/Uninstall``."""
+        return self._upgrade(modules, button='cancel')
 
 
 class Client(object):
