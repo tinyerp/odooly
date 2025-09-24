@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-2.x.x (unreleased)
+2.2.1 (2025-09-24)
 ~~~~~~~~~~~~~~~~~~
 
 * Support :method:`Model.create` with a list of values.
