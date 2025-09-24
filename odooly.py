@@ -488,7 +488,6 @@ class Env(object):
 
     def __bool__(self):
         return True
-    __nonzero__ = __bool__
 
     __eq__ = object.__eq__
     __ne__ = object.__ne__
@@ -1422,7 +1421,6 @@ class BaseRecord(BaseModel):
 
     def __bool__(self):
         return bool(self.ids)
-    __nonzero__ = __bool__
 
     def __len__(self):
         return len(self.ids)
