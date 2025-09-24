@@ -11,6 +11,8 @@ Changelog
 * Support :method:`RecordList.copy`.
   With Odoo >= 18.0
 
+* Extend local mode to support Odoo >= 15.0.
+
 
 2.2.0 (2025-09-16)
 ~~~~~~~~~~~~~~~~~~
