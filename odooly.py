@@ -387,7 +387,7 @@ class ServerError(Exception):
     """An error received from the server."""
 
 
-class Service(object):
+class Service:
     """A wrapper around XML-RPC endpoints.
 
     The connected endpoints are exposed on the Client instance.
@@ -444,7 +444,7 @@ class Service(object):
         return _memoize(self, name, wrapper)
 
 
-class Env(object):
+class Env:
     """An environment wraps data for Odoo models and records:
 
         - :attr:`db_name`, the current database;
@@ -886,7 +886,7 @@ class Env(object):
         return self._upgrade(modules, button='cancel')
 
 
-class Client(object):
+class Client:
     """Connection to an Odoo instance.
 
     This is the top level object.
@@ -1095,7 +1095,7 @@ class Client(object):
         return self.login(self.env.user.login, password, database=database)
 
 
-class BaseModel(object):
+class BaseModel:
 
     ids = ()
 
@@ -1875,7 +1875,7 @@ def _interact(global_vars, use_pprint=True, usage=USAGE):
             _builtins._ = value
         sys.displayhook = displayhook
 
-    class Usage(object):
+    class Usage:
         def __call__(self):
             print(usage)
         __repr__ = lambda s: usage
