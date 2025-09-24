@@ -87,9 +87,10 @@ _methods = {
 # New 7.0: (db) duplicate_database
 # New 9.0: (db) list_countries
 # No-op:   (common) set_loglevel
+# Remove 19.0: (common) version
+# replaced by: GET /web/version (or (db) server_version)
 
 _obsolete_methods = {
-    'db': ['create', 'get_progress'],                       # < 8.0
     'common': [
         'check_connectivity', 'get_available_updates',
         'get_migration_scripts', 'get_os_time', 'get_stats',
@@ -97,6 +98,7 @@ _obsolete_methods = {
         'list_http_services', 'login_message',              # < 8.0
         'timezone_get',                                     # < 9.0
     ],
+    'db': ['create', 'get_progress'],                       # < 8.0
     'object': ['exec_workflow'],                            # < 11.0
     'report': ['render_report', 'report', 'report_get'],    # < 11.0
     'wizard': ['execute', 'create'],                        # < 7.0
@@ -262,8 +264,7 @@ def start_odoo_services(options=None, appname=None):
         import openerp as odoo
     except ImportError:
         import odoo
-    odoo._api_v7 = odoo.release.version_info < (8,)
-    if not (odoo._api_v7 and odoo.osv.osv.service):
+    if not hasattr(odoo, "_get_pool"):
         os.putenv('TZ', 'UTC')
         if appname is not None:
             os.putenv('PGAPPNAME', appname)
@@ -272,7 +273,7 @@ def start_odoo_services(options=None, appname=None):
             odoo.netsvc.init_logger()
             odoo.osv.osv.start_object_proxy()
             odoo.service.web_services.start_web_services()
-        elif odoo._api_v7:
+        elif odoo.release.version_info < (8,):
             odoo.service.start_internal()
         else:   # Odoo v8
             odoo.api.Environment.reset()
@@ -909,7 +910,8 @@ class Client(object):
 
         if not isinstance(server, str):
             assert not transport, 'Not supported'
-            self._proxy = self._proxy_dispatch
+            api_v7 = server.release.version_info < (8,)
+            self._proxy = self._proxy_v7 if api_v7 else self._proxy_dispatch
         elif '/jsonrpc' in server:
             assert not transport, 'Not supported'
             self._proxy = self._proxy_jsonrpc
@@ -938,9 +940,10 @@ class Client(object):
         self._wizard = get_service('wizard') if float_version < 7.0 else None
 
     def _proxy_dispatch(self, name):
-        if self._server._api_v7:
-            return self._server.netsvc.ExportService.getService(name).dispatch
         return partial(self._server.http.dispatch_rpc, name)
+
+    def _proxy_v7(self, name):
+        return self._server.netsvc.ExportService.getService(name).dispatch
 
     def _proxy_xmlrpc(self, name):
         proxy = ServerProxy(self._server + '/' + name,
