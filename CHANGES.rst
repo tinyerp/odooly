@@ -13,6 +13,10 @@ Changelog
 
 * Extend local mode to support Odoo >= 15.0.
 
+* Fix ``env.uninstall(...)``.
+
+* Add helper ``env.upgrade_cancel(...)`` to reset module states.
+
 
 2.2.0 (2025-09-16)
 ~~~~~~~~~~~~~~~~~~
@@ -25,7 +29,7 @@ Changelog
 
 * Enable Github Actions CI. Remove Travis CI.
 
-* Support new search operators: `any|not any|parent_of`
+* Support new search operators: `any|not any|parent_of`.
 
 
 2.1.9 (2019-10-02)

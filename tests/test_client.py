@@ -505,15 +505,20 @@ class TestClientApi(XmlRpcTestCase):
             bmu('upgrade_module', []),
         ]
         if button == 'uninstall':
-            execute_return[3:3] = [[], {'state': {'type': 'selection'}}, ANY]
             expected_calls[3:3] = [
                 imm('search', [('id', 'in', [42]),
                                ('state', '!=', 'installed'),
                                ('state', '!=', 'to upgrade'),
-                               ('state', '!=', 'to remove')]),
-                imm('fields_get'),
-                imm('write', [42], {'state': 'to remove'}),
+                               ('state', '!=', 'to remove')])
             ]
+            if float(self.server_version) < 7.0:
+                expected_calls[4:4] = [
+                    imm('fields_get'),
+                    imm('write', [42], {'state': 'to remove'}),
+                ]
+                execute_return[3:3] = [[], {'state': {'type': 'selection'}}, ANY]
+            else:
+                execute_return[3:3] = [[]]
 
         self.service.object.execute_kw.side_effect = execute_return
         result = action('dummy', 'spam')

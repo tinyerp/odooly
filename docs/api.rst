@@ -205,6 +205,8 @@ Python script or interactively in a Python session.
 
 .. automethod:: Env.uninstall
 
+.. automethod:: Env.upgrade_cancel
+
 .. note::
 
    It is not recommended to install or upgrade modules in offline mode when
