@@ -275,7 +275,7 @@ def start_odoo_services(options=None, appname=None):
             odoo.service.web_services.start_web_services()
         elif odoo.release.version_info < (8,):
             odoo.service.start_internal()
-        else:   # Odoo v8
+        elif odoo.release.version_info < (15,):
             odoo.api.Environment.reset()
 
         try:
