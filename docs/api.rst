@@ -282,10 +282,6 @@ Example: ``client.env['res.company']`` returns a :class:`Model`.
 
    .. automethod:: copy()
 
-      Same as :meth:`Record.copy` method.
-
-      Supported since Odoo 18.0
-
    .. automethod:: exists()
 
    .. automethod:: mapped(func)
