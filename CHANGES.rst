@@ -8,6 +8,8 @@ Changelog
 * Use a Web session for JSON-RPC requests
   when Requests is installed.
 
+* Drop support for Python 3.5
+
 
 2.2.1 (2025-09-24)
 ~~~~~~~~~~~~~~~~~~
