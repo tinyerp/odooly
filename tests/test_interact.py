@@ -21,7 +21,7 @@ class TestInteract(XmlRpcTestCase):
     )
 
     def setUp(self):
-        super(TestInteract, self).setUp()
+        super().setUp()
         # Hide readline module
         mock.patch.dict('sys.modules', {'readline': None}).start()
         mock.patch('odooly.Client._globals', None).start()

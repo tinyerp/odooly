@@ -86,7 +86,7 @@ class TestCase(XmlRpcTestCase):
         return [sentinel.OTHER]
 
     def setUp(self):
-        super(TestCase, self).setUp()
+        super().setUp()
         self.service.object.execute_kw.side_effect = self.obj_exec
         # preload 'foo.bar'
         self.env['foo.bar']
