@@ -2,6 +2,13 @@ Changelog
 ---------
 
 
+2.x.x (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* Use a Web session for JSON-RPC requests
+  when Requests is installed.
+
+
 2.2.1 (2025-09-24)
 ~~~~~~~~~~~~~~~~~~
 

@@ -23,8 +23,9 @@ from xmlrpc.client import Fault, ServerProxy, MININT, MAXINT
 
 try:
     import requests
+    http_session = requests.Session()
 except ImportError:
-    requests = None
+    http_session = None
 
 __version__ = '2.2.1'
 __all__ = ['Client', 'Env', 'Service', 'BaseModel', 'Model',
@@ -61,6 +62,7 @@ Usage (some commands):
     env.install(module1, module2, ...)
     env.upgrade(module1, module2, ...)
                                     # Install or upgrade the modules
+    env.upgrade_cancel()            # Reset failed upgrade/install
 """
 
 DOMAIN_OPERATORS = frozenset('!|&')
@@ -345,11 +347,12 @@ if os.getenv('ODOOLY_SSL_UNVERIFIED'):
     def ServerProxy(url, transport, allow_none, _ServerProxy=ServerProxy):
         return _ServerProxy(url, transport=transport, allow_none=allow_none,
                             context=ssl._create_unverified_context())
-    requests = False
+    http_session = None
 
-if requests:
+
+if http_session:
     def http_post(url, data, headers={'Content-Type': 'application/json'}):
-        resp = requests.post(url, data=data, headers=headers)
+        resp = http_session.post(url, data=data, headers=headers)
         return resp.json()
 else:
     def http_post(url, data, headers={'Content-Type': 'application/json'}):
@@ -388,7 +391,7 @@ class ServerError(Exception):
 
 
 class Service:
-    """A wrapper around XML-RPC endpoints.
+    """A wrapper around RPC endpoints.
 
     The connected endpoints are exposed on the Client instance.
     The `server` argument is the URL of the server (scheme+host+port).
@@ -1689,10 +1692,12 @@ class RecordList(BaseRecord):
         return values
 
     def copy(self, default=None):
-        """Copy records and return :class:`RecordList`.  Odoo >= 18.0
+        """Copy records and return :class:`RecordList`.
 
         The optional argument `default` is a mapping which overrides some
         values of the new records.
+
+        Supported since Odoo 18.
         """
         if default:
             default = self._model._unbrowse_values(default)
