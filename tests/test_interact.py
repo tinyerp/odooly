@@ -9,6 +9,7 @@ from ._common import XmlRpcTestCase
 
 class TestInteract(XmlRpcTestCase):
     server_version = '6.1'
+    server = f"{XmlRpcTestCase.server}/xmlrpc"
     startup_calls = (
         call(ANY, 'db', ANY, verbose=ANY),
         'db.server_version',
@@ -31,7 +32,7 @@ class TestInteract(XmlRpcTestCase):
         mock.patch('odooly.main.__defaults__', (self.interact,)).start()
 
     def test_main(self):
-        env_tuple = ('http://127.0.0.1:8069', 'database', 'usr', None)
+        env_tuple = (self.server, 'database', 'usr', None)
         mock.patch('sys.argv', new=['odooly', '--env', 'demo']).start()
         read_config = mock.patch('odooly.read_config',
                                  return_value=env_tuple).start()
@@ -54,13 +55,11 @@ class TestInteract(XmlRpcTestCase):
         self.assertEqual(sys.ps2, '     ... ')
         expected_calls = self.startup_calls + (
             ('common.login', 'database', 'usr', 'password'),
-            ('object.execute_kw', 'database', 17, 'password',
-             'res.users', 'context_get', ()),
+            ('object.execute_kw', 'database', 17, 'password', 'res.users', 'context_get'),
             ('object.execute_kw', 'database', 17, 'password',
              'ir.model.access', 'check', ('res.users', 'write')),
             ('common.login', 'database', 'gaspard', 'password'),
-            ('object.execute_kw', 'database', 51, 'password',
-             'res.users', 'context_get', ()),
+            ('object.execute_kw', 'database', 51, 'password', 'res.users', 'context_get'),
         )
         self.assertCalls(*expected_calls)
         self.assertEqual(getpass.call_count, 2)
@@ -69,7 +68,7 @@ class TestInteract(XmlRpcTestCase):
         outlines = self.stdout.popvalue().splitlines()
         self.assertSequenceEqual(outlines[-5:], [
             "Logged in as 'usr'",
-            "<Client 'http://127.0.0.1:8069/xmlrpc#database'>",
+            f"<Client '{self.server}#database'>",
             "<Env 'usr@database'>",
             "Logged in as 'gaspard'",
             "42",
@@ -77,7 +76,7 @@ class TestInteract(XmlRpcTestCase):
         self.assertOutput(stderr='\x1b[A\n\n', startswith=True)
 
     def test_no_database(self):
-        env_tuple = ('http://127.0.0.1:8069', 'missingdb', 'usr', None)
+        env_tuple = (self.server, 'missingdb', 'usr', None)
         mock.patch('sys.argv', new=['odooly', '--env', 'demo']).start()
         read_config = mock.patch('odooly.read_config',
                                  return_value=env_tuple).start()
@@ -97,14 +96,14 @@ class TestInteract(XmlRpcTestCase):
         outlines = self.stdout.popvalue().splitlines()
         self.assertSequenceEqual(outlines[-4:], [
             "Error: Database 'missingdb' does not exist: ['database']",
-            "<Client 'http://127.0.0.1:8069/xmlrpc#()'>",
+            f"<Client '{self.server}#()'>",
             "<Env '@()'>",
             "Error: Not connected",
         ])
         self.assertOutput(stderr=ANY)
 
     def test_invalid_user_password(self):
-        env_tuple = ('http://127.0.0.1:8069', 'database', 'usr', 'passwd')
+        env_tuple = (self.server, 'database', 'usr', 'passwd')
         mock.patch('sys.argv', new=['odooly', '--env', 'demo']).start()
         mock.patch('os.environ', new={'LANG': 'fr_FR.UTF-8'}).start()
         mock.patch('odooly.read_config', return_value=env_tuple).start()
@@ -126,8 +125,7 @@ class TestInteract(XmlRpcTestCase):
 
         expected_calls = self.startup_calls + (
             ('common.login', 'database', 'usr', 'passwd'),
-            ('object.execute_kw', 'database', 17, 'passwd',
-             'res.users', 'context_get', ()),
+            ('object.execute_kw', 'database', 17, 'passwd', 'res.users', 'context_get'),
             usr17('ir.model', 'search',
                   [('model', 'like', 'res.company')]),
             usr17('ir.model', 'read', 42, ('model',)),

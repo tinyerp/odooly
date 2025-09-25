@@ -8,9 +8,9 @@ The library provides few objects to access the Odoo model and the
 associated services of `the Odoo API`_.
 
 The signature of the methods mimics the standard methods provided by the
-:class:`osv.Model` Odoo class.  This is intended to help the developer when
-developping addons.  What is experimented at the interactive prompt should
-be portable in the application with little effort.
+:class:`odoo.models.Model` Odoo class.  This is intended to help the developer
+when developping addons.  What is experimented at the interactive prompt
+should be portable in the application with little effort.
 
 .. contents::
    :local:
@@ -21,9 +21,10 @@ be portable in the application with little effort.
 Client and Services
 -------------------
 
-The :class:`Client` object provides thin wrappers around Odoo RPC services
-and their methods.  Additional helpers are provided to explore the models and
-list or install Odoo add-ons.
+The :class:`Client` object provides thin wrappers around Odoo Webclient API
+and RPC services and their methods.  Additional helpers are provided on the
+``Client.env`` environment, to explore the models and to list or to install
+Odoo add-ons.  Please refer to :class:`Env` documentation below.
 
 
 .. autoclass:: Client
@@ -34,7 +35,13 @@ list or install Odoo add-ons.
 
 .. automethod:: Client.clone_database
 
+.. automethod:: Client.drop_database
+
 .. automethod:: Client.login
+
+.. attribute:: Client.env
+
+   Current :class:`Env` environment of the client.
 
 
 .. note::
@@ -50,16 +57,53 @@ list or install Odoo add-ons.
    ``ODOOLY_SSL_UNVERIFIED=1``.
 
 
+Odoo Webclient API
+~~~~~~~~~~~~~~~~~~
+
+These HTTP routes were developed for the Odoo Web application.  They are used
+by Odooly to provide high level methods on :class:`Env` and :class:`Model`.
+The :attr:`~Client.database` endpoint exposes few methods which might be helpful
+for database management.  Use :func:`dir` function to introspect them.
+
+.. attribute:: Client.database
+
+   Expose the ``database`` :class:`WebAPI`.
+
+   Example: :meth:`Client.database.list` method.
+
+.. attribute:: Client.web
+
+   Expose the root ``/web`` :class:`WebAPI`.
+
+.. attribute:: Client.web_dataset
+
+   Expose the ``/web/dataset`` :class:`WebAPI`.
+
+.. attribute:: Client.web_session
+
+   Expose the ``/web/session`` :class:`WebAPI`.
+
+.. attribute:: Client.web_webclient
+
+   Expose the ``/web/webclient`` :class:`WebAPI`.
+
+
 Odoo RPC Services
 ~~~~~~~~~~~~~~~~~
 
-The naked Odoo RPC services are exposed too.
-The :attr:`~Client.db` and the :attr:`~Client.common` services expose few
+.. note::
+
+   These RPC services are deprecated in Odoo 19.0.  They are
+   scheduled for removal in Odoo 20.0.
+
+The Odoo RPC services are exposed too. They could be used for server and
+database operations.
+The :attr:`~Client.db` and the :attr:`~Client.common` services provided
 methods which might be helpful for server administration.  Use the
 :func:`dir` function to introspect them.  The :attr:`~Client._object`
-service should not be used directly because its methods are wrapped and
-exposed on the :class:`Env` object itself.
-The two last services are deprecated and removed in recent versions of Odoo.
+service should not be used directly.  It provides same feature as the
+:attr:`~Client.web_dataset` Webclient endpoint.  Use :class:`Env` and :class:`Model`
+instead.
 Please refer to `the Odoo documentation`_ for more details.
 
 
@@ -70,15 +114,21 @@ Please refer to `the Odoo documentation`_ for more details.
    Examples: :meth:`Client.db.list` or :meth:`Client.db.server_version`
    RPC methods.
 
+   Removed in Odoo 20.
+
 .. attribute:: Client.common
 
    Expose the ``common`` :class:`Service`.
 
    Example: :meth:`Client.common.login_message` RPC method.
 
+   Removed in Odoo 20.
+
 .. data:: Client._object
 
    Expose the ``object`` :class:`Service`.
+
+   Removed in Odoo 20.
 
 .. attribute:: Client._report
 
@@ -92,12 +142,16 @@ Please refer to `the Odoo documentation`_ for more details.
 
    Removed in OpenERP 7.
 
+.. autoclass:: WebAPI
+   :members:
+   :undoc-members:
+
 .. autoclass:: Service
    :members:
    :undoc-members:
 
 .. _the Odoo documentation:
-.. _the Odoo API: http://doc.odoo.com/v6.1/developer/12_api.html#api
+.. _the Odoo API: https://www.odoo.com/documentation/19.0/developer/reference/external_rpc_api.html
 
 
 Environment
@@ -131,6 +185,16 @@ Environment
 
       Cursor on the current database.
 
+   .. automethod:: session_authenticate
+
+   .. automethod:: session_destroy
+
+   .. attribute:: session_info
+
+      Dictionary returned when a Webclient session is authenticated.
+      It contains ``uid`` and ``user_context`` among other user's preferences
+      and server parameters.
+
    .. automethod:: sudo(user=SUPERUSER_ID)
 
 
@@ -150,6 +214,12 @@ Please refer to `the Odoo documentation`_ for details.
 
 
 .. automethod:: Env.execute(obj, method, *params, **kwargs)
+
+.. automethod:: Env._call_kw(obj, method, *params, **kwargs)
+
+.. attribute:: Env._web(obj, method, *params, **kwargs)
+
+   Expose the root of the ``/web`` API.
 
 .. method:: Env.exec_workflow(obj, signal, obj_id)
 
@@ -212,7 +282,7 @@ Python script or interactively in a Python session.
    It is not recommended to install or upgrade modules in offline mode when
    any web server is still running: the operation will not be signaled to
    other processes.  This restriction does not apply when connected through
-   XML-RPC or JSON-RPC.
+   Webclient API or other RPC API.
 
 
 .. _model-and-records:
@@ -222,7 +292,7 @@ Model and Records
 
 The :class:`Env` provides a high level API similar to the Odoo API, which
 encapsulates objects into `Active Records
-<http://www.martinfowler.com/eaaCatalog/activeRecord.html>`_.
+<https://www.martinfowler.com/eaaCatalog/activeRecord.html>`_.
 
 The :class:`Model` is instantiated using the ``client.env[...]`` syntax.
 

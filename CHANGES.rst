@@ -5,8 +5,20 @@ Changelog
 2.x.x (unreleased)
 ~~~~~~~~~~~~~~~~~~
 
-* Use a Web session for JSON-RPC requests
-  when Requests is installed.
+* Support webclient :class:`WebAPI` protocol as an alternative:
+  ``/web/dataset/*``, ``/web/database/*``, ...
+  Webclient API is stable since Odoo 9.0
+
+* Authenticate with ``/web/session/authenticate`` by default
+  and retrieve :attr:`Env.session_info`, with Odoo >= 9.0.
+
+* Use Webclient API by default when ``protocol`` is not set.
+  It is same as setting ``protocol = web``
+
+* New function :meth:`Client.drop_database`.
+
+* New functions to create/destroy a session:
+  :meth:`Env.session_authenticate` and :meth:`Env.session_destroy`.
 
 * Drop support for Python 3.5
 

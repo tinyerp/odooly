@@ -6,13 +6,13 @@ from ._common import XmlRpcTestCase, OBJ
 
 class TestCase(XmlRpcTestCase):
     server_version = '6.1'
-    server = 'http://127.0.0.1:8069'
+    server = f"{XmlRpcTestCase.server}/xmlrpc"
     database = 'database'
     user = 'user'
     password = 'passwd'
     uid = 1
 
-    def obj_exec(self, db_name, uid, passwd, model, method, args, kw=None):
+    def obj_exec(self, db_name, uid, passwd, model, method, args=None, kw=None):
         if method == 'search':
             domain = args[0]
             if model.startswith('ir.model'):
@@ -77,6 +77,8 @@ class TestCase(XmlRpcTestCase):
             if 8888 in ids:
                 ids[ids.index(8888)] = b'\xdan\xeecode'.decode('latin-1')
             return [(res_id, b'name_%s'.decode() % res_id) for res_id in ids]
+        if method == 'context_get':
+            return {'tz': 'Europe/Zurich', 'lang': 'en_US'}
         if method in ('create', 'copy'):
             single_id = (
                 (method == 'copy' and isinstance(args[0], int)) or
@@ -1320,14 +1322,20 @@ class TestRecord(TestCase):
         records = env['foo.bar'].browse([13, 17])
         rec = env['foo.bar'].browse(42)
 
-        def guest(model, method, *params):
+        def guest(model, method, *params, **kw):
+            if 'context' not in kw:
+                kw['context'] = {'lang': 'en_US', 'tz': 'Europe/Zurich'}
+            elif kw['context'] is None:
+                del kw['context']
+            extra = (params, kw) if kw else (params,) if params else ()
             return ('object.execute_kw', self.database, 1001, 'v_password',
-                    model, method, params)
+                    model, method, *extra)
 
         self.assertCalls(
             OBJ('ir.model.access', 'check', 'res.users', 'write'),
             OBJ('res.users', 'search', [('login', '=', 'guest')]),
             OBJ('res.users', 'read', [1001, 1002], ['id', 'login', 'password']),
+            guest('res.users', 'context_get', context=None),
         )
 
         records.read()
@@ -1340,9 +1348,11 @@ class TestRecord(TestCase):
         self.assertCalls(
             guest('foo.bar', 'read', [13, 17], None),
             guest('foo.bar', 'fields_get'),
-            OBJ('foo.bar', 'read', [13, 17], None, context=None),
+            OBJ('res.users', 'context_get', context=None),
+            OBJ('foo.bar', 'read', [13, 17], None),
             guest('foo.bar', 'read', [42], ['message']),
-            OBJ('foo.bar', 'read', [42], ['name', 'message'], context=None),
+            OBJ('res.users', 'context_get', context=None),
+            OBJ('foo.bar', 'read', [42], ['name', 'message']),
             guest('foo.bar', 'read', [42], ['message']),
             guest('foo.bar', 'read', [13, 17], None),
         )

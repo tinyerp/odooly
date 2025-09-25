@@ -10,11 +10,11 @@ Odooly's documentation
 *A versatile tool for browsing Odoo / OpenERP data*
 
 The Odooly library communicates with any `Odoo / OpenERP server`_ (>= 6.1)
-using `the standard XML-RPC interface`_ or the new JSON-RPC interface.
+using the Webclient API or `the deprecated external RPC interface`_ (JSON-RPC or XML-RPC).
 
 It provides both a :ref:`fully featured low-level API <client-and-services>`,
 and an encapsulation of the methods on :ref:`Active Record objects
-<model-and-records>`.  It implements the Odoo API 8.0.
+<model-and-records>`.  It implements the Odoo API.
 Additional helpers are provided to explore the model and administrate the
 server remotely.
 
@@ -35,11 +35,11 @@ Contents:
    tutorial
    developer
 
-* Online documentation: http://odooly.readthedocs.org/
+* Online documentation: https://odooly.readthedocs.io/
 * Source code and issue tracker: https://github.com/tinyerp/odooly
 
-.. _Odoo / OpenERP server: http://doc.odoo.com/
-.. _the standard XML-RPC interface: http://doc.odoo.com/v6.1/developer/12_api.html#api
+.. _Odoo / OpenERP server: https://www.odoo.com/documentation/
+.. _the deprecated external RPC interface: https://www.odoo.com/documentation/19.0/developer/reference/external_rpc_api.html
 
 
 Indices and tables

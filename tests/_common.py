@@ -21,17 +21,17 @@ def OBJ(model, method, *params, **kw):
         kw['context'] = sample_context
     elif kw['context'] is None:
         del kw['context']
-    return ('object.execute_kw', sentinel.AUTH, model, method, params) + ((kw,) if kw else ())
+    extra = (params, kw) if kw else (params,) if params else ()
+    return ('object.execute_kw', sentinel.AUTH, model, method, *extra)
 
 
 class XmlRpcTestCase(TestCase):
     server_version = None
-    server = None
+    server = "http://192.0.2.199:9999"
     database = user = password = uid = None
     maxDiff = None
 
     def setUp(self):
-        self.maxDiff = 4096     # instead of 640
         self.addCleanup(mock.patch.stopall)
         self.stdout = mock.patch('sys.stdout', new=PseudoFile()).start()
         self.stderr = mock.patch('sys.stderr', new=PseudoFile()).start()
@@ -44,12 +44,23 @@ class XmlRpcTestCase(TestCase):
 
         self.service = self._patch_service()
         if self.server and self.database:
+            if float(self.server_version) > 8.0:
+                self._patch_http_post()
             # create the client
             self.client = odooly.Client(
                 self.server, self.database, self.user, self.password)
             self.env = self.client.env
             # reset the mock
             self.service.reset_mock()
+
+    def _patch_http_post(self, uid=None, context=sample_context):
+        def func(url, *, data=None, json=None):
+            if url.endswith("/web/session/authenticate"):
+                result = {'uid': uid or self.uid, 'user_context': context}
+            else:
+                raise RuntimeError
+            return {'result': result}
+        return mock.patch('odooly.Client._post', side_effect=func).start()
 
     def _patch_service(self):
         def get_svc(server, name, *args, **kwargs):

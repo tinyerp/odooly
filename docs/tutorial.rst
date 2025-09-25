@@ -6,7 +6,7 @@ Tutorial
 
 This tutorial demonstrates some features of Odooly in the interactive shell.
 
-It assumes an Odoo or OpenERP server is installed.
+It assumes an Odoo server is installed.
 The shell is a true Python shell.  We have access to all the features and
 modules of the Python interpreter.
 
@@ -32,11 +32,16 @@ If our configuration is different, then we use arguments, like::
 
     $ odooly --server http://192.168.0.42:8069
 
-It connects using the XML-RPC protocol. If you want to use the JSON-RPC
-protocol instead, then pass the full URL with ``/jsonrpc`` path::
+It connects using the Webclient API. If you want to use the JSON-RPC
+external API instead, then pass the full URL with ``/jsonrpc`` path::
 
     $ odooly --server http://127.0.0.1:8069/jsonrpc
 
+
+.. note::
+
+    These protocols JSON-RPC and XML-RPC are deprecated in Odoo 19.0 and will
+    be removed in Odoo 20.0.
 
 On login, it prints few lines about the commands available.
 
@@ -64,6 +69,7 @@ On login, it prints few lines about the commands available.
         env.install(module1, module2, ...)
         env.upgrade(module1, module2, ...)
                                         # Install or upgrade the modules
+        env.upgrade_cancel()            # Reset failed upgrade/install
 
 And it confirms that the default database is not available::
 
@@ -73,9 +79,9 @@ And it confirms that the default database is not available::
 Though, we have a connected client, ready to use::
 
     >>> client
-    <Client 'http://localhost:8069/xmlrpc#()'>
+    <Client 'http://localhost:8069/web#()'>
     >>> client.server_version
-    '6.1'
+    '18.0'
     >>> #
 
 
@@ -96,8 +102,8 @@ Default password is ``"admin"``.
     >>> client.create_database('super_password', 'demo')
     Logged in as 'admin'
     >>> client
-    <Client 'http://localhost:8069/xmlrpc#demo'>
-    >>> client.db.list()
+    <Client 'http://localhost:8069/web#demo'>
+    >>> client.database.list()
     ['demo']
     >>> env
     <Env 'admin@demo'>
@@ -137,8 +143,8 @@ database name and the superadmin password.
     >>> client.clone_database('super_password', 'demo_test')
     Logged in as 'admin'
     >>> client
-    <Client 'http://localhost:8069/xmlrpc#demo_test'>
-    >>> client.db.list()
+    <Client 'http://localhost:8069/web#demo_test'>
+    >>> client.database.list()
     ['demo', 'demo_test']
     >>> env
     <Env 'admin@demo'>
@@ -160,7 +166,7 @@ Where is the table for the users?
 .. sourcecode:: pycon
 
     >>> client
-    <Client 'http://localhost:8069/xmlrpc#demo'>
+    <Client 'http://localhost:8069/web#demo'>
     >>> env.models('user')
     ['res.users', 'res.users.log']
 

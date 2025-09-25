@@ -10,13 +10,13 @@ Download and install the latest release::
    :local:
    :backlinks: top
 
-Documentation and tutorial: http://odooly.readthedocs.org
+Documentation and tutorial: https://odooly.readthedocs.io/
 
 
 Overview
 --------
 
-Odooly carries three completing uses:
+Odooly carries three modes of use:
 
 (1) with command line arguments
 (2) as an interactive shell
@@ -25,14 +25,15 @@ Odooly carries three completing uses:
 
 Key features:
 
-- provides an API very close to the Odoo API, through JSON-RPC and XML-RPC
+- provides an API similar to Odoo Model, through Webclient API
 - compatible with OpenERP 6.1 through Odoo 19.0
-- single executable ``odooly.py``, no external dependency
+- supports external APIs JSON-RPC and XML-RPC as alternative
+- single file ``odooly.py``, no external dependency
 - helpers for ``search``, for data model introspection, etc...
-- simplified syntax for search ``domain`` and ``fields``
-- full API accessible on the ``Client.env`` environment
-- the module can be imported and used as a library: ``from odooly import Client``
-- supports Python 3.6 and above
+- simplified syntax for search ``domain``
+- entire API accessible on the ``Client.env`` environment
+- can be imported and used as a library: ``from odooly import Client``
+- supports Python 3.6 and more recent
 
 
 
@@ -59,7 +60,7 @@ Although it is quite limited::
       -c CONFIG, --config=CONFIG
                             specify alternate config file (default: 'odooly.ini')
       --server=SERVER       full URL of the server (default:
-                            http://localhost:8069/xmlrpc)
+                            http://localhost:8069/web)
       -d DB, --db=DB        database
       -u USER, --user=USER  username
       -p PASSWORD, --password=PASSWORD
@@ -113,7 +114,7 @@ Edit ``odooly.ini`` and declare the environment(s)::
     [demo]
     username = demo
     password = demo
-    protocol = xmlrpc
+    protocol = web
 
     [demo_jsonrpc]
     username = demo
@@ -164,6 +165,6 @@ This is a sample session::
 
 .. note::
 
-   To preserve the history of commands when closing the session, first
+   To preserve the commands' history when closing the session, first
    create an empty file in your home directory:
    ``touch ~/.odooly_history``

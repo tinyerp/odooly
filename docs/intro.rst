@@ -10,7 +10,7 @@ Installation
 ------------
 
 Download and install the `latest release
-<http://pypi.python.org/pypi/Odooly>`__ from PyPI::
+<https://pypi.org/project/Odooly>`__ from PyPI::
 
     pip install -U odooly
 
