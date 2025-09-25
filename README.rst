@@ -10,7 +10,7 @@ Download and install the latest release::
    :local:
    :backlinks: top
 
-Documentation and tutorial: http://odooly.readthedocs.org
+Documentation and tutorial: https://odooly.readthedocs.io/
 
 
 Overview
@@ -25,8 +25,9 @@ Odooly carries three completing uses:
 
 Key features:
 
-- provides an API very close to the Odoo API, through JSON-RPC and XML-RPC
+- provides an API very close to the Odoo API, through Webclient API
 - compatible with OpenERP 6.1 through Odoo 19.0
+- supports external APIs JSON-RPC and XML-RPC as alternative
 - single executable ``odooly.py``, no external dependency
 - helpers for ``search``, for data model introspection, etc...
 - simplified syntax for search ``domain`` and ``fields``
@@ -59,7 +60,7 @@ Although it is quite limited::
       -c CONFIG, --config=CONFIG
                             specify alternate config file (default: 'odooly.ini')
       --server=SERVER       full URL of the server (default:
-                            http://localhost:8069/xmlrpc)
+                            http://localhost:8069/web)
       -d DB, --db=DB        database
       -u USER, --user=USER  username
       -p PASSWORD, --password=PASSWORD
@@ -113,7 +114,7 @@ Edit ``odooly.ini`` and declare the environment(s)::
     [demo]
     username = demo
     password = demo
-    protocol = xmlrpc
+    protocol = web
 
     [demo_jsonrpc]
     username = demo

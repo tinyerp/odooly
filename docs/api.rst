@@ -34,6 +34,8 @@ list or install Odoo add-ons.
 
 .. automethod:: Client.clone_database
 
+.. automethod:: Client.drop_database
+
 .. automethod:: Client.login
 
 
@@ -50,8 +52,37 @@ list or install Odoo add-ons.
    ``ODOOLY_SSL_UNVERIFIED=1``.
 
 
+Odoo Webclient API
+~~~~~~~~~~~~~~~~~~
+
+These HTTP routes were developed for the Odoo Web application.  They are now
+used by Odooly to provide high level methods on :class:`Env`
+and :class:`Model`.
+
+.. attribute:: Client.database
+
+   Expose the ``database`` :class:`WebAPI`.
+
+   Example: :meth:`Client.database.list` method.
+
+.. attribute:: Client.web
+
+   Expose the root of the ``/web`` API.
+
+.. attribute:: Client.web_dataset
+
+.. attribute:: Client.web_session
+
+.. attribute:: Client.web_webclient
+
+
 Odoo RPC Services
 ~~~~~~~~~~~~~~~~~
+
+.. note::
+
+   These RPC services are deprecated in Odoo 19.0.  They are
+   scheduled for removal in Odoo 20.0 in 2026.
 
 The naked Odoo RPC services are exposed too.
 The :attr:`~Client.db` and the :attr:`~Client.common` services expose few
@@ -92,12 +123,16 @@ Please refer to `the Odoo documentation`_ for more details.
 
    Removed in OpenERP 7.
 
+.. autoclass:: WebAPI
+   :members:
+   :undoc-members:
+
 .. autoclass:: Service
    :members:
    :undoc-members:
 
 .. _the Odoo documentation:
-.. _the Odoo API: http://doc.odoo.com/v6.1/developer/12_api.html#api
+.. _the Odoo API: https://www.odoo.com/documentation/19.0/developer/reference/external_rpc_api.html
 
 
 Environment
@@ -131,6 +166,16 @@ Environment
 
       Cursor on the current database.
 
+   .. automethod:: session_authenticate
+
+   .. automethod:: session_destroy
+
+   .. attribute:: session_info
+
+      Dictionary returned when a Webclient session is authenticated.
+      It contains ``uid`` and ``user_context`` among other user's preferences
+      and server parameters.
+
    .. automethod:: sudo(user=SUPERUSER_ID)
 
 
@@ -150,6 +195,12 @@ Please refer to `the Odoo documentation`_ for details.
 
 
 .. automethod:: Env.execute(obj, method, *params, **kwargs)
+
+.. automethod:: Env._call_kw(obj, method, *params, **kwargs)
+
+.. attribute:: Env._web(obj, method, *params, **kwargs)
+
+   Expose the root of the ``/web`` API.
 
 .. method:: Env.exec_workflow(obj, signal, obj_id)
 
@@ -212,7 +263,7 @@ Python script or interactively in a Python session.
    It is not recommended to install or upgrade modules in offline mode when
    any web server is still running: the operation will not be signaled to
    other processes.  This restriction does not apply when connected through
-   XML-RPC or JSON-RPC.
+   Webclient API or other RPC API.
 
 
 .. _model-and-records:
@@ -222,7 +273,7 @@ Model and Records
 
 The :class:`Env` provides a high level API similar to the Odoo API, which
 encapsulates objects into `Active Records
-<http://www.martinfowler.com/eaaCatalog/activeRecord.html>`_.
+<https://www.martinfowler.com/eaaCatalog/activeRecord.html>`_.
 
 The :class:`Model` is instantiated using the ``client.env[...]`` syntax.
 
