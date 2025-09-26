@@ -22,12 +22,13 @@ complex tasks.
 For example:
 
 * write unit tests using the standard `unittest
-  <http://docs.python.org/library/unittest.html>`_ framework.
-* write BDD tests using the `Gherkin language <http://packages.python.org/
-  behave/gherkin.html#gherkin-feature-testing-language>`_, and a library
-  like `Behave <http://packages.python.org/behave/>`_.
+  <https://docs.python.org/library/unittest.html>`_ framework.
+* write BDD tests using the `Gherkin language <https://behave.readthedocs.io/
+  en/latest/gherkin/#gherkin-feature-testing-language>`_, and a library
+  like `Behave <https://behave.readthedocs.io/>`_.
 * build an interface for Odoo, using a framework like
-  `Flask <http://flask.pocoo.org/>`_ (HTML, JSON, SOAP, ...).
+  `Flask <https://flask.palletsprojects.com/>`_ (HTML, JSON, SOAP, ...).
+
 
 
 Changes

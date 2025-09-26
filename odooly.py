@@ -18,7 +18,7 @@ import traceback
 
 from configparser import ConfigParser
 from threading import current_thread
-from urllib.request import Request, urlopen
+from urllib.parse import urljoin, urlencode
 from xmlrpc.client import Fault, ServerProxy, MININT, MAXINT
 
 try:
@@ -34,7 +34,7 @@ __all__ = ['Client', 'Env', 'Service', 'BaseModel', 'Model',
 
 CONF_FILE = 'odooly.ini'
 HIST_FILE = os.path.expanduser('~/.odooly_history')
-DEFAULT_URL = 'http://localhost:8069/xmlrpc'
+DEFAULT_URL = 'http://localhost:8069/web'
 DEFAULT_DB = 'odoo'
 DEFAULT_USER = 'admin'
 SUPERUSER_ID = 1
@@ -75,8 +75,17 @@ _term_re = re.compile(
     r'\s*(.*)')
 _fields_re = re.compile(r'(?:[^%]|^)%\(([^)]+)\)')
 
+# Web methods (not exhaustive)
+_web_methods = {
+    'database': ['backup', 'change_password', 'create', 'drop',
+                 'duplicate', 'list', 'restore'],
+    'dataset': ['call_button', 'call_kw'],
+    'session': ['authenticate', 'check', 'destroy', 'get_lang_list', 'get_session_info'],
+    'webclient': ['version_info'],
+}
+
 # Published object methods
-_methods = {
+_rpc_methods = {
     'common': ['about', 'login', 'authenticate', 'version'],
     'db': ['create_database', 'duplicate_database', 'db_exist', 'drop', 'dump',
            'restore', 'rename', 'list', 'list_lang', 'list_countries',
@@ -89,10 +98,9 @@ _methods = {
 # New 7.0: (db) duplicate_database
 # New 9.0: (db) list_countries
 # No-op:   (common) set_loglevel
-# Remove 19.0: (common) version
-# replaced by: GET /web/version (or (db) server_version)
+# Remove 19.0: (common) version, replaced by GET /web/version
 
-_obsolete_methods = {
+_obsolete_rpc_methods = {
     'common': [
         'check_connectivity', 'get_available_updates',
         'get_migration_scripts', 'get_os_time', 'get_stats',
@@ -109,7 +117,36 @@ _cause_message = ("\nThe above exception was the direct cause "
                   "of the following exception:\n\n")
 _pending_state = ('state', 'not in',
                   ['uninstallable', 'uninstalled', 'installed'])
+http_context = None
 seq_types = (list, tuple)
+
+
+if os.getenv('ODOOLY_SSL_UNVERIFIED'):
+    import ssl
+
+    def ServerProxy(url, transport, allow_none, _ServerProxy=ServerProxy):
+        return _ServerProxy(url, transport=transport, allow_none=allow_none,
+                            context=ssl._create_unverified_context())
+    http_context = ssl._create_unverified_context()
+    http_session = None
+
+
+if http_session:
+    def http_post(url, *, data=None, json=None, headers=None, **kw):
+        resp = http_session.post(url, data=data, json=json, headers=headers, **kw)
+        return resp.json() if json else resp.text
+else:
+    from urllib.request import HTTPCookieProcessor, HTTPSHandler, Request, build_opener
+
+    def http_post(url, *, data=None, json=None, headers=None, __json=json, **kw):
+        headers = dict(headers or ())
+        if json:
+            headers.setdefault('Content-Type', 'application/json')
+        data = __json.dumps(json).encode('ascii') if json else urlencode(data).encode('utf-8')
+        request = Request(url, data=data, headers=headers)
+        resp = _opener.open(request)
+        return __json.load(resp) if json else resp.read()
+    _opener = build_opener(HTTPCookieProcessor(), HTTPSHandler(context=http_context))
 
 
 def _memoize(inst, attr, value, doc_values=None):
@@ -211,7 +248,7 @@ def format_exception(exc_type, exc, tb, limit=None, chain=True,
             message = str(server_error['arguments'][0])
         except Exception:
             message = str(server_error['arguments'])
-        fault = '%s: %s' % (server_error['name'], message)
+        fault = f"{server_error['name']}: {message}"
         exc_type = server_error.get('exception_type', 'internal_error')
         if exc_type != 'internal_error' or message.startswith('FATAL:'):
             server_tb = None
@@ -246,8 +283,8 @@ def read_config(section=None):
     if scheme == 'local':
         server = shlex.split(env.get('options', ''))
     else:
-        protocol = env.get('protocol', 'xmlrpc')
-        server = '%s://%s:%s/%s' % (scheme, env['host'], env['port'], protocol)
+        protocol = env.get('protocol', 'web')
+        server = f"{scheme}://{env['host']}:{env['port']}/{protocol}"
     return (server, env['database'], env['username'], env.get('password'))
 
 
@@ -320,7 +357,7 @@ def searchargs(params, kwargs=None):
         if isinstance(term, str) and term not in DOMAIN_OPERATORS:
             m = _term_re.match(term.strip())
             if not m:
-                raise ValueError('Cannot parse term %r' % term)
+                raise ValueError(f"Cannot parse term {term!r}")
             (field, operator, value) = m.groups()
             try:
                 value = literal_eval(value)
@@ -338,40 +375,23 @@ def searchargs(params, kwargs=None):
     return params
 
 
-if os.getenv('ODOOLY_SSL_UNVERIFIED'):
-    import ssl
-
-    def urlopen(url, _urlopen=urlopen):
-        return _urlopen(url, context=ssl._create_unverified_context())
-
-    def ServerProxy(url, transport, allow_none, _ServerProxy=ServerProxy):
-        return _ServerProxy(url, transport=transport, allow_none=allow_none,
-                            context=ssl._create_unverified_context())
-    http_session = None
-
-
-if http_session:
-    def http_post(url, data, headers={'Content-Type': 'application/json'}):
-        resp = http_session.post(url, data=data, headers=headers)
-        return resp.json()
-else:
-    def http_post(url, data, headers={'Content-Type': 'application/json'}):
-        request = Request(url, data=data, headers=headers)
-        resp = urlopen(request)
-        return json.load(resp)
-
-
-def dispatch_jsonrpc(url, service_name, method, args):
-    data = {
-        'jsonrpc': '2.0',
-        'method': 'call',
-        'params': {'service': service_name, 'method': method, 'args': args},
-        'id': '%04x%010x' % (os.getpid(), (int(time.time() * 1E6) % 2**40)),
-    }
-    resp = http_post(url, json.dumps(data).encode('ascii'))
+def dispatch_json(url, endpoint='', params=None):
+    req_id = f"{os.getpid():04x}{int(time.time() * 1E6) % 2**40:010x}"
+    payload = {'jsonrpc': '2.0', 'method': 'call', 'params': params or {}, 'id': req_id}
+    resp = http_post(urljoin(url, endpoint), json=payload)
     if resp.get('error'):
         raise ServerError(resp['error'])
     return resp.get('result')
+
+
+def dispatch_jsonrpc(url, service_name, method, args):
+    return dispatch_json(url, params={'service': service_name, 'method': method, 'args': args})
+
+
+def dispatch_web(url, service_name, method, params):
+    if service_name == 'database' and method != 'list':
+        return http_post(urljoin(url, f"web/{service_name or ''}/{method}"), data=params)
+    return dispatch_json(url, f"web/{service_name or ''}/{method}", params=params)
 
 
 class partial(functools.partial):
@@ -379,7 +399,7 @@ class partial(functools.partial):
 
     def __repr__(self):
         # Hide arguments
-        return '%s(%r, ...)' % (self.__class__.__name__, self.func)
+        return f"{self.__class__.__name__}({self.func!r}, ...)"
 
 
 class Error(Exception):
@@ -390,13 +410,69 @@ class ServerError(Exception):
     """An error received from the server."""
 
 
+class WebAPI:
+    """A wrapper around Web endpoints.
+
+    The connected endpoints are exposed on the Client instance.
+    Argument `client` is the connected Client.
+    Argument `endpoint` is the name of the service
+    (examples: ``"database"``, ``"session"``).
+    Argument `methods` is the list of methods which should be
+    exposed on this endpoint.  Use ``dir(...)`` on the
+    instance to list them.
+    """
+    _methods = ()
+
+    def __init__(self, client, endpoint, methods, verbose=False):
+        self._dispatch = partial(dispatch_web, client._server, endpoint)
+        self._server = urljoin(client._server, '/')
+        self._endpoint = f'/web/{endpoint}' if endpoint else '/web'
+        self._methods = methods
+        self._verbose = verbose
+
+    def __repr__(self):
+        return f"<WebAPI '{self._server[:-1]}{self._endpoint}'>"
+    __str__ = __repr__
+
+    def __dir__(self):
+        return sorted(self._methods)
+
+    def __getattr__(self, name):
+        if self._verbose:
+            def sanitize(kw):
+                secret = {}
+                for key in kw:
+                    if 'passw' in key or 'pwd' in key:
+                        secret[key] = ...
+                return {**kw, **secret}.items()
+            maxcol = MAXCOL[min(len(MAXCOL), self._verbose) - 1]
+
+            def wrapper(self, **params):
+                snt = ' '.join(f'{key}={v!r}' if v != ... else f'{key}=...'
+                               for (key, v) in sanitize(params))
+                snt = f"POST {self._endpoint}/{name} {snt}"
+                if len(snt) > maxcol:
+                    suffix = f"... L={len(snt)}"
+                    snt = snt[:maxcol - len(suffix)] + suffix
+                print(f"--> {snt}")
+                res = self._dispatch(name, params)
+                rcv = repr(res)
+                if len(rcv) > maxcol:
+                    suffix = f"... L={len(rcv)}"
+                    rcv = rcv[:maxcol - len(suffix)] + suffix
+                print(f"<-- {rcv}")
+                return res
+        else:
+            wrapper = lambda s, **params: s._dispatch(name, params)
+        return _memoize(self, name, wrapper)
+
+
 class Service:
     """A wrapper around RPC endpoints.
 
     The connected endpoints are exposed on the Client instance.
-    The `server` argument is the URL of the server (scheme+host+port).
-    If `server` is an ``odoo`` Python package, it is used to connect to the
-    local server.  The `endpoint` argument is the name of the service
+    The `client` argument is the connected Client.
+    The `endpoint` argument is the name of the service
     (examples: ``"object"``, ``"db"``).  The `methods` is the list of methods
     which should be exposed on this endpoint.  Use ``dir(...)`` on the
     instance to list them.
@@ -411,7 +487,7 @@ class Service:
         self._verbose = verbose
 
     def __repr__(self):
-        return "<Service '%s|%s'>" % (self._rpcpath, self._endpoint)
+        return f"<Service '{self._rpcpath}|{self._endpoint}'>"
     __str__ = __repr__
 
     def __dir__(self):
@@ -419,7 +495,7 @@ class Service:
 
     def __getattr__(self, name):
         if name not in self._methods:
-            raise AttributeError("'Service' object has no attribute %r" % name)
+            raise AttributeError(f"'Service' object has no attribute {name!r}")
         if self._verbose:
             def sanitize(args):
                 if self._endpoint != 'db' and len(args) > 2:
@@ -429,18 +505,18 @@ class Service:
             maxcol = MAXCOL[min(len(MAXCOL), self._verbose) - 1]
 
             def wrapper(self, *args):
-                snt = ', '.join([repr(arg) for arg in sanitize(args)])
-                snt = '%s.%s(%s)' % (self._endpoint, name, snt)
+                snt = ', '.join(repr(arg) for arg in sanitize(args))
+                snt = f"{self._endpoint}.{name}({snt})"
                 if len(snt) > maxcol:
-                    suffix = '... L=%s' % len(snt)
+                    suffix = f"... L={len(snt)}"
                     snt = snt[:maxcol - len(suffix)] + suffix
-                print('--> ' + snt)
+                print(f"--> {snt}")
                 res = self._dispatch(name, args)
                 rcv = str(res)
                 if len(rcv) > maxcol:
-                    suffix = '... L=%s' % len(rcv)
+                    suffix = f"... L={len(rcv)}"
                     rcv = rcv[:maxcol - len(suffix)] + suffix
-                print('<-- ' + rcv)
+                print(f"<-- {rcv}")
                 return res
         else:
             wrapper = lambda s, *args: s._dispatch(name, args)
@@ -459,7 +535,7 @@ class Env:
         >>> env["some.model"]
     """
 
-    name = uid = user = None
+    name = uid = user = session_info = None
     _cache = {}
 
     def __new__(cls, client, db_name=()):
@@ -471,6 +547,8 @@ class Env:
         if db_name:
             env._model_names = env._cache_get('model_names', set)
             env._models = {}
+        env._call_kw = client._call_kw
+        env._web = client.web
         return env
 
     def __contains__(self, name):
@@ -497,8 +575,7 @@ class Env:
     __hash__ = object.__hash__
 
     def __repr__(self):
-        return "<Env '%s@%s'>" % (self.user.login if self.uid else '',
-                                  self.db_name)
+        return f"<Env '{self.user.login if self.uid else ''}@{self.db_name}'>"
 
     def check_uid(self, uid, password):
         """Check if ``(uid, password)`` is valid.
@@ -506,6 +583,8 @@ class Env:
         Return ``uid`` on success, ``False`` on failure.
         The invalid entry is removed from the authentication cache.
         """
+        if not self.client._object:
+            return False
         try:
             self.client._object.execute_kw(self.db_name, uid, password,
                                            'ir.model', 'fields_get', ([None],))
@@ -516,11 +595,11 @@ class Env:
             uid = False
         return uid
 
-    def _auth(self, user, password):
+    def _auth(self, user, password, context):
         assert self.db_name, 'Not connected'
         uid = verified = None
         if isinstance(user, int):
-            (user, uid) = (uid, user)
+            (user, uid) = (None, user)
         auth_cache = self._cache_get('auth', dict)
         if not password:
             # Read from cache
@@ -541,33 +620,46 @@ class Env:
             if not password and uid is not False:
                 from getpass import getpass
                 if user is None:
-                    name = 'admin' if uid == SUPERUSER_ID else ('UID %d' % uid)
+                    name = 'admin' if uid == SUPERUSER_ID else f'UID {uid}'
                 else:
                     name = user
-                password = getpass('Password for %r: ' % name)
+                password = getpass(f"Password for {name!r}: ")
         # Check if password is valid
         uid = self.check_uid(uid, password) if (uid and not verified) else uid
         if uid is None:
             # Do a standard 'login'
             try:
-                uid = self.client.common.login(self.db_name, user, password)
+                info = self.client._authenticate(self.db_name, user, password)
+                uid = info['uid']
             except Exception as exc:
                 if 'does not exist' in str(exc):    # Heuristic
                     raise Error('Database does not exist')
                 raise
+        else:
+            info = {'uid': uid}
         if not uid:
             raise Error('Invalid username or password')
         # Update the cache
         auth_cache[uid] = (uid, password)
         if user:
             auth_cache[user] = auth_cache[uid]
-        return (uid, password)
+        self.session_info = info
+        user_context = info.get('user_context') or {}
+        if not user_context and self.client._object:
+            user_context = self.client._object.execute_kw(self.db_name, uid, password, 'res.users', 'context_get')
+        if context:
+            user_context = {**user_context, **context}
+        return (uid, password, user_context)
 
     def _set_credentials(self, uid, password):
         def env_auth(method):     # Authenticated endpoints
             return partial(method, self.db_name, uid, password)
-        self._execute = env_auth(self.client._object.execute)
-        self._execute_kw = env_auth(self.client._object.execute_kw)
+        if self.client._object:
+            self._execute = env_auth(self.client._object.execute)
+            self._execute_kw = env_auth(self.client._object.execute_kw)
+        else:  # WebAPI
+            assert self.client.web
+            self._execute_kw = self._call_kw
         if self.client._report:   # Odoo <= 10
             self.exec_workflow = env_auth(self.client._object.exec_workflow)
             self.report = env_auth(self.client._report.report)
@@ -581,7 +673,6 @@ class Env:
         if self.uid:              # Create a new Env() instance
             env = Env(self.client)
             (env.db_name, env.name) = (self.db_name, self.name)
-            env.context = dict(context)
             env._model_names = self._model_names
             env._models = {}
         else:                     # Configure the Env() instance
@@ -589,7 +680,8 @@ class Env:
         if uid == self.uid:       # Copy methods
             for key in ('_execute', '_execute_kw', 'exec_workflow',
                         'report', 'report_get', 'render_report',
-                        'wizard_execute', 'wizard_create'):
+                        'wizard_execute', 'wizard_create',
+                        'session_info'):
                 if hasattr(self, key):
                     setattr(env, key, getattr(self, key))
         else:                     # Create methods
@@ -601,6 +693,7 @@ class Env:
             user = user.login
         env.uid = uid
         env.user = env._get('res.users', False).browse(uid)
+        env.context = dict(context)
         if user:
             assert isinstance(user, str), repr(user)
             env.user.__dict__['login'] = user
@@ -632,7 +725,7 @@ class Env:
     def __call__(self, user=None, password=None, context=None):
         """Return an environment based on ``self`` with modified parameters."""
         if user is not None:
-            (uid, password), context = self._auth(user, password), {}
+            (uid, password, context) = self._auth(user, password, context)
         elif context is not None:
             (uid, user) = (self.uid, self.user)
         else:
@@ -784,7 +877,7 @@ class Env:
         if model_names:
             errmsg = 'Model not found.  These models exist:'
         else:
-            errmsg = 'Model not found: %s' % (name,)
+            errmsg = f'Model not found: {name}'
         raise Error('\n * '.join([errmsg] + model_names))
 
     def modules(self, name='', installed=None):
@@ -820,7 +913,7 @@ class Env:
         ir_module = self._get('ir.module.module', False)
         updated, added = ir_module.update_list()
         if added:
-            print('%s module(s) added to the list' % added)
+            print(f'{added} module(s) added to the list')
         # Find modules
         sel = modules and ir_module.search([('name', 'in', modules)])
         mods = ir_module.read([_pending_state], 'name state')
@@ -828,7 +921,7 @@ class Env:
             # Safety check
             if any(mod['name'] not in modules for mod in mods):
                 raise Error('Pending actions:\n' + '\n'.join(
-                    ('  %(state)s\t%(name)s' % mod) for mod in mods))
+                    f"  {mod['state']}\t{mod['name']}" for mod in mods))
             if button == 'button_uninstall':
                 # Safety check
                 names = ir_module.read([('id', 'in', sel.ids),
@@ -836,7 +929,7 @@ class Env:
                                         'state != to upgrade',
                                         'state != to remove'], 'name')
                 if names:
-                    raise Error('Not installed: %s' % ', '.join(names))
+                    raise Error(f"Not installed: {', '.join(names)}")
                 if self.client.version_info < 7.0:
                     # A trick to uninstall dependent add-ons
                     sel.write({'state': 'to remove'})
@@ -849,13 +942,13 @@ class Env:
                 print('Already up-to-date: %s' %
                       self.modules([('id', 'in', sel.ids)]))
             elif modules:
-                raise Error('Module(s) not found: %s' % ', '.join(modules))
-            print('%s module(s) updated' % updated)
+                raise Error(f"Module(s) not found: {', '.join(modules)}")
+            print(f'{updated} module(s) updated')
             return
-        print('%s module(s) selected' % len(sel))
-        print('%s module(s) to process:' % len(mods))
+        print(f'{len(sel)} module(s) selected')
+        print(f'{len(mods)} module(s) to process:')
         for mod in mods:
-            print('  %(state)s\t%(name)s' % mod)
+            print(f"  {mod['state']}\t{mod['name']}")
 
         # Empty the cache for this database
         self.refresh()
@@ -873,20 +966,41 @@ class Env:
             self.execute('base.module.upgrade', 'upgrade_module', [])
 
     def upgrade(self, *modules):
-        """Press the button ``Upgrade``."""
+        """Press button ``Upgrade``."""
         return self._upgrade(modules, button='button_upgrade')
 
     def install(self, *modules):
-        """Press the button ``Install``."""
+        """Press button ``Install``."""
         return self._upgrade(modules, button='button_install')
 
     def uninstall(self, *modules):
-        """Press the button ``Uninstall``."""
+        """Press button ``Uninstall``."""
         return self._upgrade(modules, button='button_uninstall')
 
     def upgrade_cancel(self, *modules):
-        """Press the button ``Cancel Upgrade/Install/Uninstall``."""
+        """Press button ``Cancel Upgrade/Install/Uninstall``."""
         return self._upgrade(modules, button='cancel')
+
+    def session_authenticate(self, **kwargs):
+        """Create a Webclient session for current user."""
+        auth_cached = self._cache_get('auth').get(self.uid)
+        params = {
+            'db': self.db_name,
+            'login': self.user and self.user.login,
+            'password': auth_cached and auth_cached[1],
+            **kwargs,
+        }
+        self.session_info = self.client.web_session.authenticate(**params)
+
+    def session_destroy(self):
+        """Terminate current Webclient session."""
+        self.session_info = None
+        try:
+            return self.client.web_session.destroy()
+        except ServerError as exc:
+            # Ignore: odoo.http.SessionExpiredException
+            if exc.args[0]['code'] != 100:
+                raise
 
 
 class Client:
@@ -908,6 +1022,7 @@ class Client:
                  transport=None, verbose=False):
         self._connections = []
         self._set_services(server, transport, verbose)
+        self._verbose = verbose
         self.env = Env(self)
         if db:    # Try to login
             self.login(user, password=password, database=db)
@@ -918,32 +1033,56 @@ class Client:
             server = start_odoo_services(server, appname=appname)
         elif isinstance(server, str) and server[-1:] == '/':
             server = server.rstrip('/')
-        self._server = server
 
-        if not isinstance(server, str):
-            assert not transport, 'Not supported'
-            api_v7 = server.release.version_info < (8,)
-            self._proxy = self._proxy_v7 if api_v7 else self._proxy_dispatch
-        elif '/jsonrpc' in server:
-            assert not transport, 'Not supported'
-            self._proxy = self._proxy_jsonrpc
-        else:
-            if '/xmlrpc' not in server:
-                self._server = server + '/xmlrpc'
-            self._proxy = self._proxy_xmlrpc
-            self._transport = transport
+        def get_web_api(name):
+            methods = list(_web_methods.get(name) or [])
+            return WebAPI(self, name, methods, verbose=verbose)
 
         def get_service(name):
-            methods = list(_methods[name]) if (name in _methods) else []
+            methods = list(_rpc_methods.get(name) or [])
             if float_version < 11.0:
-                methods += _obsolete_methods.get(name) or ()
+                methods += _obsolete_rpc_methods.get(name) or ()
             return Service(self, name, methods, verbose=verbose)
+
+        if not isinstance(server, str):
+            api_v7 = server.release.version_info < (8,)
+            self._proxy = self._proxy_v7 if api_v7 else self._proxy_dispatch
+        elif '/xmlrpc' in server:
+            self._proxy = self._proxy_xmlrpc
+            self._transport = transport
+        elif '/jsonrpc' in server:
+            self._proxy = self._proxy_jsonrpc
+        else:
+            if '/web' not in server:
+                server = urljoin(server, '/web')
+            self._proxy = None
+
+        self._server = server
+        assert not transport or self._proxy is self._proxy_xmlrpc, 'Not supported'
+
+        if isinstance(server, str):
+            self.web = get_web_api(None)
+            self.database = get_web_api('database')
+            self.web_dataset = get_web_api('dataset')
+            self.web_session = get_web_api('session')
+            self.web_webclient = get_web_api('webclient')
+        else:
+            self.web = None
+
+        if self._proxy is None:
+            ver = self.web_webclient.version_info()
+            [major, minor] = ver["server_version_info"][:2]
+            self.server_version = ver["server_version"]
+            self.version_info = float(f"{major}.{minor}")
+            self.db = self.common = None
+            self._object = self._report = self._wizard = None
+            return
 
         float_version = 99.0
         self.server_version = ver = get_service('db').server_version()
         self.major_version = re.search(r'\d+\.?\d*', ver).group()
         self.version_info = float_version = float(self.major_version)
-        assert float_version > 6.0, 'Not supported: %s' % ver
+        assert float_version > 6.0, f'Not supported: {ver}'
         # Create the RPC services
         self.db = get_service('db')
         self.common = get_service('common')
@@ -983,12 +1122,21 @@ class Client:
         return client
 
     def __repr__(self):
-        return "<Client '%s#%s'>" % (self._server, self.env.db_name)
+        return f"<Client '{self._server}#{self.env.db_name}'>"
 
     def close(self):
         for conn in self._connections:
             conn.__exit__()
         self._connections = []
+
+    def _authenticate(self, db, login, password):
+        if self.web and self.version_info > 8.0:
+            info = self.web_session.authenticate(db=db, login=login, password=password)
+        elif self.common:
+            info = {'uid': self.common.login(db, login, password)}
+        else:
+            raise Error("Cannot authenticate")
+        return info
 
     def _login(self, user, password=None, database=None):
         """Switch `user` and (optionally) `database`.
@@ -998,7 +1146,7 @@ class Client:
         env = self.env
         if database:
             try:
-                dbs = self.db.list()
+                dbs = self.db.list() if self.db else self.database.list()
             except Exception:
                 pass    # AccessDenied: simply ignore this check
             else:
@@ -1012,11 +1160,10 @@ class Client:
         elif not env.db_name:
             raise Error('Not connected')
         try:
-            env = env(user=user, password=password)
+            self.env = env(user=user, password=password)
         except Exception:
             current_thread().dbname = self.env.db_name
             raise
-        self.env = env(context=env['res.users'].context_get())
         return env.uid
 
     def login(self, user, password=None, database=None):
@@ -1026,7 +1173,7 @@ class Client:
         try:
             self._login(user, password=password, database=database)
         except Error as exc:
-            print('%s: %s' % (exc.__class__.__name__, exc))
+            print(f"{exc.__class__.__name__}: {exc}")
         else:
             # Register the new globals()
             self.connect()
@@ -1035,7 +1182,7 @@ class Client:
         """Connect to another environment and replace the globals()."""
         assert self._globals, 'Not available'
         if env_name:
-            self.from_config(env_name, verbose=self.db._verbose)
+            self.from_config(env_name, verbose=self._verbose)
             return
         client = self
         env_name = client.env.name or client.env.db_name
@@ -1043,11 +1190,11 @@ class Client:
         self._globals['env'] = client.env
         self._globals['self'] = client.env.user if client.env.uid else None
         # Tweak prompt
-        sys.ps1 = '%s >>> ' % (env_name,)
+        sys.ps1 = f'{env_name} >>> '
         sys.ps2 = '... '.rjust(len(sys.ps1))
         # Logged in?
         if client.env.uid:
-            print('Logged in as %r' % (client.env.user.login,))
+            print(f'Logged in as {client.env.user.login!r}')
 
     @classmethod
     def _set_interactive(cls, global_vars={}):
@@ -1070,17 +1217,19 @@ class Client:
         and no country is set into the database.
         Login if successful.
         """
-        if login == 'admin' and not country_code:
-            self.db.create_database(passwd, database, demo, lang,
-                                    user_password)
-        elif self.version_info < 9.0:
+        extra = (login, country_code) if login != 'admin' or country_code else ()
+        if extra and self.version_info < 9.0:
             raise Error("Custom 'login' and 'country_code' are not supported")
-        else:
+        if self.db:
             self.db.create_database(passwd, database, demo, lang,
-                                    user_password, login, country_code)
+                                    user_password, *extra)
+        else:
+            self.database.create(master_pwd=passwd, name=database, lang=lang,
+                                 password=user_password, demo=demo, login=login,
+                                 country_code=country_code, phone='')
         return self.login(login, user_password, database=database)
 
-    def clone_database(self, passwd, database):
+    def clone_database(self, passwd, database, neutralize_database=False):
         """Clone the current database.
 
         The superadmin `passwd` and `database` are mandatory.
@@ -1088,14 +1237,41 @@ class Client:
 
         Supported since OpenERP 7.
         """
-        self.db.duplicate_database(passwd, self.env.db_name, database)
+        extra = (neutralize_database,) if neutralize_database else ()
+        if extra and self.version_info < 16.0:
+            raise Error("Argument 'neutralize_database' is not supported")
+        if self.db:
+            self.db.duplicate_database(passwd, self.env.db_name, database, *extra)
+        else:
+            extra = {"neutralize_database": extra[0]} if extra else {}
+            self.database.duplicate(master_pwd=passwd, name=self.env.db_name,
+                                    new_name=database, **extra)
         # Copy the cache for authentication
         auth_cache = self.env._cache_get('auth')
         self.env._cache_set('auth', dict(auth_cache), db_name=database)
 
         # Login with the current user into the new database
-        (uid, password) = self.env._auth(self.env.uid, None)
+        (uid, password, context) = self.env._auth(self.env.uid, None, None)
         return self.login(self.env.user.login, password, database=database)
+
+    def drop_database(self, passwd, database):
+        """Drop the database.
+
+        The superadmin `passwd` and `database` are mandatory.
+        """
+        if not database or database == self.env.db_name:
+            raise Error("Cannot delete active database")
+        if self.db:
+            self.db.drop(passwd, database)
+            db_list = self.db.list()
+        else:
+            self.database.drop(master_pwd=passwd, name=database)
+            db_list = self.database.list()
+        if database in db_list:
+            raise Error("Unsuccessful - Database was not deleted")
+
+    def _call_kw(self, model, method, args, kw=None):
+        return self.web_dataset.call_kw(model=model, method=method, args=args, kwargs=kw or {})
 
 
 class BaseModel:
@@ -1138,7 +1314,7 @@ class Model(BaseModel):
         return m
 
     def __repr__(self):
-        return "<Model '%s'>" % (self._name,)
+        return f"<Model '{self._name}'>"
 
     def keys(self):
         """Return the keys of the model."""
@@ -1220,12 +1396,12 @@ class Model(BaseModel):
             rec = self.env.ref(domain)
             if not rec:
                 return None
-            assert rec._model is self, 'Model mismatch %r %r' % (rec, self)
+            assert rec._model is self, f'Model mismatch {rec!r} {self!r}'
             return rec
         assert issearchdomain(domain)       # a search domain
         ids = self._execute('search', domain)
         if len(ids) > 1:
-            raise ValueError('domain matches too many records (%d)' % len(ids))
+            raise ValueError(f'domain matches too many records ({len(ids)})')
         return Record(self, ids[0]) if ids else None
 
     def create(self, values):
@@ -1327,7 +1503,7 @@ class Model(BaseModel):
             field_type = self._fields[key]['type']
             if hasattr(value, 'id'):
                 if field_type == 'reference':
-                    new_values[key] = '%s,%s' % (value._name, value.id)
+                    new_values[key] = f'{value._name},{value.id}'
                 else:
                     new_values[key] = value = value.id
             if field_type in ('one2many', 'many2many'):
@@ -1350,7 +1526,7 @@ class Model(BaseModel):
                                                   ['module', 'name', 'res_id'])
         res = {}
         for rec in existing:
-            res['%(module)s.%(name)s' % rec] = self.get(rec['res_id'])
+            res[f"{rec['module']}.{rec['name']}"] = self.get(rec['res_id'])
         return res
 
     def __getattr__(self, attr):
@@ -1363,7 +1539,7 @@ class Model(BaseModel):
         if attr == '_keys':
             return _memoize(self, attr, sorted(self._fields))
         if attr.startswith('_'):
-            raise AttributeError("'Model' object has no attribute %r" % attr)
+            raise AttributeError(f"'Model' object has no attribute {attr!r}")
 
         def wrapper(self, *params, **kwargs):
             """Wrapper for client.execute(%r, %r, *params, **kwargs)."""
@@ -1412,11 +1588,10 @@ class BaseRecord(BaseModel):
 
     def __repr__(self):
         if len(self.ids) > 16:
-            ids = 'length=%d' % len(self.ids)
+            ids = f'length={len(self.ids)}'
         else:
             ids = self.id
-        return "<%s '%s,%s'>" % (self.__class__.__name__,
-                                 self._name, ids)
+        return f"<{self.__class__.__name__} '{self._name},{ids}'>"
 
     def __dir__(self):
         attrs = set(self.__dict__) | set(self._model._keys)
@@ -1511,7 +1686,7 @@ class BaseRecord(BaseModel):
         recs = self.union()
         if len(recs.id) == 1:
             return recs[0]
-        raise ValueError("Expected singleton: %s" % self)
+        raise ValueError(f"Expected singleton: {self}")
 
     def exists(self):
         """Return a subset of records that exist."""
@@ -1720,7 +1895,7 @@ class RecordList(BaseRecord):
         if attr in self._model._keys:
             return self.read(attr)
         if attr.startswith('_'):
-            errmsg = "'RecordList' object has no attribute %r" % attr
+            errmsg = f"'RecordList' object has no attribute {attr!r}"
             raise AttributeError(errmsg)
 
         def wrapper(self, *params, **kwargs):
@@ -1730,10 +1905,10 @@ class RecordList(BaseRecord):
 
     def __setattr__(self, attr, value):
         if attr in self._model._keys or attr == 'id':
-            msg = "attribute %r is read-only; use 'RecordList.write' instead."
+            msg = f"attribute {attr!r} is read-only; use 'RecordList.write' instead."
         else:
-            msg = "has no attribute %r"
-        raise AttributeError("'RecordList' object %s" % msg % attr)
+            msg = f"has no attribute {attr!r}"
+        raise AttributeError("'RecordList' object " + msg)
 
     def __eq__(self, other):
         return (isinstance(other, RecordList) and
@@ -1759,9 +1934,9 @@ class Record(BaseRecord):
     def _get_name(self):
         try:
             (id_name,) = self._execute('name_get', [self.id])
-            name = '%s' % (id_name[1],)
+            name = f'{id_name[1]}'
         except Exception:
-            name = '%s,%d' % (self._name, self.id)
+            name = f'{self._name},{self.id}'
         self.__dict__['_idnames'] = [(self.id, name)]
         return _memoize(self, '_Record__name', name)
 
@@ -1827,7 +2002,7 @@ class Record(BaseRecord):
         domain = ['|', '&', ('module', '=', mod), ('name', '=', name),
                   '&', ('model', '=', self._name), ('res_id', '=', self.id)]
         if self.env['ir.model.data'].search(domain):
-            raise ValueError('ID %r collides with another entry' % xml_id)
+            raise ValueError(f'ID {xml_id!r} collides with another entry')
         self.env['ir.model.data'].create({
             'model': self._name,
             'res_id': self.id,
@@ -1841,7 +2016,7 @@ class Record(BaseRecord):
         if attr == '_Record__name':
             return self._get_name()
         if attr.startswith('_'):
-            raise AttributeError("'Record' object has no attribute %r" % attr)
+            raise AttributeError(f"'Record' object has no attribute {attr!r}")
 
         def wrapper(self, *params, **kwargs):
             """Wrapper for client.execute(%r, %r, %d, *params, **kwargs)."""
@@ -1856,7 +2031,7 @@ class Record(BaseRecord):
         if attr == '_external_id':
             return self._set_external_id(value)
         if attr not in self._model._keys:
-            raise AttributeError("'Record' object has no attribute %r" % attr)
+            raise AttributeError(f"'Record' object has no attribute {attr!r}")
         if attr == 'id':
             raise AttributeError("'Record' object attribute 'id' is read-only")
         self.write({attr: value})
@@ -1933,10 +2108,10 @@ def main(interact=_interact):
         help='read connection settings from the given section')
     parser.add_option(
         '-c', '--config', default=None,
-        help='specify alternate config file (default: %r)' % CONF_FILE)
+        help=f'specify alternate config file (default: {CONF_FILE!r})')
     parser.add_option(
         '--server', default=None,
-        help='full URL of the server (default: %s)' % DEFAULT_URL)
+        help=f'full URL of the server (default: {DEFAULT_URL})')
     parser.add_option('-d', '--db', default=DEFAULT_DB, help='database')
     parser.add_option('-u', '--user', default=None, help='username')
     parser.add_option(
