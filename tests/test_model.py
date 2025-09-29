@@ -1327,7 +1327,7 @@ class TestRecord(TestCase):
                 kw['context'] = {'lang': 'en_US', 'tz': 'Europe/Zurich'}
             elif kw['context'] is None:
                 del kw['context']
-            extra = (params, kw) if kw else (params,) if params else ()
+            extra = (params, kw) if kw else (params,)
             return ('object.execute_kw', self.database, 1001, 'v_password',
                     model, method, *extra)
 

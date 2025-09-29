@@ -611,7 +611,8 @@ class Env:
         self.session_info = info
         user_context = info.get('user_context') or {}
         if not user_context and self.client._object:
-            user_context = self.client._object.execute_kw(self.db_name, uid, password, 'res.users', 'context_get')
+            args = self.db_name, uid, password, 'res.users', 'context_get', ()
+            user_context = self.client._object.execute_kw(*args)
         if context:
             user_context = {**user_context, **context}
         return (uid, password, user_context)
