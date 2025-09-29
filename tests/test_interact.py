@@ -36,7 +36,7 @@ class TestInteract(XmlRpcTestCase):
         mock.patch('sys.argv', new=['odooly', '--env', 'demo']).start()
         read_config = mock.patch('odooly.read_config',
                                  return_value=env_tuple).start()
-        getpass = mock.patch('getpass.getpass',
+        getpass = mock.patch('odooly.getpass',
                              return_value='password').start()
         self.service.db.list.return_value = ['database']
         self.service.common.login.side_effect = [17, 51]
@@ -107,7 +107,7 @@ class TestInteract(XmlRpcTestCase):
         mock.patch('sys.argv', new=['odooly', '--env', 'demo']).start()
         mock.patch('os.environ', new={'LANG': 'fr_FR.UTF-8'}).start()
         mock.patch('odooly.read_config', return_value=env_tuple).start()
-        mock.patch('getpass.getpass', return_value='x').start()
+        mock.patch('odooly.getpass', return_value='x').start()
         self.service.db.list.return_value = ['database']
         self.service.common.login.side_effect = [17, None]
         self.service.object.execute_kw.side_effect = [{}, 42, {}, TypeError, 42, {}]
