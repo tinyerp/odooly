@@ -2,6 +2,14 @@ Changelog
 ---------
 
 
+2.x.x (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* Fix PyPI classifiers.
+
+* Update documentation.
+
+
 2.3.0 (2025-09-29)
 ~~~~~~~~~~~~~~~~~~
 
