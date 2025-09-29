@@ -958,6 +958,7 @@ class Env:
             'password': password or getpass(f"Password for {login!r}: "),
         }
         self.session_info = self.client._authenticate_session(**params)
+        print(f'Session authenticated for {login!r}' if self.session_info['uid'] else 'Failed')
 
     def session_destroy(self):
         """Terminate current Webclient session."""
@@ -1124,8 +1125,43 @@ class Client:
         return info
 
     def _authenticate_session(self, db, login, password):
-        info = self.web_session.authenticate(db=db, login=login, password=password)
+        try:
+            info = self.web_session.authenticate(db=db, login=login, password=password)
+        except ServerError as exc:
+            # Ignore: odoo.exceptions.AccessDenied
+            if exc.args[0]['code'] != 200:
+                raise
+            return {'uid': None}
+        if self.version_info > 14.0 and info['uid'] is None:  # Is it 2FA?
+            info = self._authenticate_totp(db, login, password)
         return info
+
+    def _authenticate_totp(self, db, login, password):
+        headers = {'User-Agent': 'Mozilla/5.0 (X11)'}
+
+        # 1. Get CSRF token
+        rv = self._post(f'{self.web._server}web', method='GET', headers=headers)
+        csrf = re.search(r'csrf_token: "(\w+)"', rv).group(1)
+
+        # 2. Login
+        params = {'csrf_token': csrf, 'db': db, 'login': login, 'password': password}
+        rv = self._post(f'{self.web._server}web/login', data=params, headers=headers)
+
+        for retry in range(4):
+            # 3. Parse 'session_info'
+            session_info = json.loads(re.search(r'odoo.__session_info__ = (.*);', rv).group(1))
+            if session_info['uid'] or 'totp_token' not in rv or retry == 3:
+                break
+            if retry:
+                print('Verification failed')
+
+            # 4. Ask TOTP code
+            token = getpass(f"Authentication Code for {login!r} (2FA 6-digits): ")
+
+            # 5. Submit TOTP
+            params = {'csrf_token': csrf, 'totp_token': token, 'remember': 1}
+            rv = self._post(f'{self.web._server}web/login/totp', data=params, headers=headers)
+        return session_info
 
     def _login(self, user, password=None, database=None):
         """Switch `user` and (optionally) `database`.
@@ -1266,22 +1302,25 @@ class Client:
         def _set_http_session(self):
             self._http_session = requests.Session()
 
-        def _post(self, url, *, data=None, json=None, headers=None, **kw):
-            resp = self._http_session.post(url, data=data, json=json, headers=headers, **kw)
-            return resp.json() if json else resp.text
+        def _post(self, url, *, method='POST', data=None, json=None, headers=None, **kw):
+            resp = self._http_session.request(method, url, data=data, json=json, headers=headers, **kw)
+            return resp.text if json is None else resp.json()
 
     else:  # urllib.request
         def _set_http_session(self):
             self._http_session = build_opener(HTTPCookieProcessor(), HTTPSHandler(context=http_context))
 
-        def _post(self, url, *, data=None, json=None, headers=None, __json=json, **kw):
+        def _post(self, url, *, method='POST', data=None, json=None, headers=None, __json=json, **kw):
             headers = dict(headers or ())
-            if json:
+            if json is not None:
                 headers.setdefault('Content-Type', 'application/json')
-            data = __json.dumps(json).encode('ascii') if json else urlencode(data).encode('utf-8')
+            if method != 'GET':
+                data = __json.dumps(json).encode('ascii') if json else urlencode(data).encode('utf-8')
+            elif data is not None:
+                url, data = f'{url}?{urlencode(data)}', None
             request = Request(url, data=data, headers=headers)
             resp = self._http_session.open(request)
-            return __json.load(resp) if json else resp.read()
+            return str(resp.read(), 'utf-8') if json is None else __json.load(resp)
 
 
 class BaseModel:
