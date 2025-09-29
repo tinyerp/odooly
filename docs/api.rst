@@ -67,7 +67,7 @@ for database management.  Use :func:`dir` function to introspect them.
 
 .. attribute:: Client.database
 
-   Expose the ``database`` :class:`WebAPI`.
+   Expose the ``/web/database`` :class:`WebAPI`.
 
    Example: :meth:`Client.database.list` method.
 
@@ -95,11 +95,6 @@ for database management.  Use :func:`dir` function to introspect them.
 Odoo RPC Services
 ~~~~~~~~~~~~~~~~~
 
-.. note::
-
-   These RPC services are deprecated in Odoo 19.0.  They are
-   scheduled for removal in Odoo 20.0.
-
 The Odoo RPC services are exposed too. They could be used for server and
 database operations.
 The :attr:`~Client.db` and the :attr:`~Client.common` services provided
@@ -110,6 +105,10 @@ service should not be used directly.  It provides same feature as the
 instead.
 Please refer to `the Odoo documentation`_ for more details.
 
+.. note::
+
+   These RPC services are deprecated in Odoo 19.0.  They are
+   scheduled for removal in Odoo 20.0.
 
 .. attribute:: Client.db
 
