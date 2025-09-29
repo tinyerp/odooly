@@ -21,8 +21,7 @@ def OBJ(model, method, *params, **kw):
         kw['context'] = sample_context
     elif kw['context'] is None:
         del kw['context']
-    extra = (params, kw) if kw else (params,)
-    return ('object.execute_kw', sentinel.AUTH, model, method, *extra)
+    return ('object.execute_kw', sentinel.AUTH, model, method, params) + ((kw,) if kw else ())
 
 
 class XmlRpcTestCase(TestCase):
@@ -44,8 +43,6 @@ class XmlRpcTestCase(TestCase):
 
         self.service = self._patch_service()
         if self.server and self.database:
-            if float(self.server_version) > 8.0:
-                self._patch_http_post()
             # create the client
             self.client = odooly.Client(
                 self.server, self.database, self.user, self.password)

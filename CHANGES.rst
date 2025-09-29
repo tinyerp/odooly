@@ -7,6 +7,9 @@ Changelog
 
 * Fix `context_get` arguments.
 
+* Do not authenticate with ``/web/session/authenticate`` when
+  protocol is ``jsonrpc`` or ``xmlrpc``.  It cannot authenticate API keys.
+
 * Fix PyPI classifiers.
 
 * Update documentation.

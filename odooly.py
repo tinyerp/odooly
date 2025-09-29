@@ -17,6 +17,7 @@ import time
 import traceback
 
 from configparser import ConfigParser
+from getpass import getpass
 from threading import current_thread
 from urllib.parse import urljoin, urlencode
 from xmlrpc.client import Fault, ServerProxy, MININT, MAXINT
@@ -583,7 +584,6 @@ class Env:
             verified = password and uid
             # Ask for password
             if not password and uid is not False:
-                from getpass import getpass
                 if user is None:
                     name = 'admin' if uid == SUPERUSER_ID else f'UID {uid}'
                 else:
@@ -948,16 +948,16 @@ class Env:
         """Press button ``Cancel Upgrade/Install/Uninstall``."""
         return self._upgrade(modules, button='cancel')
 
-    def session_authenticate(self, **kwargs):
+    def session_authenticate(self, login=None, password=None):
         """Create a Webclient session for current user."""
-        auth_cached = self._cache_get('auth').get(self.uid)
+        if not login:
+            login = self.user.login
         params = {
             'db': self.db_name,
-            'login': self.user and self.user.login,
-            'password': auth_cached and auth_cached[1],
-            **kwargs,
+            'login': login,
+            'password': password or getpass(f"Password for {login!r}: "),
         }
-        self.session_info = self.client.web_session.authenticate(**params)
+        self.session_info = self.client._authenticate_session(**params)
 
     def session_destroy(self):
         """Terminate current Webclient session."""
@@ -1115,12 +1115,16 @@ class Client:
         self._connections = []
 
     def _authenticate(self, db, login, password):
-        if self.web and self.version_info > 8.0:
-            info = self.web_session.authenticate(db=db, login=login, password=password)
-        elif self.common:
+        if self.common:
             info = {'uid': self.common.login(db, login, password)}
+        elif self.web and self.version_info > 8.0:
+            info = self._authenticate_session(db, login, password)
         else:
             raise Error("Cannot authenticate")
+        return info
+
+    def _authenticate_session(self, db, login, password):
+        info = self.web_session.authenticate(db=db, login=login, password=password)
         return info
 
     def _login(self, user, password=None, database=None):
