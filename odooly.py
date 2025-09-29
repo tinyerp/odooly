@@ -517,11 +517,11 @@ class Env:
         return env
 
     def __contains__(self, name):
-        """Test wether the given model exists."""
+        """Test wether this model exists."""
         return name in self._model_names or name in self.models(name)
 
     def __getitem__(self, name):
-        """Return the given :class:`Model`."""
+        """Return the :class:`Model` for the given ``name``."""
         return self._get(name)
 
     def __iter__(self):
@@ -741,11 +741,12 @@ class Env:
         return value
 
     def execute(self, obj, method, *params, **kwargs):
-        """Wrapper around ``object.execute_kw`` RPC method.
+        """Wrapper around ``/web/dataset/call_kw`` Web endpoint,
+        or ``object.execute_kw`` RPC method.
 
-        Argument `method` is the name of an ``osv.osv`` method or
-        a method available on this `obj`.
-        Method `params` are allowed.  If needed, keyword
+        Argument `method` is the name of a standard ``Model`` method
+        or a specific method available on this `obj`.
+        Method `params` are accepted.  If needed, keyword
         arguments are collected in `kwargs`.
         """
         assert self.uid, 'Not connected'

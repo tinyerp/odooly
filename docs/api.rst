@@ -87,6 +87,10 @@ for database management.  Use :func:`dir` function to introspect them.
 
    Expose the ``/web/webclient`` :class:`WebAPI`.
 
+.. autoclass:: WebAPI
+   :members:
+   :undoc-members:
+
 
 Odoo RPC Services
 ~~~~~~~~~~~~~~~~~
@@ -142,10 +146,6 @@ Please refer to `the Odoo documentation`_ for more details.
 
    Removed in OpenERP 7.
 
-.. autoclass:: WebAPI
-   :members:
-   :undoc-members:
-
 .. autoclass:: Service
    :members:
    :undoc-members:
@@ -158,7 +158,7 @@ Environment
 -----------
 
 .. autoclass:: Env
-   :members: lang, execute, access, models, ref, __getitem__, odoo_env, registry
+   :members: lang, access, models, ref, __getitem__, odoo_env, registry
    :undoc-members:
 
    .. attribute:: db_name
@@ -219,7 +219,7 @@ Please refer to `the Odoo documentation`_ for details.
 
 .. attribute:: Env._web(obj, method, *params, **kwargs)
 
-   Expose the root of the ``/web`` API.
+   Expose the ``/web`` API and its endpoints.
 
 .. method:: Env.exec_workflow(obj, signal, obj_id)
 
