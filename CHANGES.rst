@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-2.x.x (unreleased)
+2.3.0 (2025-09-29)
 ~~~~~~~~~~~~~~~~~~
 
 * Support webclient :class:`WebAPI` protocol as an alternative:
@@ -13,7 +13,7 @@ Changelog
   and retrieve :attr:`Env.session_info`, with Odoo >= 9.0.
 
 * Use Webclient API by default when ``protocol`` is not set.
-  It is same as setting ``protocol = web``
+  It is same as setting ``protocol = web``.
 
 * New function :meth:`Client.drop_database`.
 
