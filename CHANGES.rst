@@ -10,6 +10,8 @@ Changelog
 * Do not authenticate with ``/web/session/authenticate`` when
   protocol is ``jsonrpc`` or ``xmlrpc``.  It cannot authenticate API keys.
 
+* Experimental support for 2FA with Webclient session, with Odoo >= 15.0.
+
 * Fix PyPI classifiers.
 
 * Update documentation.
