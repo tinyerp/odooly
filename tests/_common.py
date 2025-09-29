@@ -21,7 +21,7 @@ def OBJ(model, method, *params, **kw):
         kw['context'] = sample_context
     elif kw['context'] is None:
         del kw['context']
-    extra = (params, kw) if kw else (params,) if params else ()
+    extra = (params, kw) if kw else (params,)
     return ('object.execute_kw', sentinel.AUTH, model, method, *extra)
 
 

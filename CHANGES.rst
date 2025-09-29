@@ -5,6 +5,8 @@ Changelog
 2.x.x (unreleased)
 ~~~~~~~~~~~~~~~~~~
 
+* Fix `context_get` arguments.
+
 * Fix PyPI classifiers.
 
 * Update documentation.

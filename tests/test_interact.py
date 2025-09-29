@@ -55,11 +55,11 @@ class TestInteract(XmlRpcTestCase):
         self.assertEqual(sys.ps2, '     ... ')
         expected_calls = self.startup_calls + (
             ('common.login', 'database', 'usr', 'password'),
-            ('object.execute_kw', 'database', 17, 'password', 'res.users', 'context_get'),
+            ('object.execute_kw', 'database', 17, 'password', 'res.users', 'context_get', ()),
             ('object.execute_kw', 'database', 17, 'password',
              'ir.model.access', 'check', ('res.users', 'write')),
             ('common.login', 'database', 'gaspard', 'password'),
-            ('object.execute_kw', 'database', 51, 'password', 'res.users', 'context_get'),
+            ('object.execute_kw', 'database', 51, 'password', 'res.users', 'context_get', ()),
         )
         self.assertCalls(*expected_calls)
         self.assertEqual(getpass.call_count, 2)
@@ -125,7 +125,7 @@ class TestInteract(XmlRpcTestCase):
 
         expected_calls = self.startup_calls + (
             ('common.login', 'database', 'usr', 'passwd'),
-            ('object.execute_kw', 'database', 17, 'passwd', 'res.users', 'context_get'),
+            ('object.execute_kw', 'database', 17, 'passwd', 'res.users', 'context_get', ()),
             usr17('ir.model', 'search',
                   [('model', 'like', 'res.company')]),
             usr17('ir.model', 'read', 42, ('model',)),

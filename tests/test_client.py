@@ -130,7 +130,7 @@ class TestService(XmlRpcTestCase):
             if server_version <= 8.0:
                 expected_calls += [
                     call('login', ('newdb', 'usr', 'pss')),
-                    call('execute_kw', ('newdb', 1, 'pss', 'res.users', 'context_get'))
+                    call('execute_kw', ('newdb', 1, 'pss', 'res.users', 'context_get', ()))
                 ]
         else:
             # server_version, list, web_auth
@@ -185,7 +185,7 @@ class TestCreateClient(XmlRpcTestCase):
         client = odooly.Client(url_xmlrpc, 'newdb', 'usr', 'pss')
         expected_calls = self.startup_calls + (
             call.common.login('newdb', 'usr', 'pss'),
-            call.object.execute_kw('newdb', 1, 'pss', 'res.users', 'context_get'),
+            call.object.execute_kw('newdb', 1, 'pss', 'res.users', 'context_get', ()),
         )
         self.assertIsInstance(client, odooly.Client)
         self.assertCalls(*expected_calls)
@@ -216,7 +216,7 @@ class TestCreateClient(XmlRpcTestCase):
         self.service.common.login.return_value = 17
         getpass.reset_mock()
         expected_calls = expected_calls + (
-            call.object.execute_kw('database', 17, 'password', 'res.users', 'context_get'),
+            call.object.execute_kw('database', 17, 'password', 'res.users', 'context_get', ()),
         )
 
         client = odooly.Client(self.server, 'database', 'usr')
@@ -234,7 +234,7 @@ class TestCreateClient(XmlRpcTestCase):
         client = odooly.Client(url_xmlrpc, 'database', 'usr')
         self.assertIsInstance(client, odooly.Client)
         self.assertCalls(*(self.startup_calls + (
-            call.object.execute_kw('database', 1, 'password', 'res.users', 'context_get'),
+            call.object.execute_kw('database', 1, 'password', 'res.users', 'context_get', ()),
         )))
         self.assertOutput('')
 
@@ -260,7 +260,7 @@ class TestCreateClient(XmlRpcTestCase):
         read_config.reset_mock()
         getpass.reset_mock()
         expected_calls = expected_calls + (
-            call.object.execute_kw('database', 17, 'password', 'res.users', 'context_get'),
+            call.object.execute_kw('database', 17, 'password', 'res.users', 'context_get', ()),
         )
 
         client = odooly.Client.from_config('test')
@@ -369,11 +369,11 @@ class TestClientApi(XmlRpcTestCase):
         if float(self.server_version) <= 8.0:
             expected_calls[2:2] = [
                 call.common.login('db1', 'admin', 'admin'),
-                call.object.execute_kw('db1', 1, 'admin', 'res.users', 'context_get'),
+                call.object.execute_kw('db1', 1, 'admin', 'res.users', 'context_get', ()),
             ]
             expected_calls[6:] = [
                 call.common.login('db2', 'admin', 'secret'),
-                call.object.execute_kw('db2', 1, 'secret', 'res.users', 'context_get'),
+                call.object.execute_kw('db2', 1, 'secret', 'res.users', 'context_get', ()),
             ]
 
             self.assertRaises(
@@ -570,11 +570,9 @@ class TestClientApi(XmlRpcTestCase):
             OBJ('ir.model.access', 'check', 'res.users', 'write'),
             OBJ('res.users', 'search', [('login', '=', 'guest')]),
             OBJ('res.users', 'read', 123, ['id', 'login', 'password']),
-            ('object.execute_kw', self.database, 123, 'xxx',
-             'res.users', 'context_get'),
-
-            ('object.execute_kw', self.database, 1, 'passwd',
-             'res.users', 'context_get'),
+            ('object.execute_kw', self.database, 123, 'xxx', 'res.users', 'context_get', ()),
+            #
+            ('object.execute_kw', self.database, 1, 'passwd',  'res.users', 'context_get', ()),
             OBJ('ir.model.access', 'check', 'res.users', 'write', context=ctx_lang),
             ('object.execute_kw', self.database, 123, 'xxx',
              'ir.model.access', 'check', ('res.users', 'write'), {'context': ctx_lang}),
