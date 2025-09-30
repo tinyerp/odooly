@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-2.x.x (unreleased)
+2.3.1 (2025-09-30)
 ~~~~~~~~~~~~~~~~~~
 
 * Fix `context_get` arguments.
