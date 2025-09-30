@@ -14,7 +14,7 @@ using the Webclient API or `the deprecated external RPC interface`_ (JSON-RPC or
 
 It provides both a :ref:`fully featured low-level API <client-and-services>`,
 and an encapsulation of the methods on :ref:`Active Record objects
-<model-and-records>`.  It implements the Odoo API.
+<model-and-records>`.  It implements the Odoo ORM API.
 Additional helpers are provided to explore the model and administrate the
 server remotely.
 
@@ -23,6 +23,45 @@ The :doc:`intro` describes how to use it as a :ref:`command line tool
 
 The :doc:`tutorial` gives an in-depth look at the capabilities.
 
+
+Authentication methods per Odoo version, and per API:
+
+
+============ ============ ========= ========== ========== =========
+ Odoo \\ API   Webclient   Public     JSON-2*   JSON-RPC   XML-RPC
+============ ============ ========= ========== ========== =========
+ 20.0 +      | Login 2FA             API Key*
+             | Login       no-auth
+------------ ------------ --------- ---------- ---------- ---------
+ 19.0        | Login 2FA             API Key*  | API Key  | API Key
+             | Login       no-auth             | Login    | Login
+------------ ------------ --------- ---------- ---------- ---------
+ 18.0        | Login 2FA                       | API Key  | API Key
+             | Login       no-auth             | Login    | Login
+------------ ------------ --------- ---------- ---------- ---------
+ 17.0        | Login 2FA                       | API Key  | API Key
+             | Login       no-auth             | Login    | Login
+------------ ------------ --------- ---------- ---------- ---------
+ 16.0        | Login 2FA                       | API Key  | API Key
+             | Login       no-auth             | Login    | Login
+------------ ------------ --------- ---------- ---------- ---------
+ 15.0        | Login 2FA                       | API Key  | API Key
+             | Login       no-auth             | Login    | Login
+------------ ------------ --------- ---------- ---------- ---------
+ 14.0                                          | API Key  | API Key
+              Login        no-auth             | Login    | Login
+------------ ------------ --------- ---------- ---------- ---------
+ 8.0 to 13.0  Login        no-auth              Login      Login
+------------ ------------ --------- ---------- ---------- ---------
+ 6.1 and 7.0  Login        no-auth                         Login
+============ ============ ========= ========== ========== =========
+
+.. note:: So called Public API is available without authentication. For
+          example ``/web/webclient/version_info``.  The ``/web/database/*``
+          endpoints are public, although they require the Master password as argument.
+
+.. note:: (*) All APIs are supported by Odooly, except the new JSON-2 API.
+          This will be added in a future version.
 
 
 Contents:

@@ -12,11 +12,14 @@ Changelog
 
 * When using Webclient, ``database =`` configuration becomes optional.
 
+* Add API overview table to the documentation: availability and authentication
+  mode per Odoo version.
+
 
 2.3.1 (2025-09-30)
 ~~~~~~~~~~~~~~~~~~
 
-* Fix `context_get` arguments.
+* Fix ``context_get`` arguments.
 
 * Do not authenticate with ``/web/session/authenticate`` when
   protocol is ``jsonrpc`` or ``xmlrpc``.  It cannot authenticate API keys.
