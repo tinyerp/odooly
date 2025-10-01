@@ -562,7 +562,7 @@ class Env:
             uid = False
         return uid
 
-    def _auth(self, user, password, context):
+    def _auth(self, user, password):
         if self.client._object and not self.db_name:
             raise Error('Not connected')
         uid = verified = None
@@ -602,14 +602,12 @@ class Env:
         auth_cache[uid] = (uid, password)
         if user:
             auth_cache[user] = auth_cache[uid]
-        self.session_info = info
-        user_context = info.get('user_context') or {}
+        user_context = info.get('user_context')
         if not user_context and self.client._object:
             args = self.db_name, uid, password, 'res.users', 'context_get', ()
             user_context = self.client._object.execute_kw(*args)
-        if context:
-            user_context = {**user_context, **context}
-        return (uid, password, user_context)
+        info['user_context'] = user_context or {}
+        return (uid, password, info)
 
     def _set_credentials(self, uid, password):
         def env_auth(method):     # Authenticated endpoints
@@ -629,7 +627,7 @@ class Env:
             self.wizard_execute = env_auth(self.client._wizard.execute)
             self.wizard_create = env_auth(self.client._wizard.create)
 
-    def _configure(self, uid, user, password, context):
+    def _configure(self, uid, user, password, context, session):
         if self.uid:              # Create a new Env() instance
             env = Env(self.client)
             (env.db_name, env.name) = (self.db_name, self.name)
@@ -640,8 +638,7 @@ class Env:
         if uid == self.uid:       # Copy methods
             for key in ('_execute', '_execute_kw', 'exec_workflow',
                         'report', 'report_get', 'render_report',
-                        'wizard_execute', 'wizard_create',
-                        'session_info'):
+                        'wizard_execute', 'wizard_create'):
                 if hasattr(self, key):
                     setattr(env, key, getattr(self, key))
         else:                     # Create methods
@@ -652,6 +649,7 @@ class Env:
         env.uid = uid
         env.user = env._get('res.users', False).browse(uid)
         env.context = dict(context)
+        env.session_info = session
         if user:
             assert isinstance(user, str), repr(user)
             env.user.__dict__['login'] = user
@@ -683,15 +681,17 @@ class Env:
     def __call__(self, user=None, password=None, context=None):
         """Return an environment based on ``self`` with modified parameters."""
         if user is not None:
-            (uid, password, context) = self._auth(user, password, context)
+            (uid, password, session) = self._auth(user, password)
+            if context is None:
+                context = session['user_context']
         elif context is not None:
-            (uid, user) = (self.uid, self.user)
+            (uid, user, session) = (self.uid, self.user, self.session_info)
         else:
             return self
         env_key = json.dumps((uid, context), sort_keys=True)
         env = self._cache_get(env_key)
         if env is None:
-            env = self._configure(uid, user, password, context)
+            env = self._configure(uid, user, password, context, session)
             self._cache_set(env_key, env)
         return env
 
@@ -1276,7 +1276,7 @@ class Client:
         self.env._cache_set('auth', dict(auth_cache), db_name=database)
 
         # Login with the current user into the new database
-        (uid, password, context) = self.env._auth(self.env.uid, None, None)
+        (uid, password, __) = self.env._auth(self.env.uid, None)
         return self.login(self.env.user.login, password, database=database)
 
     def drop_database(self, passwd, database):
