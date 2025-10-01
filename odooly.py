@@ -36,7 +36,7 @@ CONF_FILE = 'odooly.ini'
 HIST_FILE = os.path.expanduser('~/.odooly_history')
 DEFAULT_URL = 'http://localhost:8069/'
 DEFAULT_USER = 'admin'
-SUPERUSER_ID = 1
+ADMIN_USER = 'admin'
 MAXCOL = [79, 179, 9999]    # Line length in verbose mode
 
 USAGE = """\
@@ -552,8 +552,6 @@ class Env:
         Return ``uid`` on success, ``False`` on failure.
         The invalid entry is removed from the authentication cache.
         """
-        if not self.client._object:
-            return False
         try:
             self.client._object.execute_kw(self.db_name, uid, password,
                                            'ir.model', 'fields_get', ([None],))
@@ -565,7 +563,7 @@ class Env:
         return uid
 
     def _auth(self, user, password, context):
-        if self.client.common and not self.db_name:
+        if self.client._object and not self.db_name:
             raise Error('Not connected')
         uid = verified = None
         if isinstance(user, int):
@@ -574,28 +572,15 @@ class Env:
         if not password:
             # Read from cache
             (uid, password) = auth_cache.get(user or uid) or (uid, None)
-            # Read from model 'res.users'
-            if not password and self.access('res.users', 'write'):
-                domain = [('login', '=', user)] if user else [uid]
-                obj = self['res.users'].read(domain, 'id login password')
-                if obj:
-                    uid = obj[0]['id']
-                    user = obj[0]['login']
-                    password = obj[0]['password']
-                else:
-                    # Invalid user
-                    uid = False
             verified = password and uid
+            # Read from model 'res.users'
+            if user and not uid and self.access('res.users', 'write'):
+                [uid] = self['res.users'].search([('login', '=', user)]).ids or [False]
             # Ask for password
             if not password and uid is not False:
-                if user is None:
-                    name = 'admin' if uid == SUPERUSER_ID else f'UID {uid}'
-                else:
-                    name = user
-                password = getpass(f"Password for {name!r}: ")
-        # Check if password is valid
-        uid = self.check_uid(uid, password) if (uid and not verified) else uid
-        if uid is None:
+                name = f'UID {uid}' if user is None else repr(user)
+                password = getpass(f"Password for {name}: ")
+        if uid is None or (uid and not self.client._object):
             # Do a standard 'login'
             try:
                 info = self.client._authenticate(self.db_name, user, password)
@@ -607,7 +592,9 @@ class Env:
             if not self.db_name:
                 self.db_name = info.get('db')
                 self.refresh()
-        else:
+        elif uid:
+            # Check if password is valid
+            uid = verified or self.check_uid(uid, password)
             info = {'uid': uid}
         if not uid:
             raise Error('Invalid username or password')
@@ -660,9 +647,7 @@ class Env:
         else:                     # Create methods
             env._set_credentials(uid, password)
         # Setup uid and user
-        if isinstance(user, int):
-            user = 'admin' if uid == SUPERUSER_ID else None
-        elif isinstance(user, Record):
+        if isinstance(user, Record):
             user = user.login
         env.uid = uid
         env.user = env._get('res.users', False).browse(uid)
@@ -710,8 +695,8 @@ class Env:
             self._cache_set(env_key, env)
         return env
 
-    def sudo(self, user=SUPERUSER_ID):
-        """Attach to the provided user, or SUPERUSER."""
+    def sudo(self, user=ADMIN_USER):
+        """Attach to the provided user, or 'admin'."""
         return self(user=user)
 
     def ref(self, xml_id):
@@ -1347,8 +1332,8 @@ class BaseModel:
         """Attach to the provided environment."""
         return env[self._name]
 
-    def sudo(self, user=SUPERUSER_ID):
-        """Attach to the provided user, or SUPERUSER."""
+    def sudo(self, user=ADMIN_USER):
+        """Attach to the provided user, or 'admin'."""
         return self.with_env(self.env(user=user))
 
     def with_context(self, *args, **kwargs):

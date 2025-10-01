@@ -277,7 +277,7 @@ class TestSampleSession(XmlRpcTestCase):
     database = 'database'
     user = 'user'
     password = 'passwd'
-    uid = 1
+    uid = 4
 
     def test_simple(self):
         self.service.object.execute_kw.side_effect = [
@@ -338,7 +338,7 @@ class TestClientApi(XmlRpcTestCase):
     database = 'database'
     user = 'user'
     password = 'passwd'
-    uid = 1
+    uid = 4
 
     def obj_exec(self, *args):
         if args[4] == 'search':
@@ -358,11 +358,11 @@ class TestClientApi(XmlRpcTestCase):
             call.db.create_database('abc', 'db1', False, 'en_US', 'admin'),
             call.db.list(),
             call.common.login('db1', 'admin', 'admin'),
-            call.object.execute_kw('db1', 1, 'admin', 'res.users', 'context_get', ()),
+            call.object.execute_kw('db1', self.uid, 'admin', 'res.users', 'context_get', ()),
             call.db.create_database('xyz', 'db2', False, 'fr_FR', 'secret'),
             call.db.list(),
             call.common.login('db2', 'admin', 'secret'),
-            call.object.execute_kw('db2', 1, 'secret', 'res.users', 'context_get', ()),
+            call.object.execute_kw('db2', self.uid, 'secret', 'res.users', 'context_get', ()),
         ]
 
         if float(self.server_version) <= 8.0:
@@ -379,7 +379,7 @@ class TestClientApi(XmlRpcTestCase):
                 call.db.create_database('xyz', 'db2', False, 'fr_FR', 'secret', 'other_login', 'CA'),
                 call.db.list(),
                 call.common.login('db2', 'other_login', 'secret'),
-                call.object.execute_kw('db2', 1, 'secret', 'res.users', 'context_get', ()),
+                call.object.execute_kw('db2', self.uid, 'secret', 'res.users', 'context_get', ()),
             ]
         self.assertCalls(*expected_calls)
         self.assertOutput('')
@@ -550,24 +550,28 @@ class TestClientApi(XmlRpcTestCase):
 
     def test_sudo(self):
         ctx_lang = {'lang': 'it_IT'}
-        self.service.object.execute_kw.side_effect = [
-            False, 123, [{'id': 123, 'login': 'guest', 'password': 'xxx'}], ctx_lang]
+        self.service.object.execute_kw.side_effect = [False, 123, {}, ctx_lang]
+        getpass = mock.patch('odooly.getpass', return_value='xxx').start()
         env = self.env(user='guest')
 
-        self.service.object.execute_kw.side_effect = [ctx_lang, False, RuntimeError]
+        self.service.object.execute_kw.side_effect = [False, 1, {}, ctx_lang, ctx_lang]
         self.assertTrue(env.sudo().access('res.users', 'write'))
         self.assertFalse(env.access('res.users', 'write'))
 
         self.assertCalls(
             OBJ('ir.model.access', 'check', 'res.users', 'write'),
             OBJ('res.users', 'search', [('login', '=', 'guest')]),
-            OBJ('res.users', 'read', 123, ['id', 'login', 'password']),
+            ('object.execute_kw', self.database, 123, 'xxx', 'ir.model', 'fields_get', ([None],)),
             ('object.execute_kw', self.database, 123, 'xxx', 'res.users', 'context_get', ()),
             #
-            ('object.execute_kw', self.database, 1, 'passwd',  'res.users', 'context_get', ()),
-            OBJ('ir.model.access', 'check', 'res.users', 'write', context=ctx_lang),
             ('object.execute_kw', self.database, 123, 'xxx',
              'ir.model.access', 'check', ('res.users', 'write'), {'context': ctx_lang}),
+            ('object.execute_kw', self.database, 123, 'xxx',
+             'res.users', 'search', ([('login', '=', 'admin')],), {'context': ctx_lang}),
+            ('object.execute_kw', self.database, 1, 'xxx', 'ir.model', 'fields_get', ([None],)),
+            ('object.execute_kw', self.database, 1, 'xxx', 'res.users', 'context_get', ()),
+            ('object.execute_kw', self.database, 1, 'xxx', 'ir.model.access', 'check', ('res.users', 'write'), {'context': ctx_lang}),
+            ('object.execute_kw', self.database, 123, 'xxx', 'ir.model.access', 'check', ('res.users', 'write'), {'context': ctx_lang}),
         )
         self.assertOutput('')
 

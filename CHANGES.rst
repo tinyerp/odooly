@@ -12,6 +12,11 @@ Changelog
 
 * When using Webclient, ``database =`` configuration becomes optional.
 
+* Method :meth:`Model.sudo` defaults to ``'admin'`` user, insted of UID 1.
+
+* Simplify authentication, passwords are encrypted since Odoo 12.0 and
+  values cannot be retrieved by ``'admin'``.
+
 * Add API overview table to the documentation: availability and authentication
   mode per Odoo version.
 
