@@ -2,6 +2,13 @@ Changelog
 ---------
 
 
+2.x.x (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* Store :attr:`Env.session_info` when it is retrieved with Webclient API.
+  Insert ``user_context``  into ``session_info`` when RPC API is used.
+
+
 2.3.2 (2025-10-01)
 ~~~~~~~~~~~~~~~~~~
 
