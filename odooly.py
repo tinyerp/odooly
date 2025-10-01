@@ -28,8 +28,8 @@ except ImportError:
     requests = None
 
 __version__ = '2.3.2'
-__all__ = ['Client', 'Env', 'Service', 'BaseModel', 'Model',
-           'BaseRecord', 'Record', 'RecordList',
+__all__ = ['Client', 'Env', 'WebAPI', 'Service', 'Json2',
+           'BaseModel', 'Model', 'BaseRecord', 'Record', 'RecordList',
            'format_exception', 'read_config', 'start_odoo_services']
 
 CONF_FILE = 'odooly.ini'
@@ -256,7 +256,7 @@ def read_config(section=None):
     ``database``, ``username`` and (optional) ``password``.  Default values
     are read from the ``[DEFAULT]`` section.  If the ``password`` is not in
     the configuration file, it is requested on login.
-    Return a tuple ``(server, db, user, password or None)``.
+    Return a tuple ``(server, db, user, password or None, api_key or None)``.
     Without argument, it returns the list of configured environments.
     """
     p = ConfigParser()
@@ -271,7 +271,7 @@ def read_config(section=None):
     else:
         protocol = env.get('protocol', 'web')
         server = f"{scheme}://{env['host']}:{env['port']}/{protocol}"
-    return (server, env.get('database', ''), env['username'], env.get('password'))
+    return (server, env.get('database', ''), env['username'], env.get('password'), env.get('api_key'))
 
 
 def start_odoo_services(options=None, appname=None):
@@ -377,6 +377,25 @@ class ServerError(Exception):
     """An error received from the server."""
 
 
+class Printer:
+    def __init__(self, verbose):
+        self._maxcol = MAXCOL[min(len(MAXCOL), verbose) - 1]
+
+    def print_sent(self, request):
+        snt = str(request)
+        if len(snt) > self._maxcol:
+            suffix = f"... L={len(snt)}"
+            snt = snt[:self._maxcol - len(suffix)] + suffix
+        print(f"--> {snt}")
+
+    def print_recv(self, result):
+        rcv = repr(result)
+        if len(rcv) > self._maxcol:
+            suffix = f"... L={len(rcv)}"
+            rcv = rcv[:self._maxcol - len(suffix)] + suffix
+        print(f"<-- {rcv}")
+
+
 class WebAPI:
     """A wrapper around Web endpoints.
 
@@ -396,10 +415,12 @@ class WebAPI:
         self._endpoint = f'/web/{endpoint}' if endpoint else '/web'
         self._methods = methods
         self._verbose = verbose
+        printer = Printer(verbose=verbose)
+        self._print_sent = printer.print_sent
+        self._print_recv = printer.print_recv
 
     def __repr__(self):
         return f"<WebAPI '{self._server[:-1]}{self._endpoint}'>"
-    __str__ = __repr__
 
     def __dir__(self):
         return sorted(self._methods)
@@ -412,23 +433,14 @@ class WebAPI:
                     if 'passw' in key or 'pwd' in key:
                         secret[key] = ...
                 return {**kw, **secret}.items()
-            maxcol = MAXCOL[min(len(MAXCOL), self._verbose) - 1]
 
             def wrapper(self, _func=None, **params):
                 method = f'{name}/{_func}' if _func else name
                 snt = ' '.join(f'{key}={v!r}' if v != ... else f'{key}=*'
                                for (key, v) in sanitize(params))
-                snt = f"POST {self._endpoint}/{method} {snt}"
-                if len(snt) > maxcol:
-                    suffix = f"... L={len(snt)}"
-                    snt = snt[:maxcol - len(suffix)] + suffix
-                print(f"--> {snt}")
+                self._print_sent(f"POST {self._endpoint}/{method} {snt}")
                 res = self._dispatch(method, params)
-                rcv = repr(res)
-                if len(rcv) > maxcol:
-                    suffix = f"... L={len(rcv)}"
-                    rcv = rcv[:maxcol - len(suffix)] + suffix
-                print(f"<-- {rcv}")
+                self._print_recv(res)
                 return res
         else:
             def wrapper(self, _func=None, **params):
@@ -454,10 +466,12 @@ class Service:
         self._endpoint = endpoint
         self._methods = methods
         self._verbose = verbose
+        printer = Printer(verbose=verbose)
+        self._print_sent = printer.print_sent
+        self._print_recv = printer.print_recv
 
     def __repr__(self):
         return f"<Service '{self._rpcpath}|{self._endpoint}'>"
-    __str__ = __repr__
 
     def __dir__(self):
         return sorted(self._methods)
@@ -471,25 +485,93 @@ class Service:
                     args = list(args)
                     args[2] = '*'
                 return args
-            maxcol = MAXCOL[min(len(MAXCOL), self._verbose) - 1]
 
             def wrapper(self, *args):
                 snt = ', '.join(repr(arg) for arg in sanitize(args))
-                snt = f"{self._endpoint}.{name}({snt})"
-                if len(snt) > maxcol:
-                    suffix = f"... L={len(snt)}"
-                    snt = snt[:maxcol - len(suffix)] + suffix
-                print(f"--> {snt}")
+                self._print_sent(f"{self._endpoint}.{name}({snt})")
                 res = self._dispatch(name, args)
-                rcv = str(res)
-                if len(rcv) > maxcol:
-                    suffix = f"... L={len(rcv)}"
-                    rcv = rcv[:maxcol - len(suffix)] + suffix
-                print(f"<-- {rcv}")
+                self._print_recv(res)
                 return res
         else:
             wrapper = lambda s, *args: s._dispatch(name, args)
         return _memoize(self, name, wrapper)
+
+
+class Json2:
+    """A connection to Json-2 API
+
+    Added in Odoo 19.
+    """
+    _endpoint = '/json/2'
+    _doc_endpoint = '/doc-bearer'
+
+    def __init__(self, client, database, api_key):
+        self._req = client._post
+        self._server = urljoin(client._server, '/')
+        self._headers = {
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json',
+            'X-Odoo-Database': database or '',
+        }
+        self._method_params = {}
+        self._verbose = client._verbose
+        printer = Printer(verbose=self._verbose)
+        self._print_sent = printer.print_sent
+        self._print_recv = printer.print_recv
+
+    def doc(self, model):
+        """Documentation of the `model`."""
+        res = self._request(f'{self._doc_endpoint}/{model}.json')
+        return json.loads(res)
+
+    def _prepare_params(self, model, method, args, kwargs):
+        if not args:
+            return {**kwargs}
+        try:
+            arg_names = self._method_params[model][method]
+        except KeyError:
+            methods = self.doc(model).get('methods') or {}
+            self._method_params[model] = dict_methods = {}
+            for key, vals in methods.items():
+                arg_names = list(vals['parameters'])
+                if 'model' not in vals.get('api', ()):
+                    arg_names.insert(0, 'ids')
+                dict_methods[key] = arg_names
+            arg_names = dict_methods.setdefault(method, ())
+        params = dict(zip(arg_names, args))
+        params.update(kwargs)
+        if len(args) > len(arg_names) and self._verbose:
+            print(f"Method {method!r} on {model!r} called with extra args: {args[len(arg_names):]}")
+        return params
+
+    def __call__(self, model, method, args, kw=None):
+        """Execute API call on the `model`."""
+        params = self._prepare_params(model, method, args, kw or {})
+        return self._request(f'{self._endpoint}/{model}/{method}', params)
+
+    def __repr__(self):
+        return f"<Json2 '{self._server[:-1]}{self._endpoint}'>"
+
+    def _check(self):
+        url = urljoin(self._server, f'{self._doc_endpoint}/ir.model.json')
+        try:
+            self._req(url, headers=self._headers, method='GET')
+        except (OSError, ServerError):
+            return False
+        return self
+
+    def _request(self, path, params=None):
+        verb = 'GET' if params is None else 'POST'
+        url = urljoin(self._server, path)
+
+        if not self._verbose:
+            return self._req(url, json=params, headers=self._headers, method=verb)
+
+        snt = ' '.join(f'{key}={v!r}' for (key, v) in (params or {}).items())
+        self._print_sent(f"{verb} {path} {snt}".rstrip())
+        res = self._req(url, json=params, headers=self._headers, method=verb)
+        self._print_recv(res)
+        return res
 
 
 class Env:
@@ -504,7 +586,7 @@ class Env:
         >>> env["some.model"]
     """
 
-    name = uid = user = session_info = None
+    name = uid = user = session_info = _api_key = _json2 = None
     _cache = {}
 
     def __new__(cls, client, db_name=()):
@@ -562,7 +644,7 @@ class Env:
             uid = False
         return uid
 
-    def _auth(self, user, password):
+    def _auth(self, user, password, api_key):
         if self.client._object and not self.db_name:
             raise Error('Not connected')
         uid = verified = None
@@ -577,24 +659,24 @@ class Env:
             if user and not uid and self.access('res.users', 'write'):
                 [uid] = self['res.users'].search([('login', '=', user)]).ids or [False]
             # Ask for password
-            if not password and uid is not False:
+            if not password and not api_key and uid is not False:
                 name = f'UID {uid}' if user is None else repr(user)
                 password = getpass(f"Password for {name}: ")
         if uid is None or (uid and not self.client._object):
             # Do a standard 'login'
             try:
-                info = self.client._authenticate(self.db_name, user, password)
+                info = self.client._authenticate(self.db_name, user, password, api_key)
                 uid = info['uid']
             except Exception as exc:
                 if 'does not exist' in str(exc):    # Heuristic
                     raise Error('Database does not exist')
                 raise
             if not self.db_name:
-                self.db_name = info.get('db')
+                self.db_name = info.get('db') or ''
                 self.refresh()
         elif uid:
             # Check if password is valid
-            uid = verified or self.check_uid(uid, password)
+            uid = verified or self.check_uid(uid, api_key or password)
             info = {'uid': uid}
         if not uid:
             raise Error('Invalid username or password')
@@ -609,15 +691,16 @@ class Env:
         info['user_context'] = user_context or {}
         return (uid, password, info)
 
-    def _set_credentials(self, uid, password):
+    def _set_credentials(self, uid, api_key, store_api_key=True):
         def env_auth(method):     # Authenticated endpoints
-            return partial(method, self.db_name, uid, password)
+            return partial(method, self.db_name, uid, api_key)
+        if self.client.web and self.client.version_info > 18.0:
+            self._json2 = Json2(self.client, self.db_name, api_key)._check()
         if self.client._object:
             self._execute = env_auth(self.client._object.execute)
             self._execute_kw = env_auth(self.client._object.execute_kw)
-        else:  # WebAPI
-            assert self.client.web
-            self._execute_kw = self._call_kw
+        else:  # WebAPI and JSON-2
+            self._execute_kw = self._json2 or self._call_kw
         if self.client._report:   # Odoo <= 10
             self.exec_workflow = env_auth(self.client._object.exec_workflow)
             self.report = env_auth(self.client._report.report)
@@ -626,8 +709,11 @@ class Env:
         if self.client._wizard:   # OpenERP 6.1
             self.wizard_execute = env_auth(self.client._wizard.execute)
             self.wizard_create = env_auth(self.client._wizard.create)
+        if store_api_key:
+            self._api_key = api_key
+        return api_key
 
-    def _configure(self, uid, user, password, context, session):
+    def _configure(self, uid, user, password, api_key, context, session):
         if self.uid:              # Create a new Env() instance
             env = Env(self.client)
             (env.db_name, env.name) = (self.db_name, self.name)
@@ -641,8 +727,10 @@ class Env:
                         'wizard_execute', 'wizard_create'):
                 if hasattr(self, key):
                     setattr(env, key, getattr(self, key))
+            env._api_key = self._api_key
+            env._json2 = self._json2
         else:                     # Create methods
-            env._set_credentials(uid, password)
+            env._set_credentials(uid, api_key or password, bool(api_key))
         # Setup uid and user
         if isinstance(user, Record):
             user = user.login
@@ -678,10 +766,10 @@ class Env:
         """Return the environment's registry."""
         return self.client._server._get_pool(self.db_name)
 
-    def __call__(self, user=None, password=None, context=None):
+    def __call__(self, user=None, password=None, api_key=None, context=None):
         """Return an environment based on ``self`` with modified parameters."""
         if user is not None:
-            (uid, password, session) = self._auth(user, password)
+            (uid, password, session) = self._auth(user, password, api_key)
             if context is None:
                 context = session['user_context']
         elif context is not None:
@@ -691,7 +779,7 @@ class Env:
         env_key = json.dumps((uid, context), sort_keys=True)
         env = self._cache_get(env_key)
         if env is None:
-            env = self._configure(uid, user, password, context, session)
+            env = self._configure(uid, user, password, api_key, context, session)
             self._cache_set(env_key, env)
         return env
 
@@ -720,6 +808,8 @@ class Env:
                 del self._cache[key]
         self._model_names = self._cache_set('model_names', set())
         self._models = {}
+        if self._json2:
+            self._json2._method_params = {}
 
     def _cache_get(self, key, func=None):
         try:
@@ -734,8 +824,8 @@ class Env:
         return value
 
     def execute(self, obj, method, *params, **kwargs):
-        """Wrapper around ``/web/dataset/call_kw`` Web endpoint,
-        or ``object.execute_kw`` RPC method.
+        """Wrapper around ``/web/dataset/call_kw`` Webclient endpoint,
+        or ``/json/2`` API endpoint or ``object.execute_kw`` RPC method.
 
         Argument `method` is the name of a standard ``Model`` method
         or a specific method available on this `obj`.
@@ -953,6 +1043,12 @@ class Env:
             'password': password or getpass(f"Password for {login!r}: "),
         }
         self.session_info = self.client._authenticate_session(**params)
+        if login == self.user.login and not self.db_name and self.session_info.get('db'):
+            empty_db_key = (self.db_name, self.client._server)
+            self.db_name = self.session_info['db']
+            for key in list(self._cache):
+                if key[1:] == empty_db_key:
+                    self._cache_set(key[0], self._cache[key])
         print(f'Session authenticated for {login!r}' if self.session_info['uid'] else 'Failed')
 
     def session_destroy(self):
@@ -1014,7 +1110,7 @@ class Client:
         elif '/jsonrpc' in server:
             self._proxy = self._proxy_jsonrpc
         else:
-            if '/web' not in server:
+            if not server.endswith('/web'):
                 server = urljoin(server, '/web')
             self._proxy = None
 
@@ -1096,48 +1192,53 @@ class Client:
         ``odooly.ini`` file and return a connected :class:`Client`.
         See :func:`read_config` for details of the configuration file format.
         """
-        (server, db, conf_user, password) = cls.get_config(environment)
+        (server, db, conf_user, password, api_key) = cls.get_config(environment)
         if user and user != conf_user:
             password = None
         client = cls(server, verbose=verbose)
         client.env.name = environment
-        client.login(user or conf_user, password=password, database=db)
+        client.login(user or conf_user, password=password, api_key=api_key, database=db)
         return client
 
     def __repr__(self):
-        return f"<Client '{self._server}#{self.env.db_name}'>"
+        return f"<Client '{self._server}?db={self.env.db_name or ''}'>"
 
     def close(self):
         for conn in self._connections:
             conn.__exit__()
         self._connections = []
 
-    def _authenticate(self, db, login, password):
+    def _authenticate(self, db, login, password, api_key):
         if self.common:
-            info = {'uid': self.common.login(db, login, password)}
+            info = {'uid': self.common.login(db, login, api_key or password)}
+        elif api_key and not password and self.version_info > 18.0:
+            json2_api = Json2(self, db, api_key)
+            context = json2_api('res.users', 'context_get', ())
+            info = {'uid': context['uid'], 'user_context': context}
         elif self.web and self.version_info > 8.0:
-            if not db:
-                try:
-                    info = self._authenticate_web(login=login, password=password)
-                except AttributeError:
-                    # Database selector page
-                    db = self._select_database()
-            if db:
-                info = self._authenticate_session(db=db, login=login, password=password)
+            info = self._authenticate_session(db, login, password)
         else:
             raise Error("Cannot authenticate")
         return info
 
     def _authenticate_session(self, db, login, password):
-        try:
-            info = self.web_session.authenticate(db=db, login=login, password=password)
-        except ServerError as exc:
-            # Ignore: odoo.exceptions.AccessDenied
-            if exc.args[0]['code'] != 200:
-                raise
-            return {'uid': None}
-        if self.version_info > 14.0 and info['uid'] is None:  # Is it 2FA?
-            info = self._authenticate_web(db=db, login=login, password=password)
+        if not db:
+            try:
+                info = self._authenticate_web(login=login, password=password)
+            except AttributeError:
+                info = {'uid': None}
+                # Database selector page
+                db = self._select_database()
+        if db:
+            try:
+                info = self.web_session.authenticate(db=db, login=login, password=password)
+            except ServerError as exc:
+                # Ignore: odoo.exceptions.AccessDenied
+                if exc.args[0]['code'] != 200:
+                    raise
+                return {'uid': None}
+            if self.version_info > 14.0 and info['uid'] is None:  # Is it 2FA?
+                info = self._authenticate_web(db=db, login=login, password=password)
         return info
 
     def _authenticate_web(self, **params):
@@ -1183,7 +1284,7 @@ class Client:
             except Exception:
                 pass
 
-    def _login(self, user, password=None, database=None):
+    def _login(self, user, password=None, database=None, api_key=None):
         """Switch `user` and (optionally) `database`.
 
         If the `password` is not available, it will be asked.
@@ -1201,7 +1302,7 @@ class Client:
             if env.db_name != database:
                 env = Env(self, database)
         try:
-            self.env = env(user=user, password=password)
+            self.env = env(user=user, password=password, api_key=api_key)
         except Exception:
             current_thread().dbname = self.env.db_name
             raise
@@ -1209,12 +1310,12 @@ class Client:
         current_thread().dbname = self.env.db_name
         return self.env.uid
 
-    def login(self, user, password=None, database=None):
+    def login(self, user, password=None, database=None, api_key=None):
         """Switch `user` and (optionally) `database`."""
         if not self._globals:   # Not interactive
-            return self._login(user, password=password, database=database)
+            return self._login(user, password=password, database=database, api_key=api_key)
         try:
-            self._login(user, password=password, database=database)
+            self._login(user, password=password, database=database, api_key=api_key)
         except Error as exc:
             print(f"{exc.__class__.__name__}: {exc}")
         else:
@@ -1473,7 +1574,7 @@ class Model(BaseModel):
         return Record(self, ids[0]) if ids else None
 
     def create(self, values):
-        """Create one or many :class:`Record`(s).
+        """Create one :class:`Record` or many.
 
         The argument `values` is a dictionary of values which are used to
         create the record.  Relationship fields `one2many` and `many2many`
@@ -1482,7 +1583,7 @@ class Model(BaseModel):
         either a Record or the Odoo syntax.
         Since Odoo 12.0, it can create multiple records.
 
-        The newly created :class:`Record` is returned (or :class:`RecordList`).
+        The newly created :class:`Record` is returned, or :class:`RecordList`.
         """
         if hasattr(values, "items"):
             values = self._unbrowse_values(values)

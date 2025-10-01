@@ -32,7 +32,7 @@ class TestInteract(XmlRpcTestCase):
         mock.patch('odooly.main.__defaults__', (self.interact,)).start()
 
     def test_main(self):
-        env_tuple = (self.server, 'database', 'usr', None)
+        env_tuple = (self.server, 'database', 'usr', None, None)
         mock.patch('sys.argv', new=['odooly', '--env', 'demo']).start()
         read_config = mock.patch('odooly.Client.get_config',
                                  return_value=env_tuple).start()
@@ -68,7 +68,7 @@ class TestInteract(XmlRpcTestCase):
         outlines = self.stdout.popvalue().splitlines()
         self.assertSequenceEqual(outlines[-5:], [
             "Logged in as 'usr'",
-            f"<Client '{self.server}#database'>",
+            f"<Client '{self.server}?db=database'>",
             "<Env 'usr@database'>",
             "Logged in as 'gaspard'",
             "42",
@@ -76,7 +76,7 @@ class TestInteract(XmlRpcTestCase):
         self.assertOutput(stderr='\x1b[A\n\n', startswith=True)
 
     def test_no_database(self):
-        env_tuple = (self.server, 'missingdb', 'usr', None)
+        env_tuple = (self.server, 'missingdb', 'usr', None, None)
         mock.patch('sys.argv', new=['odooly', '--env', 'demo']).start()
         read_config = mock.patch('odooly.Client.get_config',
                                  return_value=env_tuple).start()
@@ -96,14 +96,14 @@ class TestInteract(XmlRpcTestCase):
         outlines = self.stdout.popvalue().splitlines()
         self.assertSequenceEqual(outlines[-4:], [
             "Error: Database 'missingdb' does not exist: ['database']",
-            f"<Client '{self.server}#()'>",
+            f"<Client '{self.server}?db='>",
             "<Env '@()'>",
             "Error: Not connected",
         ])
         self.assertOutput(stderr=ANY)
 
     def test_invalid_user_password(self):
-        env_tuple = (self.server, 'database', 'usr', 'passwd')
+        env_tuple = (self.server, 'database', 'usr', 'passwd', None)
         mock.patch('sys.argv', new=['odooly', '--env', 'demo']).start()
         mock.patch('os.environ', new={'LANG': 'fr_FR.UTF-8'}).start()
         mock.patch('odooly.Client.get_config', return_value=env_tuple).start()

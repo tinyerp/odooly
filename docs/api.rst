@@ -91,6 +91,10 @@ for database management.  Use :func:`dir` function to introspect them.
    :members:
    :undoc-members:
 
+.. autoclass:: Json2
+   :members: __call__, doc
+   :undoc-members:
+
 
 Odoo RPC Services
 ~~~~~~~~~~~~~~~~~
@@ -214,9 +218,17 @@ Please refer to `the Odoo documentation`_ for details.
 
 .. automethod:: Env.execute(obj, method, *params, **kwargs)
 
-.. method:: Env._call_kw(obj, method, *params, **kwargs)
+.. method:: Env._call_kw(obj, method, params, kw=None)
 
-.. attribute:: Env._web(obj, method, *params, **kwargs)
+   Expose the ``/web/dataset/call_kw`` endpoint.
+
+.. method:: Env._json2(obj, method, params, kw=None)
+
+   Expose the ``/json/2`` endpoint.
+
+   Added in Odoo 19.
+
+.. attribute:: Env._web
 
    Expose the ``/web`` API and its endpoints.
 

@@ -18,6 +18,11 @@ Changelog
 
 * New static method :meth:`Client.get_config`
 
+* Support JSON-2 API with Odoo >= 19.0.
+
+* Configure ``api_key`` separately.  Allow to use JSON-2 even
+  if ``password`` is not configured.
+
 
 2.3.2 (2025-10-01)
 ~~~~~~~~~~~~~~~~~~
