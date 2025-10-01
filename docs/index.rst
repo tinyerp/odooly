@@ -9,8 +9,9 @@ Odooly's documentation
 
 *A versatile tool for browsing Odoo / OpenERP data*
 
-The Odooly library communicates with any `Odoo / OpenERP server`_ (>= 6.1)
-using the Webclient API or `the deprecated external RPC interface`_ (JSON-RPC or XML-RPC).
+The Odooly library communicates with any `Odoo / OpenERP server`_ using the Webclient API.
+If an ``api_key`` is configured, it will use the JSON-2 endpoint with Odoo 19.0.
+It can also connect through the `deprecated external RPC interface`_ (JSON-RPC or XML-RPC).
 
 It provides both a :ref:`fully featured low-level API <client-and-services>`,
 and an encapsulation of the methods on :ref:`Active Record objects
@@ -28,12 +29,12 @@ Authentication methods per Odoo version, and per API:
 
 
 ============ ============ ========= ========== ========== =========
- Odoo \\ API   Webclient   Public     JSON-2*   JSON-RPC   XML-RPC
+ Odoo \\ API   Webclient   Public     JSON-2    JSON-RPC   XML-RPC
 ============ ============ ========= ========== ========== =========
- 20.0 +      | Login 2FA             API Key*
+ 20.0 +      | Login 2FA             API Key
              | Login       no-auth
 ------------ ------------ --------- ---------- ---------- ---------
- 19.0        | Login 2FA             API Key*  | API Key  | API Key
+ 19.0        | Login 2FA             API Key   | API Key  | API Key
              | Login       no-auth             | Login    | Login
 ------------ ------------ --------- ---------- ---------- ---------
  18.0        | Login 2FA                       | API Key  | API Key
@@ -60,9 +61,6 @@ Authentication methods per Odoo version, and per API:
           example ``/web/webclient/version_info``.  The ``/web/database/*``
           endpoints are public, although they require the Master password as argument.
 
-.. note:: (*) All APIs are supported by Odooly, except the new JSON-2 API.
-          This will be added in a future version.
-
 
 Contents:
 
@@ -78,7 +76,7 @@ Contents:
 * Source code and issue tracker: https://github.com/tinyerp/odooly
 
 .. _Odoo / OpenERP server: https://www.odoo.com/documentation/
-.. _the deprecated external RPC interface: https://www.odoo.com/documentation/19.0/developer/reference/external_rpc_api.html
+.. _deprecated external RPC interface: https://www.odoo.com/documentation/19.0/developer/reference/external_rpc_api.html
 
 
 Indices and tables
