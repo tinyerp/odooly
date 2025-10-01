@@ -202,7 +202,9 @@ def format_exception(exc_type, exc, tb, limit=None, chain=True,
     values = _format_exception(exc_type, exc, tb, limit=limit)
     server_error = None
     if issubclass(exc_type, Error):             # Client-side
-        values = [str(exc) + '\n']
+        values = [f"{exc}\n"]
+    elif issubclass(exc_type, OSError):         # HTTPError (requests or urllib)
+        values = [f"{exc_type.__name__}: {exc}\n"]
     elif issubclass(exc_type, ServerError):     # JSON-RPC
         server_error = exc.args[0]['data']
     elif (issubclass(exc_type, Fault) and       # XML-RPC
@@ -1304,6 +1306,7 @@ class Client:
 
         def _post(self, url, *, method='POST', data=None, json=None, headers=None, **kw):
             resp = self._http_session.request(method, url, data=data, json=json, headers=headers, **kw)
+            resp.raise_for_status()
             return resp.text if json is None else resp.json()
 
     else:  # urllib.request
