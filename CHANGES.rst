@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-2.x.x (unreleased)
+2.3.2 (2025-10-01)
 ~~~~~~~~~~~~~~~~~~
 
 * Print HTTP error status when error occurs.
