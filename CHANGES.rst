@@ -8,6 +8,8 @@ Changelog
 * Store :attr:`Env.session_info` when it is retrieved with Webclient API.
   Insert ``user_context``  into ``session_info`` when RPC API is used.
 
+* Add a database selector for Webclient API.
+
 * Method ``exists`` becomes private with Odoo 19.0.
 
 * Fix method :meth:`Env.upgrade_cancel` for Odoo 19.0.

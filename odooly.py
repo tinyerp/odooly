@@ -271,7 +271,7 @@ def read_config(section=None):
     else:
         protocol = env.get('protocol', 'web')
         server = f"{scheme}://{env['host']}:{env['port']}/{protocol}"
-    return (server, env['database'], env['username'], env.get('password'))
+    return (server, env.get('database', ''), env['username'], env.get('password'))
 
 
 def start_odoo_services(options=None, appname=None):
@@ -1114,10 +1114,14 @@ class Client:
         if self.common:
             info = {'uid': self.common.login(db, login, password)}
         elif self.web and self.version_info > 8.0:
+            if not db:
+                try:
+                    info = self._authenticate_web(login=login, password=password)
+                except AttributeError:
+                    # Database selector page
+                    db = self._select_database()
             if db:
                 info = self._authenticate_session(db=db, login=login, password=password)
-            else:
-                info = self._authenticate_web(login=login, password=password)
         else:
             raise Error("Cannot authenticate")
         return info
@@ -1141,13 +1145,7 @@ class Client:
 
         # 1. Get CSRF token
         rv = self._post(f'{url_web}?{urlencode(dict(db=db_name))}', method='GET', headers=headers)
-        try:
-            csrf = re.search(r'csrf_token: "(\w+)"', rv).group(1)
-        except AttributeError:
-            if not db_name:
-                # Database selector page
-                raise Error('Please select a database')
-            raise
+        csrf = re.search(r'csrf_token: "(\w+)"', rv).group(1)
 
         # 2. Login
         rv = self._post(f'{url_web}/login', data={'csrf_token': csrf, **params}, headers=headers)
@@ -1167,6 +1165,21 @@ class Client:
             params = {'csrf_token': csrf, 'totp_token': token, 'remember': 1}
             rv = self._post(f'{url_web}/login/totp', data=params, headers=headers)
         return session_info
+
+    def _select_database(self, limit=20):
+        db_list = self.database.list()
+        print('Available databases:')
+        for idx, name in enumerate(db_list[:limit], start=1):
+            print(f' {idx}. {name!r}')
+        if len(db_list) > limit:
+            print(' ...')
+        print()
+        while db_list:
+            ans = input('Select a database: ')
+            try:
+                return db_list[int(ans) - 1]
+            except Exception:
+                pass
 
     def _login(self, user, password=None, database=None):
         """Switch `user` and (optionally) `database`.
