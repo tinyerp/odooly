@@ -34,8 +34,7 @@ __all__ = ['Client', 'Env', 'Service', 'BaseModel', 'Model',
 
 CONF_FILE = 'odooly.ini'
 HIST_FILE = os.path.expanduser('~/.odooly_history')
-DEFAULT_URL = 'http://localhost:8069/web'
-DEFAULT_DB = 'odoo'
+DEFAULT_URL = 'http://localhost:8069/'
 DEFAULT_USER = 'admin'
 SUPERUSER_ID = 1
 MAXCOL = [79, 179, 9999]    # Line length in verbose mode
@@ -2178,7 +2177,7 @@ def main(interact=_interact):
     parser.add_option(
         '--server', default=None,
         help=f'full URL of the server (default: {DEFAULT_URL})')
-    parser.add_option('-d', '--db', default=DEFAULT_DB, help='database')
+    parser.add_option('-d', '--db', default=None, help='database')
     parser.add_option('-u', '--user', default=None, help='username')
     parser.add_option(
         '-p', '--password', default=None,
