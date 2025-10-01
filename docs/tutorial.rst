@@ -182,9 +182,9 @@ the details.
     <Model 'res.users'>
     >>> print(env['res.users'].keys())
     ['action_id', 'active', 'company_id', 'company_ids', 'context_lang',
-     'context_tz', 'date', 'groups_id', 'id', 'login', 'menu_id', 'menu_tips',
+     'context_tz', 'date', 'group_ids', 'id', 'login', 'menu_id', 'menu_tips',
      'name', 'new_password', 'password', 'signature', 'user_email', 'view']
-    >>> env['res.users'].field('company')
+    >>> env['res.users'].field('company_id')
     {'change_default': False,
      'company_dependent': False,
      'context': {'user_preference': True},
@@ -209,11 +209,9 @@ Let's examine the ``'admin'`` user in details.
     >>> env['res.users'].search_count()
     1
     >>> admin_user = env['res.users'].browse(1)
-    >>> admin_user.groups_id
+    >>> admin_user.group_ids
     <RecordList 'res.groups,[1, 2, 3]'>
-    >>> admin_user.groups_id.name
-    ['Access Rights', 'Configuration', 'Employee']
-    >>> admin_user.groups_id.full_name
+    >>> admin_user.group_ids.full_name
     ['Administration / Access Rights',
      'Administration / Configuration',
      'Human Resources / Employee']
@@ -251,7 +249,7 @@ It seems we've forgotten some mandatory data.  Let's give him a ``name``.
     >>> env['res.users'].create({'login': 'joe', 'name': 'Joe'})
     <Record 'res.users,3'>
     >>> joe_user = _
-    >>> joe_user.groups_id.full_name
+    >>> joe_user.group_ids.full_name
     ['Human Resources / Employee', 'Partner Manager']
 
 The user ``Joe`` does not have a password: we cannot login as ``joe``.
@@ -262,12 +260,12 @@ We set a password for ``Joe`` and we try again.
     >>> client.login('joe')
     Password for 'joe':
     Error: Invalid username or password
-    >>> env.user
+    >>> env.user.login
     'admin'
-    >>> joe_user.password = 'bar'
+    >>> joe_user.password = 'bartender'
     >>> client.login('joe')
     Logged in as 'joe'
-    >>> env.user
+    >>> env.user.login
     'joe'
     >>> #
 
@@ -281,7 +279,7 @@ We keep connected as user ``Joe`` and we explore the world around us.
 
 .. sourcecode:: pycon
 
-    >>> env.user
+    >>> env.user.login
     'joe'
     >>> all_models = env.models()
     >>> len(all_models)
