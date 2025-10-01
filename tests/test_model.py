@@ -1,3 +1,4 @@
+from functools import partial
 from unittest.mock import sentinel, ANY
 
 import odooly
@@ -22,7 +23,7 @@ class TestCase(XmlRpcTestCase):
                     return [777]
                 if 'ir.default' in str(domain):
                     return [50]
-            if domain == [('name', '=', 'Morice')]:
+            if domain == [('name', '=', 'Morice')] or domain == [('login', '=', ANY)]:
                 return [1003]
             if 'missing' in str(domain):
                 return []
@@ -85,6 +86,8 @@ class TestCase(XmlRpcTestCase):
                 (method == 'create' and hasattr(args[0], 'items'))
             )
             return 1999 if single_id else list(range(1001, 1001 + len(args[0])))
+        if model == 'ir.model' and method == 'check':
+            return uid < 3
         return [sentinel.OTHER]
 
     def setUp(self):
@@ -1318,24 +1321,32 @@ class TestRecord(TestCase):
         self.assertOutput('')
 
     def test_sudo(self):
-        env = self.env(user='guest')
+        self.service.common.login.side_effect = [711, 2]
+
+        env = self.env(user='guest', password='gpwd')
         records = env['foo.bar'].browse([13, 17])
         rec = env['foo.bar'].browse(42)
 
-        def guest(model, method, *params, **kw):
+        # Set 'admin' password in cache
+        self.env(user='admin', password='pazwd')
+
+        def exec_(uid, passwd, model, method, *params, **kw):
             if 'context' not in kw:
                 kw['context'] = {'lang': 'en_US', 'tz': 'Europe/Zurich'}
             elif kw['context'] is None:
                 del kw['context']
             extra = (params, kw) if kw else (params,)
-            return ('object.execute_kw', self.database, 1001, 'v_password',
+            return ('object.execute_kw', self.database, uid, passwd,
                     model, method, *extra)
 
+        guest = partial(exec_, 711, 'gpwd')
+        admin = partial(exec_, 2, 'pazwd')
+
         self.assertCalls(
-            OBJ('ir.model.access', 'check', 'res.users', 'write'),
-            OBJ('res.users', 'search', [('login', '=', 'guest')]),
-            OBJ('res.users', 'read', [1001, 1002], ['id', 'login', 'password']),
+            ('common.login', 'database', 'guest', 'gpwd'),
             guest('res.users', 'context_get', context=None),
+            ('common.login', 'database', 'admin', 'pazwd'),
+            admin('res.users', 'context_get', context=None),
         )
 
         records.read()
@@ -1348,11 +1359,11 @@ class TestRecord(TestCase):
         self.assertCalls(
             guest('foo.bar', 'read', [13, 17], None),
             guest('foo.bar', 'fields_get'),
-            OBJ('res.users', 'context_get', context=None),
-            OBJ('foo.bar', 'read', [13, 17], None),
+            admin('res.users', 'context_get', context=None),
+            admin('foo.bar', 'read', [13, 17], None),
             guest('foo.bar', 'read', [42], ['message']),
-            OBJ('res.users', 'context_get', context=None),
-            OBJ('foo.bar', 'read', [42], ['name', 'message']),
+            admin('res.users', 'context_get', context=None),
+            admin('foo.bar', 'read', [42], ['name', 'message']),
             guest('foo.bar', 'read', [42], ['message']),
             guest('foo.bar', 'read', [13, 17], None),
         )
