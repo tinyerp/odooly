@@ -566,7 +566,8 @@ class Env:
         return uid
 
     def _auth(self, user, password, context):
-        assert self.db_name, 'Not connected'
+        if self.client.common and not self.db_name:
+            raise Error('Not connected')
         uid = verified = None
         if isinstance(user, int):
             (user, uid) = (None, user)
@@ -604,6 +605,9 @@ class Env:
                 if 'does not exist' in str(exc):    # Heuristic
                     raise Error('Database does not exist')
                 raise
+            if not self.db_name:
+                self.db_name = info.get('db')
+                self.refresh()
         else:
             info = {'uid': uid}
         if not uid:
@@ -1123,7 +1127,10 @@ class Client:
         if self.common:
             info = {'uid': self.common.login(db, login, password)}
         elif self.web and self.version_info > 8.0:
-            info = self._authenticate_session(db, login, password)
+            if db:
+                info = self._authenticate_session(db=db, login=login, password=password)
+            else:
+                info = self._authenticate_web(login=login, password=password)
         else:
             raise Error("Cannot authenticate")
         return info
@@ -1137,19 +1144,26 @@ class Client:
                 raise
             return {'uid': None}
         if self.version_info > 14.0 and info['uid'] is None:  # Is it 2FA?
-            info = self._authenticate_totp(db, login, password)
+            info = self._authenticate_web(db=db, login=login, password=password)
         return info
 
-    def _authenticate_totp(self, db, login, password):
+    def _authenticate_web(self, **params):
         headers = {'User-Agent': 'Mozilla/5.0 (X11)'}
+        url_web = urljoin(self._server, 'web')
+        db_name = params.get('db', '')
 
         # 1. Get CSRF token
-        rv = self._post(f'{self.web._server}web', method='GET', headers=headers)
-        csrf = re.search(r'csrf_token: "(\w+)"', rv).group(1)
+        rv = self._post(f'{url_web}?{urlencode(dict(db=db_name))}', method='GET', headers=headers)
+        try:
+            csrf = re.search(r'csrf_token: "(\w+)"', rv).group(1)
+        except AttributeError:
+            if not db_name:
+                # Database selector page
+                raise Error('Please select a database')
+            raise
 
         # 2. Login
-        params = {'csrf_token': csrf, 'db': db, 'login': login, 'password': password}
-        rv = self._post(f'{self.web._server}web/login', data=params, headers=headers)
+        rv = self._post(f'{url_web}/login', data={'csrf_token': csrf, **params}, headers=headers)
 
         for retry in range(4):
             # 3. Parse 'session_info'
@@ -1160,11 +1174,11 @@ class Client:
                 print('Verification failed')
 
             # 4. Ask TOTP code
-            token = getpass(f"Authentication Code for {login!r} (2FA 6-digits): ")
+            token = getpass(f"Authentication Code for {params['login']!r} (2FA 6-digits): ")
 
             # 5. Submit TOTP
             params = {'csrf_token': csrf, 'totp_token': token, 'remember': 1}
-            rv = self._post(f'{self.web._server}web/login/totp', data=params, headers=headers)
+            rv = self._post(f'{url_web}/login/totp', data=params, headers=headers)
         return session_info
 
     def _login(self, user, password=None, database=None):
@@ -1184,16 +1198,14 @@ class Client:
                                 (database, dbs))
             if env.db_name != database:
                 env = Env(self, database)
-            # Used for logging, copied from odoo.sql_db.db_connect
-            current_thread().dbname = database
-        elif not env.db_name:
-            raise Error('Not connected')
         try:
             self.env = env(user=user, password=password)
         except Exception:
             current_thread().dbname = self.env.db_name
             raise
-        return env.uid
+        # Used for logging, copied from odoo.sql_db.db_connect
+        current_thread().dbname = self.env.db_name
+        return self.env.uid
 
     def login(self, user, password=None, database=None):
         """Switch `user` and (optionally) `database`."""
