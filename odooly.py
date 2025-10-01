@@ -415,15 +415,16 @@ class WebAPI:
                 return {**kw, **secret}.items()
             maxcol = MAXCOL[min(len(MAXCOL), self._verbose) - 1]
 
-            def wrapper(self, **params):
+            def wrapper(self, _func=None, **params):
+                method = f'{name}/{_func}' if _func else name
                 snt = ' '.join(f'{key}={v!r}' if v != ... else f'{key}=*'
                                for (key, v) in sanitize(params))
-                snt = f"POST {self._endpoint}/{name} {snt}"
+                snt = f"POST {self._endpoint}/{method} {snt}"
                 if len(snt) > maxcol:
                     suffix = f"... L={len(snt)}"
                     snt = snt[:maxcol - len(suffix)] + suffix
                 print(f"--> {snt}")
-                res = self._dispatch(name, params)
+                res = self._dispatch(method, params)
                 rcv = repr(res)
                 if len(rcv) > maxcol:
                     suffix = f"... L={len(rcv)}"
@@ -431,7 +432,8 @@ class WebAPI:
                 print(f"<-- {rcv}")
                 return res
         else:
-            wrapper = lambda s, **params: s._dispatch(name, params)
+            def wrapper(self, _func=None, **params):
+                return self._dispatch(f'{name}/{_func}' if _func else name, params)
         return _memoize(self, name, wrapper)
 
 

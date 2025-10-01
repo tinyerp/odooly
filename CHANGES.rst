@@ -7,6 +7,9 @@ Changelog
 
 * Print HTTP error status when error occurs.
 
+* Support ``env._web.session('get_session_info')`` as alternative to
+  ``client.web_session.get_session_info()``, for example.
+
 
 2.3.1 (2025-09-30)
 ~~~~~~~~~~~~~~~~~~
