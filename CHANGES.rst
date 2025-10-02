@@ -10,6 +10,8 @@ Changelog
 
 * Method ``exists`` becomes private with Odoo 19.0.
 
+* Fix method :meth:`Env.upgrade_cancel` for Odoo 19.0.
+
 
 2.3.2 (2025-10-01)
 ~~~~~~~~~~~~~~~~~~
