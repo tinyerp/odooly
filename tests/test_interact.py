@@ -34,7 +34,7 @@ class TestInteract(XmlRpcTestCase):
     def test_main(self):
         env_tuple = (self.server, 'database', 'usr', None)
         mock.patch('sys.argv', new=['odooly', '--env', 'demo']).start()
-        read_config = mock.patch('odooly.read_config',
+        read_config = mock.patch('odooly.Client.get_config',
                                  return_value=env_tuple).start()
         getpass = mock.patch('odooly.getpass',
                              return_value='password').start()
@@ -78,7 +78,7 @@ class TestInteract(XmlRpcTestCase):
     def test_no_database(self):
         env_tuple = (self.server, 'missingdb', 'usr', None)
         mock.patch('sys.argv', new=['odooly', '--env', 'demo']).start()
-        read_config = mock.patch('odooly.read_config',
+        read_config = mock.patch('odooly.Client.get_config',
                                  return_value=env_tuple).start()
         self.service.db.list.return_value = ['database']
 
@@ -106,7 +106,7 @@ class TestInteract(XmlRpcTestCase):
         env_tuple = (self.server, 'database', 'usr', 'passwd')
         mock.patch('sys.argv', new=['odooly', '--env', 'demo']).start()
         mock.patch('os.environ', new={'LANG': 'fr_FR.UTF-8'}).start()
-        mock.patch('odooly.read_config', return_value=env_tuple).start()
+        mock.patch('odooly.Client.get_config', return_value=env_tuple).start()
         mock.patch('odooly.getpass', return_value='x').start()
         self.service.db.list.return_value = ['database']
         self.service.common.login.side_effect = [17, None]

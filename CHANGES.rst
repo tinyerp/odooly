@@ -16,6 +16,8 @@ Changelog
 
 * Fix parsing version of Saas instances.
 
+* New static method :meth:`Client.get_config`
+
 
 2.3.2 (2025-10-01)
 ~~~~~~~~~~~~~~~~~~

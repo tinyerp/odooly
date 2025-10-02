@@ -234,7 +234,7 @@ class TestCreateClient(XmlRpcTestCase):
 
     def test_create_from_config(self):
         env_tuple = (self.server, 'database', 'usr', None)
-        read_config = mock.patch('odooly.read_config',
+        read_config = mock.patch('odooly.Client.get_config',
                                  return_value=env_tuple).start()
         getpass = mock.patch('odooly.getpass',
                              return_value='password').start()
