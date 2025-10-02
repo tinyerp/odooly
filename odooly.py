@@ -1740,7 +1740,11 @@ class BaseRecord(BaseModel):
 
     def exists(self):
         """Return a subset of records that exist."""
-        ids = self.ids and self._execute('exists', self.union().ids)
+        # Beware that it might be wrong, if `search` method is overloaded.
+        # This is the case for 'ir.attachment' for example.
+        domain = [('id', 'in', self.union().ids)]
+        context = {'active_test': False}
+        ids = self.ids and self._execute('search', domain, context=context)
         if ids and not isinstance(self.id, list):
             ids = ids[0]
         return BaseRecord(self._model, ids)

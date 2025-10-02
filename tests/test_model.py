@@ -1067,7 +1067,7 @@ class TestRecord(TestCase):
         # No RPC call if the list is empty
         self.assertEqual(records[:0].exists(), records[:0])
         self.assertCalls(
-            OBJ('foo.bar', 'exists', [13]),
+            OBJ('foo.bar', 'search', [('id', 'in', [13])]),
         )
         self.assertOutput('')
 
