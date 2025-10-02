@@ -12,6 +12,8 @@ Changelog
 
 * Fix method :meth:`Env.upgrade_cancel` for Odoo 19.0.
 
+* Fix parsing version of Saas instances.
+
 
 2.3.2 (2025-10-01)
 ~~~~~~~~~~~~~~~~~~

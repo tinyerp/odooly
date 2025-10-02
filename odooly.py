@@ -1035,17 +1035,17 @@ class Client:
 
         if self._proxy is None:
             ver = self.web_webclient.version_info()
-            [major, minor] = ver["server_version_info"][:2]
-            self.server_version = ver["server_version"]
-            self.version_info = float(f"{major}.{minor}")
+            self.server_version = ver = ver["server_version"]
+            major_minor = re.search(r'\d+\.?\d*', ver).group()
+            self.version_info = float(major_minor)
             self.db = self.common = None
             self._object = self._report = self._wizard = None
             return
 
         float_version = 99.0
         self.server_version = ver = get_service('db').server_version()
-        self.major_version = re.search(r'\d+\.?\d*', ver).group()
-        self.version_info = float_version = float(self.major_version)
+        major_minor = re.search(r'\d+\.?\d*', ver).group()
+        self.version_info = float_version = float(major_minor)
         assert float_version > 6.0, f'Not supported: {ver}'
         # Create the RPC services
         self.db = get_service('db')
