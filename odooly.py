@@ -1086,6 +1086,8 @@ class Client:
             return self._post_jsonrpc(f"web/{name or ''}/{method}", params=params)
         return dispatch_web
 
+    get_config = staticmethod(read_config)
+
     @classmethod
     def from_config(cls, environment, user=None, verbose=False):
         """Create a connection to a defined environment.
@@ -1094,7 +1096,7 @@ class Client:
         ``odooly.ini`` file and return a connected :class:`Client`.
         See :func:`read_config` for details of the configuration file format.
         """
-        (server, db, conf_user, password) = read_config(environment)
+        (server, db, conf_user, password) = cls.get_config(environment)
         if user and user != conf_user:
             password = None
         client = cls(server, verbose=verbose)
