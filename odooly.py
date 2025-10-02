@@ -823,6 +823,28 @@ class Env:
         self._cache[key, db_name or self.db_name, self.client._server] = value
         return value
 
+    def _is_identitycheck(self, result):
+        return hasattr(result, 'items') and result.get('res_model') == 'res.users.identitycheck'
+
+    def _identitycheck(self, result):
+        assert self.client.version_info > 13.0
+        idcheck = self[result['res_model']].get(result['res_id'])
+        login, password = self.client.get_config(self.name)[2:4]
+        if self.user.login != login:
+            password = None
+        result = None
+        while not result:
+            password = password or getpass(f"Password for {self.user.login!r}: ")
+            if self.client.version_info < 19.0:
+                idcheck.password = password
+            try:
+                # Odoo >= 19.0 read from context
+                result = idcheck.with_context(password=password).run_check()
+            except ServerError:
+                password = None
+                raise
+        return result
+
     def execute(self, obj, method, *params, **kwargs):
         """Wrapper around ``/web/dataset/call_kw`` Webclient endpoint,
         or ``/json/2`` API endpoint or ``object.execute_kw`` RPC method.
@@ -864,6 +886,8 @@ class Env:
         kw = ((dict(kwargs, context=self.context),)
               if self.context else (kwargs and (kwargs,) or ()))
         res = self._execute_kw(obj, method, params, *kw)
+        if self._is_identitycheck(res):
+            res = self._identitycheck(res)
         if ordered:
             # The results are not in the same order as the ids
             # when received from the server
@@ -1060,6 +1084,19 @@ class Env:
             # Ignore: odoo.http.SessionExpiredException
             if exc.args[0]['code'] != 100:
                 raise
+
+    def generate_api_key(self):
+        """Generate an API Key and configure environment to use it.
+
+        Caution: API Key is not saved. It can be set in the
+        configuration: ``api_key = ...``.
+        """
+        assert self.client.version_info > 13.0, 'Not supported'
+        key_vals = {'name': f'Created by {__name__!r}'}
+        wiz = self["res.users.apikeys.description"].create(key_vals)
+        res = wiz.make_key()
+        assert res['res_model'] == "res.users.apikeys.show"
+        return self._set_credentials(self.uid, res['context']['default_key'])
 
 
 class Client:

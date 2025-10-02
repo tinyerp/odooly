@@ -23,6 +23,10 @@ Changelog
 * Configure ``api_key`` separately.  Allow to use JSON-2 even
   if ``password`` is not configured.
 
+* New method :meth:`Env.generate_api_key` for Odoo >= 14.0.
+
+* Support methods protected by ``check_identity``, for Odoo >= 14.0.
+
 
 2.3.2 (2025-10-01)
 ~~~~~~~~~~~~~~~~~~

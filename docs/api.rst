@@ -188,6 +188,8 @@ Environment
 
       Cursor on the current database.
 
+   .. automethod:: generate_api_key
+
    .. automethod:: session_authenticate
 
    .. automethod:: session_destroy
