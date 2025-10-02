@@ -914,12 +914,15 @@ class Env:
 
         if button == 'cancel':
             # Reset module state
-            installed = [mod['id'] for mod in mods if mod['state'] != 'to install']
-            uninstalled = [mod['id'] for mod in mods if mod['state'] == 'to install']
-            if uninstalled:
-                self.execute('ir.module.module', 'button_install_cancel', uninstalled)
-            if installed:
-                self.execute('ir.module.module', 'button_upgrade_cancel', installed)
+            if self.client.version_info <= 18.0:
+                installed = [mod['id'] for mod in mods if mod['state'] != 'to install']
+                uninstalled = [mod['id'] for mod in mods if mod['state'] == 'to install']
+                if uninstalled:
+                    self.execute('ir.module.module', 'button_install_cancel', uninstalled)
+                if installed:
+                    self.execute('ir.module.module', 'button_upgrade_cancel', installed)
+            else:  # Odoo >= 19.0
+                self.execute('ir.module.module', 'button_reset_state')
         else:
             # Apply scheduled upgrades
             self.execute('base.module.upgrade', 'upgrade_module', [])
