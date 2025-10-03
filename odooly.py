@@ -27,7 +27,7 @@ try:
 except ImportError:
     requests = None
 
-__version__ = '2.3.2'
+__version__ = '2.4.0'
 __all__ = ['Client', 'Env', 'WebAPI', 'Service', 'Json2',
            'BaseModel', 'Model', 'BaseRecord', 'Record', 'RecordList',
            'format_exception', 'read_config', 'start_odoo_services']

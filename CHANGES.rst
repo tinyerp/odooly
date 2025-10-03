@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-2.x.x (unreleased)
+2.4.0 (2025-10-03)
 ~~~~~~~~~~~~~~~~~~
 
 * Store :attr:`Env.session_info` when it is retrieved with Webclient API.
