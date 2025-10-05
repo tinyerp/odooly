@@ -27,7 +27,7 @@ try:
 except ImportError:
     requests = None
 
-__version__ = '2.4.0'
+__version__ = '2.4.0+'
 __all__ = ['Client', 'Env', 'WebAPI', 'Service', 'Json2',
            'Printer', 'Error', 'ServerError',
            'BaseModel', 'Model', 'BaseRecord', 'Record', 'RecordList',
@@ -389,12 +389,21 @@ class Printer:
             snt = snt[:self._maxcol - len(suffix)] + suffix
         print(f"--> {snt}")
 
-    def print_recv(self, result):
-        rcv = repr(result)
+    def print_recv(self, result, _convert=repr):
+        rcv = _convert(result)
         if len(rcv) > self._maxcol:
             suffix = f"... L={len(rcv)}"
             rcv = rcv[:self._maxcol - len(suffix)] + suffix
         print(f"<-- {rcv}")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        if exc_type:
+            if issubclass(exc_type, ServerError):
+                exc = exc.args[0]["data"]["name"]
+            self.print_recv(f"{exc_type.__name__}: {exc}", str)
 
 
 class WebAPI:
@@ -410,15 +419,12 @@ class WebAPI:
     """
     _methods = ()
 
-    def __init__(self, client, endpoint, methods, verbose=False):
+    def __init__(self, client, endpoint, methods):
         self._dispatch = client._proxy_web(endpoint)
         self._server = urljoin(client._server, '/')
         self._endpoint = f'/web/{endpoint}' if endpoint else '/web'
         self._methods = methods
-        self._verbose = verbose
-        printer = Printer(verbose=verbose)
-        self._print_sent = printer.print_sent
-        self._print_recv = printer.print_recv
+        self._printer = client._printer
 
     def __repr__(self):
         return f"<WebAPI '{self._server[:-1]}{self._endpoint}'>"
@@ -427,7 +433,7 @@ class WebAPI:
         return sorted(self._methods)
 
     def __getattr__(self, name):
-        if self._verbose:
+        if self._printer:
             def sanitize(kw):
                 secret = {}
                 for key in kw:
@@ -439,9 +445,10 @@ class WebAPI:
                 method = f'{name}/{_func}' if _func else name
                 snt = ' '.join(f'{key}={v!r}' if v != ... else f'{key}=*'
                                for (key, v) in sanitize(params))
-                self._print_sent(f"POST {self._endpoint}/{method} {snt}")
-                res = self._dispatch(method, params)
-                self._print_recv(res)
+                with self._printer as log:
+                    log.print_sent(f"POST {self._endpoint}/{method} {snt}")
+                    res = self._dispatch(method, params)
+                    log.print_recv(res)
                 return res
         else:
             def wrapper(self, _func=None, **params):
@@ -461,15 +468,12 @@ class Service:
     """
     _methods = ()
 
-    def __init__(self, client, endpoint, methods, verbose=False):
+    def __init__(self, client, endpoint, methods):
         self._dispatch = client._proxy(endpoint)
         self._rpcpath = client._server
         self._endpoint = endpoint
         self._methods = methods
-        self._verbose = verbose
-        printer = Printer(verbose=verbose)
-        self._print_sent = printer.print_sent
-        self._print_recv = printer.print_recv
+        self._printer = client._printer
 
     def __repr__(self):
         return f"<Service '{self._rpcpath}|{self._endpoint}'>"
@@ -480,7 +484,7 @@ class Service:
     def __getattr__(self, name):
         if name not in self._methods:
             raise AttributeError(f"'Service' object has no attribute {name!r}")
-        if self._verbose:
+        if self._printer:
             def sanitize(args):
                 if self._endpoint != 'db' and len(args) > 2:
                     args = list(args)
@@ -489,9 +493,10 @@ class Service:
 
             def wrapper(self, *args):
                 snt = ', '.join(repr(arg) for arg in sanitize(args))
-                self._print_sent(f"{self._endpoint}.{name}({snt})")
-                res = self._dispatch(name, args)
-                self._print_recv(res)
+                with self._printer as log:
+                    log.print_sent(f"{self._endpoint}.{name}({snt})")
+                    res = self._dispatch(name, args)
+                    log.print_recv(res)
                 return res
         else:
             wrapper = lambda s, *args: s._dispatch(name, args)
@@ -515,10 +520,7 @@ class Json2:
             'X-Odoo-Database': database or '',
         }
         self._method_params = {}
-        self._verbose = client._verbose
-        printer = Printer(verbose=self._verbose)
-        self._print_sent = printer.print_sent
-        self._print_recv = printer.print_recv
+        self._printer = client._printer
 
     def doc(self, model):
         """Documentation of the `model`."""
@@ -541,7 +543,7 @@ class Json2:
             arg_names = dict_methods.setdefault(method, ())
         params = dict(zip(arg_names, args))
         params.update(kwargs)
-        if len(args) > len(arg_names) and self._verbose:
+        if len(args) > len(arg_names) and self._printer:
             print(f"Method {method!r} on {model!r} called with extra args: {args[len(arg_names):]}")
         return params
 
@@ -565,13 +567,14 @@ class Json2:
         verb = 'GET' if params is None else 'POST'
         url = urljoin(self._server, path)
 
-        if not self._verbose:
+        if not self._printer:
             return self._req(url, json=params, headers=self._headers, method=verb)
 
         snt = ' '.join(f'{key}={v!r}' for (key, v) in (params or {}).items())
-        self._print_sent(f"{verb} {path} {snt}".rstrip())
-        res = self._req(url, json=params, headers=self._headers, method=verb)
-        self._print_recv(res)
+        with self._printer as log:
+            log.print_sent(f"{verb} {path} {snt}".rstrip())
+            res = self._req(url, json=params, headers=self._headers, method=verb)
+            log.print_recv(res)
         return res
 
 
@@ -1131,13 +1134,13 @@ class Client:
 
         def get_web_api(name):
             methods = list(_web_methods.get(name) or [])
-            return WebAPI(self, name, methods, verbose=verbose)
+            return WebAPI(self, name, methods)
 
         def get_service(name):
             methods = list(_rpc_methods.get(name) or [])
             if float_version < 11.0:
                 methods += _obsolete_rpc_methods.get(name) or ()
-            return Service(self, name, methods, verbose=verbose)
+            return Service(self, name, methods)
 
         if not isinstance(server, str):
             api_v7 = server.release.version_info < (8,)
@@ -1153,6 +1156,7 @@ class Client:
             self._proxy = None
 
         self._connections = []
+        self._printer = Printer(verbose=verbose) if verbose else None
         self._server = server
         self._verbose = verbose
         assert not transport or self._proxy is self._proxy_xmlrpc, 'Not supported'
@@ -1272,7 +1276,7 @@ class Client:
                 info = self.web_session.authenticate(db=db, login=login, password=password)
             except ServerError as exc:
                 # Ignore: odoo.exceptions.AccessDenied
-                if exc.args[0]['code'] != 200:
+                if exc.args[0]['code'] not in (0, 200):
                     raise
                 return {'uid': None}
             if self.version_info >= 15.0 and info['uid'] is None:  # Is it 2FA?
