@@ -846,7 +846,8 @@ class Env:
                 result = idcheck.with_context(password=password).run_check()
             except ServerError:
                 password = None
-                raise
+                if not self.client._is_interactive():
+                    raise
         return result
 
     def execute(self, obj, method, *params, **kwargs):
@@ -1354,7 +1355,7 @@ class Client:
 
     def login(self, user, password=None, database=None, api_key=None):
         """Switch `user` and (optionally) `database`."""
-        if not self._globals:   # Not interactive
+        if not self._is_interactive():
             return self._login(user, password=password, database=database, api_key=api_key)
         try:
             self._login(user, password=password, database=database, api_key=api_key)
@@ -1366,7 +1367,7 @@ class Client:
 
     def connect(self, env_name=None):
         """Connect to another environment and replace the globals()."""
-        assert self._globals, 'Not available'
+        assert self._is_interactive(), 'Not available'
         if env_name:
             self.from_config(env_name, verbose=self._verbose)
             return
@@ -1386,12 +1387,16 @@ class Client:
     def _set_interactive(cls, global_vars={}):
         # Don't call multiple times
         del Client._set_interactive
-        assert cls._globals is None
+        assert not cls._is_interactive()
 
         for name in ['__name__', '__version__', '__doc__', 'Client']:
             global_vars[name] = globals()[name]
         cls._globals = global_vars
         return global_vars
+
+    @classmethod
+    def _is_interactive(cls):
+        return cls._globals is not None
 
     def create_database(self, passwd, database, demo=False, lang='en_US',
                         user_password='admin', login='admin',
@@ -2383,7 +2388,7 @@ def main(interact=_interact):
         writer.writeheader()
         writer.writerows(data or ())
 
-    if client._globals is not None:   # Interactive mode
+    if client._is_interactive():
         if not client.env.uid:
             client.connect()
         return interact(global_vars) if interact else global_vars
