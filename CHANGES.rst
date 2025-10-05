@@ -11,6 +11,8 @@ Changelog
 
 * Fix 2FA authentication retry, when code is invalid.
 
+* Fix incorrect data serialization when JSON is empty ``{}``.
+
 
 2.4.0 (2025-10-03)
 ~~~~~~~~~~~~~~~~~~

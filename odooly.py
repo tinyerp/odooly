@@ -1482,7 +1482,7 @@ class Client:
             if json is not None:
                 headers.setdefault('Content-Type', 'application/json')
             if method != 'GET':
-                data = __json.dumps(json).encode('ascii') if json else urlencode(data).encode('utf-8')
+                data = (urlencode(data) if json is None else __json.dumps(json)).encode()
             elif data is not None:
                 url, data = f'{url}?{urlencode(data)}', None
             request = Request(url, data=data, headers=headers)
