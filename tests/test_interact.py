@@ -11,13 +11,13 @@ class TestInteract(XmlRpcTestCase):
     server_version = '6.1'
     server = f"{XmlRpcTestCase.server}/xmlrpc"
     startup_calls = (
-        call(ANY, 'db', ANY, verbose=ANY),
+        call(ANY, 'db', ANY),
         'db.server_version',
-        call(ANY, 'db', ANY, verbose=ANY),
-        call(ANY, 'common', ANY, verbose=ANY),
-        call(ANY, 'object', ANY, verbose=ANY),
-        call(ANY, 'report', ANY, verbose=ANY),
-        call(ANY, 'wizard', ANY, verbose=ANY),
+        call(ANY, 'db', ANY),
+        call(ANY, 'common', ANY),
+        call(ANY, 'object', ANY),
+        call(ANY, 'report', ANY),
+        call(ANY, 'wizard', ANY),
         'db.list',
     )
 

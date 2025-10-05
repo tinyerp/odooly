@@ -50,8 +50,9 @@ class TestService(XmlRpcTestCase):
     def _get_client(self):
         proxy = getattr(odooly.Client, '_proxy_%s' % self.protocol)
         client = mock.Mock()
-        client._server = f"{self.server}/{self.protocol}"
+        client._printer = mock.MagicMock(name='Printer')
         client._proxy = proxy.__get__(client, odooly.Client)
+        client._server = f"{self.server}/{self.protocol}"
         client._post_jsonrpc = odooly.Client._post_jsonrpc.__get__(client, odooly.Client)
         if self.protocol == 'jsonrpc':
             client._post = self.service
@@ -76,7 +77,7 @@ class TestService(XmlRpcTestCase):
         def get_proxy(name, methods=None):
             if methods is None:
                 methods = odooly._rpc_methods.get(name, ())
-            return odooly.Service(client, name, methods, verbose=False)
+            return odooly.Service(client, name, methods)
 
         self.assertIn('common', str(get_proxy('common').login))
         login = get_proxy('common').login('aaa')
@@ -161,13 +162,13 @@ class TestCreateClient(XmlRpcTestCase):
     server_version = '6.1'
     server = f'{XmlRpcTestCase.server}/xmlrpc'
     startup_calls = (
-        call(ANY, 'db', ANY, verbose=ANY),
+        call(ANY, 'db', ANY),
         'db.server_version',
-        call(ANY, 'db', ANY, verbose=ANY),
-        call(ANY, 'common', ANY, verbose=ANY),
-        call(ANY, 'object', ANY, verbose=ANY),
-        call(ANY, 'report', ANY, verbose=ANY),
-        call(ANY, 'wizard', ANY, verbose=ANY),
+        call(ANY, 'db', ANY),
+        call(ANY, 'common', ANY),
+        call(ANY, 'object', ANY),
+        call(ANY, 'report', ANY),
+        call(ANY, 'wizard', ANY),
         'db.list',
     )
 
