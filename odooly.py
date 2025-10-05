@@ -29,6 +29,7 @@ except ImportError:
 
 __version__ = '2.4.0'
 __all__ = ['Client', 'Env', 'WebAPI', 'Service', 'Json2',
+           'Printer', 'Error', 'ServerError',
            'BaseModel', 'Model', 'BaseRecord', 'Record', 'RecordList',
            'format_exception', 'read_config', 'start_odoo_services']
 
@@ -694,7 +695,7 @@ class Env:
     def _set_credentials(self, uid, api_key, store_api_key=True):
         def env_auth(method):     # Authenticated endpoints
             return partial(method, self.db_name, uid, api_key)
-        if self.client.web and self.client.version_info > 18.0:
+        if self.client.web and self.client.version_info >= 19.0:
             self._json2 = Json2(self.client, self.db_name, api_key)._check()
         if self.client._object:
             self._execute = env_auth(self.client._object.execute)
@@ -827,7 +828,7 @@ class Env:
         return hasattr(result, 'items') and result.get('res_model') == 'res.users.identitycheck'
 
     def _identitycheck(self, result):
-        assert self.client.version_info > 13.0
+        assert self.client.version_info >= 14.0
         idcheck = self[result['res_model']].get(result['res_id'])
         login, password = self.client.get_config(self.name)[2:4]
         if self.user.login != login:
@@ -1028,7 +1029,7 @@ class Env:
 
         if button == 'cancel':
             # Reset module state
-            if self.client.version_info <= 18.0:
+            if self.client.version_info < 19.0:
                 installed = [mod['id'] for mod in mods if mod['state'] != 'to install']
                 uninstalled = [mod['id'] for mod in mods if mod['state'] == 'to install']
                 if uninstalled:
@@ -1091,7 +1092,7 @@ class Env:
         Caution: API Key is not saved. It can be set in the
         configuration: ``api_key = ...``.
         """
-        assert self.client.version_info > 13.0, 'Not supported'
+        assert self.client.version_info >= 14.0, 'Not supported'
         key_vals = {'name': f'Created by {__name__!r}'}
         wiz = self["res.users.apikeys.description"].create(key_vals)
         res = wiz.make_key()
@@ -1248,11 +1249,11 @@ class Client:
     def _authenticate(self, db, login, password, api_key):
         if self.common:
             info = {'uid': self.common.login(db, login, api_key or password)}
-        elif api_key and not password and self.version_info > 18.0:
+        elif api_key and not password and self.version_info >= 19.0:
             json2_api = Json2(self, db, api_key)
             context = json2_api('res.users', 'context_get', ())
             info = {'uid': context['uid'], 'user_context': context}
-        elif self.web and self.version_info > 8.0:
+        elif self.web and self.version_info >= 9.0:
             info = self._authenticate_session(db, login, password)
         else:
             raise Error("Cannot authenticate")
@@ -1274,7 +1275,7 @@ class Client:
                 if exc.args[0]['code'] != 200:
                     raise
                 return {'uid': None}
-            if self.version_info > 14.0 and info['uid'] is None:  # Is it 2FA?
+            if self.version_info >= 15.0 and info['uid'] is None:  # Is it 2FA?
                 info = self._authenticate_web(db=db, login=login, password=password)
         return info
 
