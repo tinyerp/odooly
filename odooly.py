@@ -986,7 +986,7 @@ class Env:
                 res[mod['state']].append(mod['name'])
             return res
 
-    def _upgrade(self, modules, button):
+    def _upgrade(self, modules, button, quiet):
         # First, update the list of modules
         ir_module = self._get('ir.module.module', False)
         updated, added = ir_module.update_list()
@@ -1028,8 +1028,12 @@ class Env:
         for mod in mods:
             print(f"  {mod['state']}\t{mod['name']}")
 
-        # Empty the cache for this database
-        self.refresh()
+        # Confirm?
+        if not quiet and any(mod['id'] not in sel.ids for mod in mods):
+            assert self.client._is_interactive(), "Cannot continue"
+            ans = input('Confirm? [y/N] ')
+            if not ans or ans[:1].lower() != 'y':
+                button = 'cancel'
 
         if button == 'cancel':
             # Reset module state
@@ -1045,22 +1049,24 @@ class Env:
         else:
             # Apply scheduled upgrades
             self.execute('base.module.upgrade', 'upgrade_module', [])
+            # Empty the cache for this database
+            self.refresh()
 
-    def upgrade(self, *modules):
+    def upgrade(self, *modules, quiet=False):
         """Press button ``Upgrade``."""
-        return self._upgrade(modules, button='button_upgrade')
+        return self._upgrade(modules, button='button_upgrade', quiet=quiet)
 
-    def install(self, *modules):
+    def install(self, *modules, quiet=False):
         """Press button ``Install``."""
-        return self._upgrade(modules, button='button_install')
+        return self._upgrade(modules, button='button_install', quiet=quiet)
 
-    def uninstall(self, *modules):
+    def uninstall(self, *modules, quiet=False):
         """Press button ``Uninstall``."""
-        return self._upgrade(modules, button='button_uninstall')
+        return self._upgrade(modules, button='button_uninstall', quiet=quiet)
 
     def upgrade_cancel(self, *modules):
         """Press button ``Cancel Upgrade/Install/Uninstall``."""
-        return self._upgrade(modules, button='cancel')
+        return self._upgrade(modules, button='cancel', quiet=True)
 
     def session_authenticate(self, login=None, password=None):
         """Create a Webclient session for current user."""
