@@ -13,6 +13,10 @@ Changelog
 
 * Fix incorrect data serialization when JSON is empty ``{}``.
 
+* Try to login even if ``database`` is not set, with Odoo >= 10.
+
+* Fix Web authentication for Odoo 10 to 14.
+
 * Ask for confirmation before (un)installing dependent modules.
 
 

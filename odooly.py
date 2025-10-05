@@ -1106,6 +1106,7 @@ class Env:
         key_vals = {'name': f'Created by {__name__!r}'}
         wiz = self["res.users.apikeys.description"].create(key_vals)
         res = wiz.make_key()
+        self.user.refresh()
         assert res['res_model'] == "res.users.apikeys.show"
         return self._set_credentials(self.uid, res['context']['default_key'])
 
@@ -1129,7 +1130,7 @@ class Client:
                  transport=None, verbose=False):
         self._set_services(server, transport, verbose)
         self.env = Env(self)
-        if db:    # Try to login
+        if user:  # Try to login
             self.login(user, password=password, database=db)
 
     def _set_services(self, server, transport, verbose):
@@ -1304,7 +1305,9 @@ class Client:
 
         for retry in range(4):
             # 3. Parse 'session_info'
-            session_info = json.loads(re.search(r'odoo.__session_info__ = (.*);', rv).group(1))
+            session_info = json.loads(re.search(r'odoo._*session_info_* = (.*);', rv).group(1))
+            if 'user_id' in session_info and 'uid' not in session_info:  # Odoo < 18.0
+                session_info['uid'] = session_info['user_id']
             if session_info['uid'] or 'totp_token' not in rv or retry == 3:
                 break
             if retry:
