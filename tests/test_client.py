@@ -530,7 +530,7 @@ class TestClientApi(XmlRpcTestCase):
                 execute_return[3:3] = [[]]
 
         self.service.object.execute_kw.side_effect = execute_return
-        result = action('dummy', 'spam')
+        result = action('dummy', 'spam', quiet=True)
         self.assertIsNone(result)
         self.assertCalls(*expected_calls)
         self.assertIn('to process', self.stdout.popvalue())
