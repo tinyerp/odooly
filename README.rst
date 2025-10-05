@@ -65,6 +65,8 @@ Although it is quite limited::
       -u USER, --user=USER  username
       -p PASSWORD, --password=PASSWORD
                             password, or it will be requested on login
+      --api-key=API_KEY     API Key for JSON2 or JSON-RPC/XML-RPC
+
       -m MODEL, --model=MODEL
                             the type of object to find
       -f FIELDS, --fields=FIELDS
