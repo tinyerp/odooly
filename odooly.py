@@ -650,7 +650,7 @@ class Env:
 
     def _auth(self, user, password, api_key):
         if self.client._object and not self.db_name:
-            raise Error('Not connected')
+            raise Error('Error: Not connected')
         uid = verified = None
         if isinstance(user, int):
             (user, uid) = (None, user)
@@ -673,7 +673,7 @@ class Env:
                 uid = info['uid']
             except Exception as exc:
                 if 'does not exist' in str(exc):    # Heuristic
-                    raise Error('Database does not exist')
+                    raise Error('Error: Database does not exist')
                 raise
             if not self.db_name:
                 self.db_name = info.get('db') or ''
@@ -683,7 +683,7 @@ class Env:
             uid = verified or self.check_uid(uid, api_key or password)
             info = {'uid': uid}
         if not uid:
-            raise Error('Invalid username or password')
+            raise Error('Error: Invalid username or password')
         # Update the cache
         auth_cache[uid] = (uid, password)
         if user:
@@ -1264,31 +1264,29 @@ class Client:
         elif api_key and not password and self.version_info >= 19.0:
             json2_api = Json2(self, db, api_key)
             context = json2_api('res.users', 'context_get', ())
-            info = {'uid': context['uid'], 'user_context': context}
+            info = {'uid': context['uid'], 'user_context': context, 'db': db}
         elif self.web and self.version_info >= 9.0:
             info = self._authenticate_session(db, login, password)
         else:
-            raise Error("Cannot authenticate")
+            raise Error("Error: Cannot authenticate")
         return info
 
     def _authenticate_session(self, db, login, password):
-        if not db:
-            try:
-                info = self._authenticate_web(login=login, password=password)
-            except AttributeError:
-                info = {'uid': None}
-                # Database selector page
-                db = self._select_database()
-        if db:
-            try:
+        info = {'uid': None}
+        try:
+            if db:
                 info = self.web_session.authenticate(db=db, login=login, password=password)
-            except ServerError as exc:
-                # Ignore: odoo.exceptions.AccessDenied
-                if exc.args[0]['code'] not in (0, 200):
-                    raise
-                return {'uid': None}
-            if self.version_info >= 15.0 and info['uid'] is None:  # Is it 2FA?
-                info = self._authenticate_web(db=db, login=login, password=password)
+                if self.version_info >= 15.0 and info['uid'] is None:  # Is it 2FA?
+                    info = self._authenticate_web(db=db, login=login, password=password)
+            else:
+                info = self._authenticate_web(login=login, password=password)
+        except AttributeError:
+            # Cannot extract `csrf_token` or `session_info` with Regex
+            pass
+        except ServerError as exc:
+            # Ignore: odoo.exceptions.AccessDenied
+            if exc.args[0]['code'] not in (0, 200):
+                raise
         return info
 
     def _authenticate_web(self, **kw):
@@ -1321,8 +1319,11 @@ class Client:
             rv = self._post(f'{url_web}/login/totp', data=params, headers=headers)
         return session_info
 
-    def _select_database(self, limit=20):
-        db_list = self.database.list()
+    def _select_database(self, db_list, limit=20):
+        if len(db_list) == 1:
+            return db_list[0]
+        if not self._is_interactive():
+            return
         print('Available databases:')
         for idx, name in enumerate(db_list[:limit], start=1):
             print(f' {idx}. {name!r}')
@@ -1342,17 +1343,20 @@ class Client:
         If the `password` is not available, it will be asked.
         """
         env = self.env
-        if database:
+        if not env.db_name or (database and env.db_name != database):
             try:
                 dbs = self.db.list() if self.db else self.database.list()
             except Exception:
                 pass    # AccessDenied: simply ignore this check
             else:
-                if database not in dbs:
+                if not database:
+                    # Database selector page
+                    database = self._select_database(dbs)
+                elif database not in dbs:
                     raise Error("Database '%s' does not exist: %s" %
                                 (database, dbs))
-            if env.db_name != database:
-                env = Env(self, database)
+        if database and env.db_name != database:
+            env = Env(self, database)
         try:
             self.env = env(user=user, password=password, api_key=api_key)
         except Exception:
@@ -1369,7 +1373,7 @@ class Client:
         try:
             self._login(user, password=password, database=database, api_key=api_key)
         except Error as exc:
-            print(f"{exc.__class__.__name__}: {exc}")
+            print(exc)
         else:
             # Register the new globals()
             self.connect()
