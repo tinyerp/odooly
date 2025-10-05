@@ -10,22 +10,22 @@ Changelog
 
 * Add a database selector for Webclient API.
 
-* Method ``exists`` becomes private with Odoo 19.0.
+* Method ``exists`` becomes private with Odoo 19.
 
-* Fix method :meth:`Env.upgrade_cancel` for Odoo 19.0.
+* Fix method :meth:`Env.upgrade_cancel` for Odoo 19.
 
 * Fix parsing version of Saas instances.
 
 * New static method :meth:`Client.get_config`
 
-* Support JSON-2 API with Odoo >= 19.0.
+* Support JSON-2 API with Odoo >= 19.
 
 * Configure ``api_key`` separately.  Allow to use JSON-2 even
   if ``password`` is not configured.
 
-* New method :meth:`Env.generate_api_key` for Odoo >= 14.0.
+* New method :meth:`Env.generate_api_key` for Odoo >= 14.
 
-* Support methods protected by ``check_identity``, for Odoo >= 14.0.
+* Support methods protected by ``check_identity``, for Odoo >= 14.
 
 
 2.3.2 (2025-10-01)
@@ -38,9 +38,9 @@ Changelog
 
 * When using Webclient, ``database =`` configuration becomes optional.
 
-* Method :meth:`Model.sudo` defaults to ``'admin'`` user, insted of UID 1.
+* Method :meth:`Model.sudo` defaults to ``'admin'`` user, instead of UID 1.
 
-* Simplify authentication, passwords are encrypted since Odoo 12.0 and
+* Simplify authentication, passwords are encrypted since Odoo 12 and
   values cannot be retrieved by ``'admin'``.
 
 * Add API overview table to the documentation: availability and authentication
@@ -55,7 +55,7 @@ Changelog
 * Do not authenticate with ``/web/session/authenticate`` when
   protocol is ``jsonrpc`` or ``xmlrpc``.  It cannot authenticate API keys.
 
-* Experimental support for 2FA with Webclient session, with Odoo >= 15.0.
+* Experimental support for 2FA with Webclient session, with Odoo >= 15.
 
 * Fix PyPI classifiers.
 
@@ -67,10 +67,10 @@ Changelog
 
 * Support webclient :class:`WebAPI` protocol as an alternative:
   ``/web/dataset/*``, ``/web/database/*``, ...
-  Webclient API is stable since Odoo 9.0
+  Webclient API is stable since Odoo 9.
 
 * Authenticate with ``/web/session/authenticate`` by default
-  and retrieve :attr:`Env.session_info`, with Odoo >= 9.0.
+  and retrieve :attr:`Env.session_info`, with Odoo >= 9.
 
 * Use Webclient API by default when ``protocol`` is not set.
   It is same as setting ``protocol = web``.
@@ -87,12 +87,12 @@ Changelog
 ~~~~~~~~~~~~~~~~~~
 
 * Support method :meth:`Model.create` with a list of values.
-  With Odoo >= 12.0
+  With Odoo >= 12.
 
 * Support method :meth:`RecordList.copy`.
-  With Odoo >= 18.0
+  With Odoo >= 18.
 
-* Extend local mode to support Odoo >= 15.0.
+* Extend local mode to support Odoo >= 15.
 
 * Fix :meth:`Env.uninstall`.
 
@@ -102,11 +102,11 @@ Changelog
 2.2.0 (2025-09-16)
 ~~~~~~~~~~~~~~~~~~
 
-* Support for Odoo 17.0, 18.0 and 19.0
+* Support for Odoo 17, 18 and 19.
 
-* Support Python 3.12 and 3.13
+* Support Python 3.12 and 3.13.
 
-* Drop support for Python 2.7 and Python 3.4
+* Drop support for Python 2.7 and Python 3.4.
 
 * Enable Github Actions CI. Remove Travis CI.
 
