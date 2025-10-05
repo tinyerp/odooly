@@ -9,6 +9,8 @@ Changelog
 
 * Print errors when ``verbose`` is enabled.
 
+* Fix 2FA authentication retry, when code is invalid.
+
 
 2.4.0 (2025-10-03)
 ~~~~~~~~~~~~~~~~~~

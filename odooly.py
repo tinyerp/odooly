@@ -1284,17 +1284,17 @@ class Client:
                 info = self._authenticate_web(db=db, login=login, password=password)
         return info
 
-    def _authenticate_web(self, **params):
+    def _authenticate_web(self, **kw):
         headers = {'User-Agent': 'Mozilla/5.0 (X11)'}
         url_web = urljoin(self._server, 'web')
-        db_name = params.get('db', '')
+        db_name = kw.get('db', '')
 
         # 1. Get CSRF token
         rv = self._post(f'{url_web}?{urlencode(dict(db=db_name))}', method='GET', headers=headers)
         csrf = re.search(r'csrf_token: "(\w+)"', rv).group(1)
 
         # 2. Login
-        rv = self._post(f'{url_web}/login', data={'csrf_token': csrf, **params}, headers=headers)
+        rv = self._post(f'{url_web}/login', data={'csrf_token': csrf, **kw}, headers=headers)
 
         for retry in range(4):
             # 3. Parse 'session_info'
@@ -1305,7 +1305,7 @@ class Client:
                 print('Verification failed')
 
             # 4. Ask TOTP code
-            token = getpass(f"Authentication Code for {params['login']!r} (2FA 6-digits): ")
+            token = getpass(f"Authentication Code for {kw['login']!r} (2FA 6-digits): ")
 
             # 5. Submit TOTP
             params = {'csrf_token': csrf, 'totp_token': token, 'remember': 1}
