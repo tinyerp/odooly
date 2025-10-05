@@ -1127,11 +1127,11 @@ class Client:
     _globals = None
 
     def __init__(self, server, db=None, user=None, password=None,
-                 transport=None, verbose=False):
+                 api_key=None, transport=None, verbose=False):
         self._set_services(server, transport, verbose)
         self.env = Env(self)
         if user:  # Try to login
-            self.login(user, password=password, database=db)
+            self.login(user, password=password, api_key=api_key, database=db)
 
     def _set_services(self, server, transport, verbose):
         if isinstance(server, list):
@@ -2353,6 +2353,9 @@ def main(interact=_interact):
         '-p', '--password', default=None,
         help='password, or it will be requested on login')
     parser.add_option(
+        '--api-key', dest='api_key', default=None,
+        help='API Key for JSON2 or JSON-RPC/XML-RPC')
+    parser.add_option(
         '-m', '--model',
         help='the type of object to find')
     parser.add_option(
@@ -2387,7 +2390,7 @@ def main(interact=_interact):
         if not args.user:
             args.user = DEFAULT_USER
         client = Client(args.server, args.db, args.user, args.password,
-                        verbose=args.verbose)
+                        api_key=args.api_key, verbose=args.verbose)
 
     if args.model and client.env.uid:
         ids = client.env.execute(args.model, 'search', domain)

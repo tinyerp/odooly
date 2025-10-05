@@ -21,6 +21,8 @@ Changelog
 
 * Propose database selector when needed, even for JSON-2 authentication.
 
+* Support ``--api-key`` on the command line.
+
 
 2.4.0 (2025-10-03)
 ~~~~~~~~~~~~~~~~~~
