@@ -40,12 +40,13 @@ class TestInteract(XmlRpcTestCase):
                              return_value='password').start()
         self.service.db.list.return_value = ['database']
         self.service.common.login.side_effect = [17, 51]
-        self.service.object.execute_kw.side_effect = [{}, TypeError, {}]
+        self.service.object.execute_kw.side_effect = [{}, TypeError, {}, {}]
 
         # Launch interactive
         self.infunc.side_effect = [
             "client\n",
             "env\n",
+            "env.sudo('gaspard')\n",
             "client.login('gaspard')\n",
             "23 + 19\n",
             EOFError('Finished')]
@@ -60,16 +61,18 @@ class TestInteract(XmlRpcTestCase):
              'ir.model.access', 'check', ('res.users', 'write')),
             ('common.login', 'database', 'gaspard', 'password'),
             ('object.execute_kw', 'database', 51, 'password', 'res.users', 'context_get', ()),
+            ('object.execute_kw', 'database', 51, 'password', 'res.users', 'context_get', ()),
         )
         self.assertCalls(*expected_calls)
         self.assertEqual(getpass.call_count, 2)
         self.assertEqual(read_config.call_count, 1)
         self.assertEqual(self.interact.call_count, 1)
         outlines = self.stdout.popvalue().splitlines()
-        self.assertSequenceEqual(outlines[-5:], [
+        self.assertSequenceEqual(outlines[-6:], [
             "Logged in as 'usr'",
             f"<Client '{self.server}?db=database'>",
             "<Env 'usr@database'>",
+            "<Env 'gaspard@database'>",
             "Logged in as 'gaspard'",
             "42",
         ])
@@ -78,6 +81,7 @@ class TestInteract(XmlRpcTestCase):
     def test_no_database(self):
         env_tuple = (self.server, 'missingdb', 'usr', None, None)
         mock.patch('sys.argv', new=['odooly', '--env', 'demo']).start()
+        mock.patch('odooly.getpass', return_value='xyz').start()
         read_config = mock.patch('odooly.Client.get_config',
                                  return_value=env_tuple).start()
         self.service.db.list.return_value = ['database']
@@ -86,19 +90,24 @@ class TestInteract(XmlRpcTestCase):
         self.infunc.side_effect = [
             "client\n",
             "env\n",
+            "env.sudo('gaspard')\n",
             "client.login('gaspard')\n",
             EOFError('Finished')]
         odooly.main()
 
-        expected_calls = self.startup_calls
+        expected_calls = self.startup_calls + (
+            "db.list",
+            ('common.login', 'database', 'gaspard', 'xyz'),
+        )
         self.assertCalls(*expected_calls)
         self.assertEqual(read_config.call_count, 1)
         outlines = self.stdout.popvalue().splitlines()
-        self.assertSequenceEqual(outlines[-4:], [
-            "Error: Database 'missingdb' does not exist: ['database']",
+        self.assertSequenceEqual(outlines[-5:], [
+            "Database 'missingdb' does not exist: ['database']",
             f"<Client '{self.server}?db='>",
             "<Env '@()'>",
             "Error: Not connected",
+            "Error: Invalid username or password",
         ])
         self.assertOutput(stderr=ANY)
 

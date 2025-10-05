@@ -367,19 +367,19 @@ class TestClientApi(XmlRpcTestCase):
 
         if float(self.server_version) <= 8.0:
             self.assertRaises(
-                odooly.Error, create_database, 'xyz', 'db2',
+                odooly.Error, create_database, 'xyz', 'db3',
                 user_password='secret', lang='fr_FR', login='other_login', country_code='CA',
             )
-            self.assertRaises(odooly.Error, create_database, 'xyz', 'db2', login='other_login')
+            self.assertRaises(odooly.Error, create_database, 'xyz', 'db3', login='other_login')
         else:  # Odoo >= 9.0
-            self.client.db.list.side_effect = [['db2']]
-            create_database('xyz', 'db2', user_password='secret', lang='fr_FR', login='other_login', country_code='CA')
+            self.client.db.list.side_effect = [['db3']]
+            create_database('xyz', 'db3', user_password='secret', lang='fr_FR', login='other_login', country_code='CA')
 
             expected_calls += [
-                call.db.create_database('xyz', 'db2', False, 'fr_FR', 'secret', 'other_login', 'CA'),
+                call.db.create_database('xyz', 'db3', False, 'fr_FR', 'secret', 'other_login', 'CA'),
                 call.db.list(),
-                call.common.login('db2', 'other_login', 'secret'),
-                call.object.execute_kw('db2', self.uid, 'secret', 'res.users', 'context_get', ()),
+                call.common.login('db3', 'other_login', 'secret'),
+                call.object.execute_kw('db3', self.uid, 'secret', 'res.users', 'context_get', ()),
             ]
         self.assertCalls(*expected_calls)
         self.assertOutput('')

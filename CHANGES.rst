@@ -19,6 +19,8 @@ Changelog
 
 * Ask for confirmation before (un)installing dependent modules.
 
+* Propose database selector when needed, even for JSON-2 authentication.
+
 
 2.4.0 (2025-10-03)
 ~~~~~~~~~~~~~~~~~~
