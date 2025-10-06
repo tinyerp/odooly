@@ -95,6 +95,7 @@ _rpc_methods = {
            'change_admin_password', 'server_version', 'migrate_databases'],
     'object': ['execute', 'execute_kw'],
 }
+_methods = _rpc_methods
 # New Odoo 7:       (db) duplicate_database
 # New Odoo 9:       (db) list_countries
 # No-op:            (common) set_loglevel
