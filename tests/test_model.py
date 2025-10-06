@@ -1066,9 +1066,11 @@ class TestRecord(TestCase):
         self.assertEqual(records.exists(), records[:1])
         # No RPC call if the list is empty
         self.assertEqual(records[:0].exists(), records[:0])
-        self.assertCalls(
-            OBJ('foo.bar', 'search', [('id', 'in', [13])]),
-        )
+        if float(self.server_version) < 19.0:
+            expected_calls = OBJ('foo.bar', 'exists', [13])
+        else:
+            expected_calls = OBJ('foo.bar', 'search', [('id', 'in', [13])])
+        self.assertCalls(expected_calls)
         self.assertOutput('')
 
     def test_mapped(self):
