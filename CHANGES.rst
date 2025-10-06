@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-2.x.x (unreleased)
+2.4.1 (2025-10-06)
 ~~~~~~~~~~~~~~~~~~
 
 * Catch and format authentication error properly.

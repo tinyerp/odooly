@@ -104,7 +104,12 @@ Example::
 Interactive use
 ---------------
 
-Edit ``odooly.ini`` and declare the environment(s)::
+Launch directly, without any configuration.  It connects to the Odoo server, local or remote::
+
+    $ odooly --server http://127.0.0.1:8069/
+
+
+Environments can also be declared in ``odooly.ini``::
 
     [DEFAULT]
     scheme = http
