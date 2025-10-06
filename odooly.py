@@ -92,6 +92,7 @@ _rpc_methods = {
            'change_admin_password', 'server_version', 'migrate_databases'],
     'object': ['execute', 'execute_kw'],
 }
+_methods = _rpc_methods
 # New 6.1: (db) create_database db_exist,
 #          (common) authenticate version set_loglevel
 #          (object) execute_kw,  (report) render_report
