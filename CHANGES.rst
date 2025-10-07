@@ -2,6 +2,14 @@ Changelog
 ---------
 
 
+2.x.x (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* Fix :meth:`Client.clone_database`.
+
+* New method :meth:`Env.set_api_key`.
+
+
 2.4.1 (2025-10-06)
 ~~~~~~~~~~~~~~~~~~
 
