@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-2.x.x (unreleased)
+2.4.2 (2025-10-08)
 ~~~~~~~~~~~~~~~~~~
 
 * Fix :meth:`Client.clone_database`.

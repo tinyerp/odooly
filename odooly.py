@@ -27,7 +27,7 @@ try:
 except ImportError:
     requests = None
 
-__version__ = '2.4.1.dev0'
+__version__ = '2.4.2'
 __all__ = ['Client', 'Env', 'WebAPI', 'Service', 'Json2',
            'Printer', 'Error', 'ServerError',
            'BaseModel', 'Model', 'BaseRecord', 'Record', 'RecordList',
@@ -1070,9 +1070,9 @@ class Env:
         """Press button ``Uninstall``."""
         return self._upgrade(modules, button='button_uninstall', quiet=quiet)
 
-    def upgrade_cancel(self, *modules):
+    def upgrade_cancel(self):
         """Press button ``Cancel Upgrade/Install/Uninstall``."""
-        return self._upgrade(modules, button='cancel', quiet=True)
+        return self._upgrade((), button='cancel', quiet=True)
 
     def session_authenticate(self, login=None, password=None):
         """Create a Webclient session for current user."""
@@ -1475,7 +1475,7 @@ class Client:
         The superadmin `passwd` and `database` are mandatory.
         """
         if not database or database == self.env.db_name:
-            raise Error("Cannot delete active database")
+            raise Error("Failed - Cannot delete active database")
         if self.db:
             self.db.drop(passwd, database)
             db_list = self.db.list()
@@ -1483,7 +1483,7 @@ class Client:
             self.database.drop(master_pwd=passwd, name=database)
             db_list = self.database.list()
         if database in db_list:
-            raise Error("Unsuccessful - Database was not deleted")
+            raise Error("Failed - Database was not deleted")
 
     def _call_kw(self, model, method, args, kw=None):
         return self.web_dataset.call_kw(model=model, method=method, args=args, kwargs=kw or {})
