@@ -1455,7 +1455,7 @@ class Client:
         self.env._cache_set('auth', dict(auth_cache), db_name=database)
 
         # Login with the current user into the new database
-        (uid, password, __) = self.env._auth(self.env.uid, None)
+        (uid, password, __) = self.env._auth(self.env.uid, None, None)
         return self.login(self.env.user.login, password, database=database)
 
     def drop_database(self, passwd, database):
