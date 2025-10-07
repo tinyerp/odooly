@@ -95,23 +95,23 @@ _rpc_methods = {
 # New 6.1: (db) create_database db_exist,
 #          (common) authenticate version set_loglevel
 #          (object) execute_kw,  (report) render_report
-# New 7.0: (db) duplicate_database
-# New 9.0: (db) list_countries
+# New 7:   (db) duplicate_database
+# New 9:   (db) list_countries
 # No-op:   (common) set_loglevel
-# Remove 19.0: (common) version, replaced by GET /web/version
+# Remove 19: (common) version, replaced by GET /web/version
 
 _obsolete_rpc_methods = {
     'common': [
         'check_connectivity', 'get_available_updates',
         'get_migration_scripts', 'get_os_time', 'get_stats',
         'get_server_environment', 'get_sqlcount',
-        'list_http_services', 'login_message',              # < 8.0
-        'timezone_get',                                     # < 9.0
+        'list_http_services', 'login_message',              # Odoo < 8
+        'timezone_get',                                     # Odoo < 9
     ],
-    'db': ['create', 'get_progress'],                       # < 8.0
-    'object': ['exec_workflow'],                            # < 11.0
-    'report': ['render_report', 'report', 'report_get'],    # < 11.0
-    'wizard': ['execute', 'create'],                        # < 7.0
+    'db': ['create', 'get_progress'],                       # Odoo < 8
+    'object': ['exec_workflow'],                            # Odoo < 11
+    'report': ['render_report', 'report', 'report_get'],    # Odoo < 11
+    'wizard': ['execute', 'create'],                        # Odoo < 7
 }
 _cause_message = ("\nThe above exception was the direct cause "
                   "of the following exception:\n\n")
@@ -842,7 +842,7 @@ class Env:
             if self.client.version_info < 19.0:
                 idcheck.password = password
             try:
-                # Odoo >= 19.0 read from context
+                # Odoo >= 19 read from context
                 result = idcheck.with_context(password=password).run_check()
             except ServerError:
                 password = None
@@ -1044,7 +1044,7 @@ class Env:
                     self.execute('ir.module.module', 'button_install_cancel', uninstalled)
                 if installed:
                     self.execute('ir.module.module', 'button_upgrade_cancel', installed)
-            else:  # Odoo >= 19.0
+            else:  # Odoo >= 19
                 self.execute('ir.module.module', 'button_reset_state')
         else:
             # Apply scheduled upgrades
@@ -1078,7 +1078,8 @@ class Env:
             'password': password or getpass(f"Password for {login!r}: "),
         }
         self.session_info = self.client._authenticate_session(**params)
-        if login == self.user.login and not self.db_name and self.session_info.get('db'):
+        # When database name is discovered, copy cached data
+        if not self.db_name and login == self.user.login and self.session_info.get('db'):
             empty_db_key = (self.db_name, self.client._server)
             self.db_name = self.session_info['db']
             for key in list(self._cache):
@@ -1304,7 +1305,7 @@ class Client:
         for retry in range(4):
             # 3. Parse 'session_info'
             session_info = json.loads(re.search(r'odoo._*session_info_* = (.*);', rv).group(1))
-            if 'user_id' in session_info and 'uid' not in session_info:  # Odoo < 18.0
+            if 'user_id' in session_info and 'uid' not in session_info:  # Odoo < 18
                 session_info['uid'] = session_info['user_id']
             if session_info['uid'] or 'totp_token' not in rv or retry == 3:
                 break
@@ -1641,13 +1642,13 @@ class Model(BaseModel):
         accept either a list of ids or a RecordList or the extended Odoo
         syntax.  Relationship fields `many2one` and `reference` accept
         either a Record or the Odoo syntax.
-        Since Odoo 12.0, it can create multiple records.
+        Since Odoo 12, it can create multiple records.
 
         The newly created :class:`Record` is returned, or :class:`RecordList`.
         """
         if hasattr(values, "items"):
             values = self._unbrowse_values(values)
-        else:  # Odoo >= 12.0
+        else:  # Odoo >= 12
             values = [self._unbrowse_values(vals) for vals in values]
         new_ids = self._execute('create', values)
         return Record(self, new_ids)
