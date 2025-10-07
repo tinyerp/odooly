@@ -349,7 +349,7 @@ class TestClientApi(XmlRpcTestCase):
 
     def test_create_database(self):
         create_database = self.client.create_database
-        self.client.db.list.side_effect = [['db1'], ['db2']]
+        self.client.db.list.side_effect = [['db1'], ['db2'], ['db3']]
 
         create_database('abc', 'db1')
         create_database('xyz', 'db2', user_password='secret', lang='fr_FR')
@@ -363,6 +363,11 @@ class TestClientApi(XmlRpcTestCase):
             call.db.list(),
             call.common.login('db2', 'admin', 'secret'),
             call.object.execute_kw('db2', self.uid, 'secret', 'res.users', 'context_get', ()),
+            # Odoo >= 9
+            call.db.create_database('xyz', 'db3', False, 'fr_FR', 'secret', 'other_login', 'CA'),
+            call.db.list(),
+            call.common.login('db3', 'other_login', 'secret'),
+            call.object.execute_kw('db3', self.uid, 'secret', 'res.users', 'context_get', ()),
         ]
 
         if float(self.server_version) <= 8.0:
@@ -371,16 +376,35 @@ class TestClientApi(XmlRpcTestCase):
                 user_password='secret', lang='fr_FR', login='other_login', country_code='CA',
             )
             self.assertRaises(odooly.Error, create_database, 'xyz', 'db3', login='other_login')
-        else:  # Odoo >= 9.0
-            self.client.db.list.side_effect = [['db3']]
+            del expected_calls[-4:]
+        else:  # Odoo >= 9
             create_database('xyz', 'db3', user_password='secret', lang='fr_FR', login='other_login', country_code='CA')
+        self.assertCalls(*expected_calls)
+        self.assertOutput('')
 
-            expected_calls += [
-                call.db.create_database('xyz', 'db3', False, 'fr_FR', 'secret', 'other_login', 'CA'),
-                call.db.list(),
-                call.common.login('db3', 'other_login', 'secret'),
-                call.object.execute_kw('db3', self.uid, 'secret', 'res.users', 'context_get', ()),
-            ]
+    def test_clone_database(self):
+        clone_database = self.client.clone_database
+        self.client.db.list.side_effect = [['database', 'db1'], ['database', 'db1', 'db2']]
+
+        clone_database('abc', 'db1')
+
+        expected_calls = [
+            call.db.duplicate_database('abc', 'database', 'db1'),
+            call.db.list(),
+            call.common.login('db1', 'user', 'passwd'),
+            call.object.execute_kw('db1', 4, 'passwd', 'res.users', 'context_get', ()),
+            call.db.duplicate_database('xyz', 'db1', 'db2', True),
+            call.db.list(),
+            call.common.login('db2', 'user', 'passwd'),
+            call.object.execute_kw('db2', 4, 'passwd', 'res.users', 'context_get', ()),
+        ]
+
+        if float(self.server_version) < 16.0:
+            # Error: Argument 'neutralize_database' is not supported
+            self.assertRaises(odooly.Error, clone_database, 'xyz', 'db2', neutralize_database=True)
+            del expected_calls[-4:]
+        else:
+            clone_database('xyz', 'db2', neutralize_database=True)
         self.assertCalls(*expected_calls)
         self.assertOutput('')
 

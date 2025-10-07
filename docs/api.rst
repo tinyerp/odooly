@@ -190,6 +190,8 @@ Environment
 
    .. automethod:: generate_api_key
 
+   .. automethod:: set_api_key
+
    .. automethod:: session_authenticate
 
    .. automethod:: session_destroy

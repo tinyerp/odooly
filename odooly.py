@@ -27,7 +27,7 @@ try:
 except ImportError:
     requests = None
 
-__version__ = '2.4.1'
+__version__ = '2.4.1.dev0'
 __all__ = ['Client', 'Env', 'WebAPI', 'Service', 'Json2',
            'Printer', 'Error', 'ServerError',
            'BaseModel', 'Model', 'BaseRecord', 'Record', 'RecordList',
@@ -695,17 +695,21 @@ class Env:
         info['user_context'] = user_context or {}
         return (uid, password, info)
 
-    def _set_credentials(self, uid, api_key, store_api_key=True):
+    def set_api_key(self, api_key, store=True):
+        """Configure methods to use an API key."""
         def env_auth(method):     # Authenticated endpoints
-            return partial(method, self.db_name, uid, api_key)
+            return partial(method, self.db_name, self.uid, api_key)
         if self.client.web and self.client.version_info >= 19.0:
             self._json2 = Json2(self.client, self.db_name, api_key)._check()
-        if self.client._object:
+        if self.client._object:  # RPC endpoint if available
             self._execute = env_auth(self.client._object.execute)
             self._execute_kw = env_auth(self.client._object.execute_kw)
-        else:  # WebAPI and JSON-2
+        else:  # Otherwise, use JSON-2 or WebAPI
             self._execute_kw = self._json2 or self._call_kw
-        if self.client._report:   # Odoo <= 10
+        if store:
+            self._api_key = api_key
+
+        if self.client._report:   # Odoo < 11
             self.exec_workflow = env_auth(self.client._object.exec_workflow)
             self.report = env_auth(self.client._report.report)
             self.report_get = env_auth(self.client._report.report_get)
@@ -713,11 +717,10 @@ class Env:
         if self.client._wizard:   # OpenERP 6.1
             self.wizard_execute = env_auth(self.client._wizard.execute)
             self.wizard_create = env_auth(self.client._wizard.create)
-        if store_api_key:
-            self._api_key = api_key
         return api_key
 
     def _configure(self, uid, user, password, api_key, context, session):
+        need_auth = uid != self.uid or (api_key and api_key != self._api_key)
         if self.uid:              # Create a new Env() instance
             env = Env(self.client)
             (env.db_name, env.name) = (self.db_name, self.name)
@@ -725,16 +728,7 @@ class Env:
             env._models = {}
         else:                     # Configure the Env() instance
             env = self
-        if uid == self.uid:       # Copy methods
-            for key in ('_execute', '_execute_kw', 'exec_workflow',
-                        'report', 'report_get', 'render_report',
-                        'wizard_execute', 'wizard_create'):
-                if hasattr(self, key):
-                    setattr(env, key, getattr(self, key))
-            env._api_key = self._api_key
-            env._json2 = self._json2
-        else:                     # Create methods
-            env._set_credentials(uid, api_key or password, bool(api_key))
+
         # Setup uid and user
         if isinstance(user, Record):
             user = user.login
@@ -746,6 +740,18 @@ class Env:
             assert isinstance(user, str), repr(user)
             env.user.__dict__['login'] = user
             env.user._cached_keys.add('login')
+
+        # Set API methods
+        if need_auth:
+            env.set_api_key(api_key or password, bool(api_key))
+        else:  # Copy methods
+            for key in '_execute_kw', '_api_key', '_json2':
+                setattr(env, key, getattr(self, key))
+            for key in ('_execute', 'exec_workflow',
+                        'report', 'report_get', 'render_report',
+                        'wizard_execute', 'wizard_create'):
+                if hasattr(self, key):
+                    setattr(env, key, getattr(self, key))
         return env
 
     @property
@@ -1109,7 +1115,7 @@ class Env:
         res = wiz.make_key()
         self.user.refresh()
         assert res['res_model'] == "res.users.apikeys.show"
-        return self._set_credentials(self.uid, res['context']['default_key'])
+        return self.set_api_key(res['context']['default_key'])
 
 
 class Client:
@@ -1453,11 +1459,15 @@ class Client:
                                     new_name=database, **extra)
         # Copy the cache for authentication
         auth_cache = self.env._cache_get('auth')
-        self.env._cache_set('auth', dict(auth_cache), db_name=database)
+        self.env._cache_set('auth', {**auth_cache}, db_name=database)
 
         # Login with the current user into the new database
-        (uid, password, __) = self.env._auth(self.env.uid, None, self.env._api_key)
-        return self.login(self.env.user.login, password, database=database)
+        auth_args = {
+            'password': auth_cache[self.env.uid][1],
+            'api_key': self.env._api_key,
+            'database': database,
+        }
+        return self.login(self.env.user.login, **auth_args)
 
     def drop_database(self, passwd, database):
         """Drop the database.
