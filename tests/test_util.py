@@ -62,8 +62,8 @@ class TestUtils(TestCase):
         self.assertEqual(searchargs((['status=?Running'],)),
                          ([('status', '=?', 'Running')],))
 
-        for oper in ('like', 'not like', 'ilike', 'not ilike', 'in', 'not in',
-                     'any', 'not any', 'child_of', 'parent_of'):
+        for oper in ('like', 'not like', 'ilike', 'not ilike', 'not =like',
+                     'not =ilike', 'any', 'not any', 'child_of', 'parent_of'):
             self.assertEqual(searchargs((['status %s Running' % oper],)),
                              ([('status', oper, 'Running')],))
 
@@ -107,10 +107,20 @@ class TestUtils(TestCase):
         self.assertEqual(searchargs((('state', '!=', 'draft'),)),
                          (('state', '!=', 'draft'),))
 
-        # Operator == is a typo
+        # Operators == and <> are deprecated in Odoo 19, operator == is a typo
         self.assertRaises(ValueError, searchargs, (['ham==2'],))
         self.assertRaises(ValueError, searchargs, (['ham == 2'],))
+        self.assertRaises(ValueError, searchargs, (['ham <> 2'],))
+        self.assertRaises(ValueError, searchargs, (['ham<>2'],))
 
+        # Mixed-up operators
+        self.assertRaises(ValueError, searchargs, (['ham =! 2'],))
+        self.assertRaises(ValueError, searchargs, (['ham =< 2'],))
+        self.assertRaises(ValueError, searchargs, (['ham => 2'],))
+        self.assertRaises(ValueError, searchargs, (['ham ?= 2'],))
+
+        self.assertRaises(ValueError, searchargs, (['ham='],))
+        self.assertRaises(ValueError, searchargs, (['ham on salad'],))
         self.assertRaises(ValueError, searchargs, (['spam.hamin(1, 2)'],))
         self.assertRaises(ValueError, searchargs, (['spam.hamin (1, 2)'],))
         self.assertRaises(ValueError, searchargs, (['spamin (1, 2)'],))

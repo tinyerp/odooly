@@ -68,11 +68,13 @@ Usage (some commands):
 DOMAIN_OPERATORS = frozenset('!|&')
 # Supported operators are:
 #   =, !=, >, >=, <, <=, like, ilike, in, not like, not ilike, not in,
-#   child_of, parent_of, =like, =ilike, =?, any, not any
+#   =like, =ilike, =?, child_of, parent_of,   # parent_of: Odoo 9
+#   any, not any,                             # Odoo 17
+#   not =like, not =ilike,                    # Odoo 19
 _term_re = re.compile(
-    r'([\w._]+)\s*'   r'(=(?:like|ilike|\?)|[<>]=?|!?=(?!=)'
-    r'|\b(?:like|ilike|not like|not ilike|in|not in|any|not any|child_of|parent_of)\b)'
-    r'\s*(.*)')
+    r'([\w._]+)\s*'   r'(=like\b|=ilike\b|=\?|[<>]=?|!?=|'
+    r'\b(?:like|ilike|in|any|not (?:=?like|=?ilike|in|any)|child_of|parent_of)\b)'
+    r'(?![?!=<>])\s*(.+)')
 _fields_re = re.compile(r'(?:[^%]|^)%\(([^)]+)\)')
 
 # Web methods (not exhaustive)

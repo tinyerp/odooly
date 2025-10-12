@@ -2,6 +2,12 @@ Changelog
 ---------
 
 
+2.x.x (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* Add operators ``not =like`` and ``not =ilike`` for Odoo 19.
+
+
 2.4.2 (2025-10-08)
 ~~~~~~~~~~~~~~~~~~
 
