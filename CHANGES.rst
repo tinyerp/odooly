@@ -7,6 +7,8 @@ Changelog
 
 * Add operators ``not =like`` and ``not =ilike`` for Odoo 19.
 
+* Fix API Key authentication for RPC protocols.
+
 
 2.4.2 (2025-10-08)
 ~~~~~~~~~~~~~~~~~~
