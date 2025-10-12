@@ -26,9 +26,10 @@ class TestUtils(TestCase):
 
         self.assertEqual(searchargs(([],)), ([],))
         self.assertEqual(searchargs((domain,)), (domain,))
+        self.assertEqual(searchargs((False,)), (False,))    # Odoo >= 19
+        self.assertEqual(searchargs((True,)), (True,))      # Odoo >= 19
         self.assertEqual(searchargs((['name = mushroom', 'state != draft'],)),
                          (domain,))
-
         self.assertEqual(searchargs((['status=Running'],)),
                          ([('status', '=', 'Running')],))
         self.assertEqual(searchargs((['state="in_use"'],)),

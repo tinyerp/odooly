@@ -7,7 +7,7 @@ from ._common import XmlRpcTestCase, OBJ
 
 class TestCase(XmlRpcTestCase):
     server_version = '6.1'
-    server = f"{XmlRpcTestCase.server}/xmlrpc"
+    server = f'{XmlRpcTestCase.server}/xmlrpc'
     database = 'database'
     user = 'user'
     password = 'passwd'
@@ -301,6 +301,7 @@ class TestModel(TestCase):
         self.assertEqual(FooBar.read([], order='name ASC'), [])
         self.assertEqual(FooBar.read([False]), [])
         self.assertEqual(FooBar.read([False, False]), [])
+        self.assertEqual(FooBar.read(False), False)
         self.assertCalls()
         self.assertOutput('')
 
