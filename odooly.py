@@ -57,6 +57,7 @@ Usage (some commands):
 
     client.login(user)              # Login with another user
     client.connect(env)             # Connect to another env.
+    client.connect(server=None)     # Connect to another server
     env.models(name)                # List models matching pattern
     env.modules(name)               # List modules matching pattern
     env.install(module1, module2, ...)
@@ -679,6 +680,8 @@ class Env:
                 raise
             if not self.db_name:
                 self.db_name = info.get('db') or ''
+                # Set the cache for authentication
+                self._cache_set('auth', auth_cache)
                 self.refresh()
         elif uid:
             # Check if password is valid
@@ -828,7 +831,7 @@ class Env:
         except KeyError:
             pass
         if func is not None:
-            return self._cache_set(key, func())
+            return self._cache_set(key, func()) if self.db_name else func()
 
     def _cache_set(self, key, value, db_name=None):
         self._cache[key, db_name or self.db_name, self.client._server] = value
@@ -1136,12 +1139,13 @@ class Client:
 
     def __init__(self, server, db=None, user=None, password=None,
                  api_key=None, transport=None, verbose=False):
-        self._set_services(server, transport, verbose)
+        self._init_http_session()
+        self._set_services(server, db, transport, verbose)
         self.env = Env(self)
         if user:  # Try to login
             self.login(user, password=password, api_key=api_key, database=db)
 
-    def _set_services(self, server, transport, verbose):
+    def _set_services(self, server, db, transport, verbose):
         if isinstance(server, list):
             appname = os.path.basename(__file__).rstrip('co')
             server = start_odoo_services(server, appname=appname)
@@ -1167,6 +1171,9 @@ class Client:
         elif '/jsonrpc' in server:
             self._proxy = self._proxy_jsonrpc
         else:
+            if not db:
+                # Resolve redirects
+                server = self._post(server, method='HEAD').url
             if not server.endswith('/web'):
                 server = urljoin(server, '/web')
             self._proxy = None
@@ -1178,7 +1185,6 @@ class Client:
         assert not transport or self._proxy is self._proxy_xmlrpc, 'Not supported'
 
         if isinstance(server, str):
-            self._set_http_session()
             self.web = get_web_api(None)
             self.database = get_web_api('database')
             self.web_dataset = get_web_api('dataset')
@@ -1360,7 +1366,7 @@ class Client:
                 if not database:
                     # Database selector page
                     database = self._select_database(dbs)
-                elif database not in dbs:
+                elif dbs and database not in dbs:
                     raise Error("Database '%s' does not exist: %s" %
                                 (database, dbs))
         if database and env.db_name != database:
@@ -1386,23 +1392,29 @@ class Client:
             # Register the new globals()
             self.connect()
 
-    def connect(self, env_name=None):
+    def connect(self, env_name=None, *, server=None, user=None):
         """Connect to another environment and replace the globals()."""
         assert self._is_interactive(), 'Not available'
         if env_name:
-            self.from_config(env_name, verbose=self._verbose)
-            return
-        client = self
-        env_name = client.env.name or client.env.db_name
-        self._globals['client'] = client
-        self._globals['env'] = client.env
-        self._globals['self'] = client.env.user if client.env.uid else None
+            self.from_config(env_name, user=user, verbose=self._verbose)
+        elif server:
+            if not user and self.env.uid:
+                user = self.env.user.login
+            self.__class__(server, user=user, verbose=self._verbose)
+        else:
+            assert not user, "Use client.login(...) instead"
+            self._globals['client'] = self
+            self._globals['env'] = self.env
+            self._globals['self'] = self.env.user if self.env.uid else None
+            self._set_prompt()
+            # Logged in?
+            if self.env.uid:
+                print(f'Logged in as {self.env.user.login!r}')
+
+    def _set_prompt(self):
         # Tweak prompt
-        sys.ps1 = f'{env_name} >>> '
+        sys.ps1 = f'{self.env.name or self.env.db_name} >>> '
         sys.ps2 = '... '.rjust(len(sys.ps1))
-        # Logged in?
-        if client.env.uid:
-            print(f'Logged in as {client.env.user.login!r}')
 
     @classmethod
     def _set_interactive(cls, global_vars={}):
@@ -1490,29 +1502,29 @@ class Client:
         return self.web_dataset.call_kw(model=model, method=method, args=args, kwargs=kw or {})
 
     if requests:  # requests.Session
-        def _set_http_session(self):
+        def _init_http_session(self):
             self._http_session = requests.Session()
 
         def _post(self, url, *, method='POST', data=None, json=None, headers=None, **kw):
             resp = self._http_session.request(method, url, data=data, json=json, headers=headers, **kw)
             resp.raise_for_status()
-            return resp.text if json is None else resp.json()
+            return resp if method == 'HEAD' else resp.text if json is None else resp.json()
 
     else:  # urllib.request
-        def _set_http_session(self):
+        def _init_http_session(self):
             self._http_session = build_opener(HTTPCookieProcessor(), HTTPSHandler(context=http_context))
 
-        def _post(self, url, *, method='POST', data=None, json=None, headers=None, __json=json, **kw):
+        def _post(self, url, *, method='POST', data=None, json=None, headers=None, _json=json, **kw):
             headers = dict(headers or ())
             if json is not None:
                 headers.setdefault('Content-Type', 'application/json')
-            if method != 'GET':
-                data = (urlencode(data) if json is None else __json.dumps(json)).encode()
+            if method == 'POST':
+                data = (urlencode(data) if json is None else _json.dumps(json)).encode()
             elif data is not None:
                 url, data = f'{url}?{urlencode(data)}', None
-            request = Request(url, data=data, headers=headers)
+            request = Request(url, data=data, headers=headers, method=method)
             resp = self._http_session.open(request)
-            return str(resp.read(), 'utf-8') if json is None else __json.load(resp)
+            return resp if method == 'HEAD' else resp.read().decode() if json is None else _json.load(resp)
 
 
 class BaseModel:
@@ -2401,7 +2413,7 @@ def main(interact=_interact):
                 args.server = args.server + domain if args.config else domain
         if not args.user:
             args.user = DEFAULT_USER
-        client = Client(args.server, args.db, args.user, args.password,
+        client = Client(args.server, args.db, args.user, password=args.password,
                         api_key=args.api_key, verbose=args.verbose)
 
     if args.model and client.env.uid:

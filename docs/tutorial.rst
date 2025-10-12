@@ -23,19 +23,19 @@ The tutorial creates its own database ``demo`` to play with.
 
 Open the Odooly shell::
 
-    $ odooly
+    ~$ odooly
 
 It assumes that the server is running locally, and listens on default
 port ``8069``.
 
 If our configuration is different, then we use arguments, like::
 
-    $ odooly --server http://192.168.0.42:8069
+    ~$ odooly --server http://192.168.0.42:8069
 
 It connects using the Webclient API. If you want to use the JSON-RPC
 external API instead, then pass the full URL with ``/jsonrpc`` path::
 
-    $ odooly --server http://127.0.0.1:8069/jsonrpc
+    ~$ odooly --server http://127.0.0.1:8069/jsonrpc
 
 
 .. note::
@@ -47,7 +47,7 @@ On login, it prints few lines about the commands available.
 
 .. sourcecode:: pycon
 
-    $ odooly
+    ~$ odooly
     Usage (some commands):
         env[name]                       # Return a Model instance
         env[name].keys()                # List field names of the model
@@ -64,6 +64,7 @@ On login, it prints few lines about the commands available.
 
         client.login(user)              # Login with another user
         client.connect(env)             # Connect to another env.
+        client.connect(server=None)     # Connect to another server
         env.models(name)                # List models matching pattern
         env.modules(name)               # List modules matching pattern
         env.install(module1, module2, ...)

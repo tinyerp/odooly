@@ -9,6 +9,9 @@ Changelog
 
 * Fix API Key authentication for RPC protocols.
 
+* Able to connect with HTTP redirection. For example:
+  ``odooly --server http://demo.odoo.com``
+
 * Fix command line usage with a list of IDs.
 
 * Keep ``env.user.login`` when ``env.user.refresh()`` is called.
