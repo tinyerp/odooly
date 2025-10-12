@@ -27,7 +27,7 @@ try:
 except ImportError:
     requests = None
 
-__version__ = '2.4.2'
+__version__ = '2.4.3'
 __all__ = ['Client', 'Env', 'WebAPI', 'Service', 'Json2',
            'Printer', 'Error', 'ServerError',
            'BaseModel', 'Model', 'BaseRecord', 'Record', 'RecordList',
@@ -828,6 +828,7 @@ class Env:
                 # Odoo >= 19 read from context
                 result = idcheck.with_context(password=password).run_check()
             except ServerError:
+                password = None
                 if not self.client._is_interactive():
                     raise
         if self.client._is_interactive():
