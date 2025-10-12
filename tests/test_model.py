@@ -1,5 +1,6 @@
 from functools import partial
-from unittest.mock import sentinel, ANY
+from unittest.mock import call, sentinel, ANY
+from urllib.request import urljoin
 
 import odooly
 from ._common import XmlRpcTestCase, OBJ
@@ -483,7 +484,7 @@ class TestModel(TestCase):
         FooBar.create({'spam': recordlist42})
         FooBar._execute('create', {'spam': 42})
         FooBar.create({})
-        # Odoo >= 12.0
+        # Odoo >= 12
         FooBar.create([{'spam': record42}])
         FooBar.create([{'spam': record100}, {'spam': record42}])
         self.assertCalls(
@@ -741,7 +742,7 @@ class TestRecord(TestCase):
         rec.copy({'spam': rec})
         rec.copy({'spam': records})
         rec.copy({})
-        # Odoo >= 18.0
+        # Odoo >= 18
         records.copy({'spam': rec})
         self.assertCalls(
             OBJ('foo.bar', 'copy', 42, None),
@@ -1426,11 +1427,11 @@ class TestRecord(TestCase):
         self.assertOutput('')
 
 
-class TestModel90(TestModel):
+class TestModel9(TestModel):
     server_version = '9.0'
 
 
-class TestRecord90(TestRecord):
+class TestRecord9(TestRecord):
     server_version = '9.0'
 
 
@@ -1440,3 +1441,44 @@ class TestModel11(TestModel):
 
 class TestRecord11(TestRecord):
     server_version = '11.0'
+
+
+class TestModel17(TestModel):
+    server_version = '17.0'
+
+
+class TestRecord17(TestRecord):
+    server_version = '17.0'
+
+
+class TestModel18(TestModel):
+    server_version = '18.0'
+
+
+class TestRecord18(TestRecord):
+    server_version = '18.0'
+
+
+class TestModel19(TestModel):
+    server_version = '19.0'
+
+    def _patch_service(self):
+        self.auth_http = self._patch_http_post()
+        return super()._patch_service()
+
+    def test_auth_http(self):
+        headers = {
+            'Authorization': 'Bearer passwd',
+            'Content-Type': 'application/json',
+            'X-Odoo-Database': 'database',
+        }
+        test_url = urljoin(self.server, '/doc-bearer/ir.model.json')
+        self.assertEqual(self.auth_http.mock_calls, [call(test_url, headers=headers, method='GET')])
+
+
+class TestRecord19(TestRecord):
+    server_version = '19.0'
+
+    def _patch_service(self):
+        self.auth_http = self._patch_http_post()
+        return super()._patch_service()
