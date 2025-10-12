@@ -176,7 +176,10 @@ class TestCreateClient(XmlRpcTestCase):
         self.service.db.list.return_value = ['newdb']
         self.service.common.login.return_value = 1
 
-        url_xmlrpc = f"{self.server}/xmlrpc"
+        url_xmlrpc = f"{self.server}"
+        s_context = '{"lang": "en_US", "tz": "Europe/Zurich"}'
+        key_1 = b"\0\0\0\1" + bytes.fromhex(f'{hash("{}")%2**32:08x}')
+        key_2 = b"\0\0\0\1" + bytes.fromhex(f'{hash(s_context)%2**32:08x}')
         client = odooly.Client(url_xmlrpc, 'newdb', 'usr', 'pss')
         expected_calls = self.startup_calls + (
             call.common.login('newdb', 'usr', 'pss'),
@@ -186,9 +189,8 @@ class TestCreateClient(XmlRpcTestCase):
         self.assertCalls(*expected_calls)
         self.assertEqual(
             client.env._cache,
-            {('[1, {}]', 'newdb', url_xmlrpc): client.env(context={}),
-             ('[1, {"lang": "en_US", "tz": "Europe/Zurich"}]',
-              'newdb', url_xmlrpc): client.env,
+            {(key_1, 'newdb', url_xmlrpc): client.env(context={}),
+             (key_2, 'newdb', url_xmlrpc): client.env,
              ('auth', 'newdb', url_xmlrpc): {1: (1, 'pss'),
                                              'usr': (1, 'pss')},
              ('model_names', 'newdb', url_xmlrpc): {'res.users'}})

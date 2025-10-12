@@ -790,7 +790,7 @@ class Env:
             (uid, user, session) = (self.uid, self.user, self.session_info)
         else:
             return self
-        env_key = json.dumps((uid, context), sort_keys=True)
+        env_key = bytes.fromhex(f"{uid:08x}{hash(json.dumps(context, sort_keys=True))%2**32:08x}")
         env = self._cache_get(env_key)
         if env is None:
             env = self._configure(uid, user, password, api_key, context, session)
