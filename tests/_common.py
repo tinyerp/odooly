@@ -1,3 +1,4 @@
+from urllib.request import HTTPError
 from unittest import mock, TestCase
 from unittest.mock import call, sentinel
 
@@ -51,11 +52,11 @@ class XmlRpcTestCase(TestCase):
             self.service.reset_mock()
 
     def _patch_http_post(self, uid=None, context=sample_context):
-        def func(url, *, data=None, json=None):
+        def func(url, *, method='POST', data=None, json=None, headers=None):
             if url.endswith("/web/session/authenticate"):
                 result = {'uid': uid or self.uid, 'user_context': context}
             else:
-                raise RuntimeError
+                raise HTTPError(url, 404, 'Not Found', headers, None)
             return {'result': result}
         return mock.patch('odooly.Client._post', side_effect=func).start()
 
@@ -75,27 +76,27 @@ class XmlRpcTestCase(TestCase):
         svcs.object.execute_kw.return_value = sample_context
         return svcs
 
-    def assertCalls(self, *expected_args):
-        expected_calls = []
-        for expected in expected_args:
+    def _assertCalls(self, mock_, expected_calls):
+        for idx, expected in enumerate(expected_calls):
             if isinstance(expected, str):
                 if expected[:4] == 'call':
                     expected = expected[4:].lstrip('.')
                 assert expected[-2:] != '()'
-                expected = type_call((expected,))
-            elif not (expected is mock.ANY or isinstance(expected, type_call)):
+                expected_calls[idx] = type_call((expected,))
+        self.assertSequenceEqual(mock_.mock_calls, expected_calls)
+        mock_.reset_mock()
+
+    def assertServiceCalls(self, *expected_args):
+        expected_calls = list(expected_args)
+        for idx, expected in enumerate(expected_calls):
+            if not isinstance(expected, type_call) and isinstance(expected, tuple):
                 rpcmethod = expected[0]
                 if len(expected) > 1 and expected[1] == sentinel.AUTH:
-                    args = (self.database, self.uid, self.password)
-                    args += expected[2:]
+                    args = (self.database, self.uid, self.password) + expected[2:]
                 else:
                     args = expected[1:]
-                expected = getattr(call, rpcmethod)(*args)
-            expected_calls.append(expected)
-        mock_calls = self.service.mock_calls
-        self.assertSequenceEqual(mock_calls, expected_calls)
-        # Reset
-        self.service.reset_mock()
+                expected_calls[idx] = getattr(call, rpcmethod)(*args)
+        self._assertCalls(self.service, expected_calls)
 
     def assertOutput(self, stdout='', stderr='', startswith=False):
         # compare with ANY to make sure output is not empty
@@ -113,3 +114,6 @@ class XmlRpcTestCase(TestCase):
             if startswith and stdout:
                 stdout_value = stdout_value[:len(stdout)]
             self.assertMultiLineEqual(stdout_value, stdout)
+
+    # Legacy
+    assertCalls = assertServiceCalls

@@ -104,6 +104,8 @@ class TestService(XmlRpcTestCase):
         return_values = [str(server_version), ['newdb'], 1, {}]
         if self.protocol == 'jsonrpc':
             return_values = [{'result': rv} for rv in return_values]
+        if server_version >= 19.0:
+            return_values += [{}]
         self.service.side_effect = return_values
         client = odooly.Client(server, 'newdb', 'usr', 'pss')
 
@@ -144,6 +146,9 @@ class TestService(XmlRpcTestCase):
                 jsonrpc_call(self, 'common', 'login', ('newdb', 'usr', 'pss')),
                 jsonrpc_call(self, 'object', 'execute_kw', ('newdb', 1, 'pss', 'res.users', 'context_get', ())),
             ]
+            if server_version >= 19.0:
+                expected_calls += [call(f"{self.server}/doc-bearer/ir.model.json", headers=ANY, method="GET")]
+
         self.assertCalls(*expected_calls)
         self.assertOutput('')
 
@@ -155,9 +160,23 @@ class TestService(XmlRpcTestCase):
         self.test_service_openerp_client(server_version=9.0)
         self.test_service_openerp_client(server_version=8.0)
 
-    def test_service_odoo_10_11(self):
-        self.test_service_openerp_client(server_version=11.0)
+    def test_service_odoo_10_17(self):
+        self.test_service_openerp_client(server_version=17.0)
+        self.test_service_openerp_client(server_version=16.0)
+        self.test_service_openerp_client(server_version=15.0)
+        self.test_service_openerp_client(server_version=14.0)
+        self.test_service_openerp_client(server_version=13.0)
+        self.test_service_openerp_client(server_version=12.0)
         self.test_service_openerp_client(server_version=10.0)
+
+    def test_service_odoo_18_20(self):
+        self.test_service_openerp_client(server_version=18.0)
+
+        if self.protocol == 'xmlrpc':
+            mock.patch('odooly.Client._post', side_effect=odooly.ServerError).start()
+
+        self.test_service_openerp_client(server_version=19.0)
+        self.test_service_openerp_client(server_version=20.0)
 
 
 class TestServiceJsonRpc(TestService):
@@ -419,6 +438,26 @@ class TestClientApi(XmlRpcTestCase):
         self.assertCalls(*expected_calls)
         self.assertOutput('')
 
+    def test_drop_database(self):
+        drop_database = self.client.drop_database
+        self.client.db.list.side_effect = [['database', 'db1', 'db2'], ['database', 'db2']]
+
+        # Failed - Database was not deleted
+        self.assertRaises(odooly.Error, drop_database, 'abc', 'db2')
+        # Failed - Cannot delete active database
+        self.assertRaises(odooly.Error, drop_database, 'abc', 'database')
+        drop_database('abc', 'db1')
+
+        expected_calls = [
+            call.db.drop('abc', 'db2'),
+            call.db.list(),
+            call.db.drop('abc', 'db1'),
+            call.db.list(),
+        ]
+
+        self.assertCalls(*expected_calls)
+        self.assertOutput('')
+
     def test_nonexistent_methods(self):
         self.assertRaises(AttributeError, getattr, self.client, 'search')
         self.assertRaises(AttributeError, getattr, self.client, 'count')
@@ -555,7 +594,7 @@ class TestClientApi(XmlRpcTestCase):
                                ('state', '!=', 'to upgrade'),
                                ('state', '!=', 'to remove')])
             ]
-            if float(self.server_version) < 7.0:
+            if self.server_version == '6.1':
                 expected_calls[4:4] = [
                     imm('fields_get'),
                     imm('write', [42], {'state': 'to remove'}),
@@ -583,6 +622,45 @@ class TestClientApi(XmlRpcTestCase):
         self._module_upgrade('upgrade')
         self._module_upgrade('uninstall')
 
+    def test_module_upgrade_cancel(self):
+        states = [
+            {'id': 4, 'state': 'to upgrade', 'name': ANY},
+            {'id': 5, 'state': 'to remove', 'name': ANY},
+            {'id': 42, 'state': 'to install', 'name': ANY},
+        ]
+        execute_return = [[7, 0], [4, 42, 5], states, None, None]
+        expected_calls = [
+            imm('update_list'),
+            imm('search', [('state', 'not in', STABLE)]),
+            imm('read', [4, 42, 5], ['name', 'state']),
+        ]
+        if float(self.server_version) < 19.0:
+            expected_calls += [
+                imm('button_install_cancel', [42]),
+                imm('button_upgrade_cancel', [4, 5]),
+            ]
+        else:
+            expected_calls += [
+                imm('button_reset_state'),
+            ]
+        self.service.object.execute_kw.side_effect = execute_return
+
+        result = self.env.upgrade_cancel()
+
+        self.assertIsNone(result)
+        self.assertCalls(*expected_calls)
+        self.assertOutput(
+            "0 module(s) selected\n3 module(s) to process:"
+            "\n  to upgrade\t<ANY>\n  to remove\t<ANY>\n  to install\t<ANY>\n")
+
+        self.service.object.execute_kw.side_effect = [[0, 0], []]
+        self.assertIsNone(self.env.upgrade_cancel())
+        self.assertCalls(
+            imm('update_list'),
+            imm('search', [('state', 'not in', STABLE)]),
+        )
+        self.assertOutput('0 module(s) updated\n')
+
     def test_sudo(self):
         ctx_lang = {'lang': 'it_IT'}
         self.service.object.execute_kw.side_effect = [ctx_lang]
@@ -603,10 +681,12 @@ class TestClientApi(XmlRpcTestCase):
             ('object.execute_kw', self.database, 1, 'ooo', 'ir.model.access', 'check', ('res.users', 'write'), {'context': ctx_lang}),
             ('object.execute_kw', self.database, 4, 'passwd', 'ir.model.access', 'check', ('res.users', 'write'), {'context': ctx_lang}),
         )
+        self.assertEqual(getpass.mock_calls,
+                         [call("Password for 'guest': "), call("Password for 'admin': ")])
         self.assertOutput('')
 
 
-class TestClientApi90(TestClientApi):
+class TestClientApi9(TestClientApi):
     """Test the Client API for Odoo 9."""
     server_version = '9.0'
     test_wizard = _skip_test
@@ -621,6 +701,25 @@ class TestClientApi11(TestClientApi):
     server_version = '11.0'
     test_exec_workflow = test_wizard = _skip_test
     test_report = test_render_report = test_report_get = _skip_test
+
+    def test_obsolete_methods(self):
+        self.assertRaises(AttributeError, getattr, self.env, 'exec_workflow')
+        self.assertRaises(AttributeError, getattr, self.env, 'render_report')
+        self.assertRaises(AttributeError, getattr, self.env, 'report')
+        self.assertRaises(AttributeError, getattr, self.env, 'report_get')
+        self.assertRaises(AttributeError, getattr, self.env, 'wizard_create')
+        self.assertRaises(AttributeError, getattr, self.env, 'wizard_execute')
+
+
+class TestClientApi19(TestClientApi):
+    """Test the Client API for Odoo 19."""
+    server_version = '19.0'
+    test_exec_workflow = test_wizard = _skip_test
+    test_report = test_render_report = test_report_get = _skip_test
+
+    def _patch_service(self):
+        self.auth_http = self._patch_http_post()
+        return super()._patch_service()
 
     def test_obsolete_methods(self):
         self.assertRaises(AttributeError, getattr, self.env, 'exec_workflow')
