@@ -843,12 +843,14 @@ class Env:
     def _identitycheck(self, result):
         assert self.client.version_info >= 14.0
         idcheck = self[result['res_model']].get(result['res_id'])
-        login, password = self.client.get_config(self.name)[2:4]
-        if self.user.login != login:
-            password = None
+        password = self._cache_get('auth')[self.uid][1]
         result = None
         while not result:
-            password = password or getpass(f"Password for {self.user.login!r}: ")
+            try:
+                password = password or getpass(f"Password for {self.user.login!r}: ")
+            except (KeyboardInterrupt, EOFError):
+                print()
+                raise Error("Security Control - FAILED")
             if self.client.version_info < 19.0:
                 idcheck.password = password
             try:
@@ -858,6 +860,8 @@ class Env:
                 password = None
                 if not self.client._is_interactive():
                     raise
+        if self.client._is_interactive():
+            print("Security Control - PASSED")
         return result
 
     def execute(self, obj, method, *params, **kwargs):
