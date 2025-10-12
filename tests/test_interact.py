@@ -40,7 +40,7 @@ class TestInteract(XmlRpcTestCase):
                              return_value='password').start()
         self.service.db.list.return_value = ['database']
         self.service.common.login.side_effect = [17, 51]
-        self.service.object.execute_kw.side_effect = [{}, TypeError, {}, {}]
+        self.service.object.execute_kw.side_effect = [{}, {}, {}]
 
         # Launch interactive
         self.infunc.side_effect = [
@@ -57,8 +57,6 @@ class TestInteract(XmlRpcTestCase):
         expected_calls = self.startup_calls + (
             ('common.login', 'database', 'usr', 'password'),
             ('object.execute_kw', 'database', 17, 'password', 'res.users', 'context_get', ()),
-            ('object.execute_kw', 'database', 17, 'password',
-             'ir.model.access', 'check', ('res.users', 'write')),
             ('common.login', 'database', 'gaspard', 'password'),
             ('object.execute_kw', 'database', 51, 'password', 'res.users', 'context_get', ()),
             ('object.execute_kw', 'database', 51, 'password', 'res.users', 'context_get', ()),
@@ -119,7 +117,7 @@ class TestInteract(XmlRpcTestCase):
         mock.patch('odooly.getpass', return_value='x').start()
         self.service.db.list.return_value = ['database']
         self.service.common.login.side_effect = [17, None]
-        self.service.object.execute_kw.side_effect = [{}, 42, {}, TypeError, 42, {}]
+        self.service.object.execute_kw.side_effect = [{}, 42, {}, 42, {}, 42]
 
         # Launch interactive
         self.infunc.side_effect = [
@@ -138,7 +136,6 @@ class TestInteract(XmlRpcTestCase):
             usr17('ir.model', 'search',
                   [('model', 'like', 'res.company')]),
             usr17('ir.model', 'read', 42, ('model',)),
-            usr17('ir.model.access', 'check', 'res.users', 'write'),
             ('common.login', 'database', 'gaspard', 'x'),
             usr17('ir.model', 'search',
                   [('model', 'like', 'res.company')]),

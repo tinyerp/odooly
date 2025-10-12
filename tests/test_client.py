@@ -21,6 +21,12 @@ def bmu(method, *params):
     return ('object.execute_kw', AUTH, 'base.module.upgrade', method, params, {'context': ANY})
 
 
+def jsonrpc_call(test, service, method, args):
+    params = {'service': service, 'method': method, 'args': args}
+    return call(f'{test.server}/jsonrpc',
+                json={'jsonrpc': '2.0', 'method': 'call', 'params': params, 'id': ANY})
+
+
 class IdentDict(object):
     def __init__(self, _id):
         self._id = _id
@@ -87,12 +93,13 @@ class TestService(XmlRpcTestCase):
             self.assertIn('_ServerProxy__request', str(login))
             self.assertCalls(call('login', ('aaa',)), 'call().__str__')
         else:
-            params = {'service': 'common', 'method': 'login', 'args': ('aaa',)}
-            self.assertCalls(call(ANY, json={'jsonrpc': '2.0', 'method': 'call', 'params': params, 'id': ANY}))
+            self.assertCalls(jsonrpc_call(self, 'common', 'login', ('aaa',)))
             self.assertEqual(login, 'JSON_RESULT')
         self.assertOutput('')
 
     def test_service_openerp_client(self, server_version=11.0):
+        odooly.Env._cache.clear()
+
         server = f"{self.server}/{self.protocol}"
         return_values = [str(server_version), ['newdb'], 1, {}]
         if self.protocol == 'jsonrpc':
@@ -131,8 +138,12 @@ class TestService(XmlRpcTestCase):
                 call('execute_kw', ('newdb', 1, 'pss', 'res.users', 'context_get', ()))
             ]
         else:
-            # server_version, list, login, context_get
-            expected_calls = [ANY, ANY, ANY, ANY]
+            expected_calls = [
+                jsonrpc_call(self, 'db', 'server_version', ()),
+                jsonrpc_call(self, 'db', 'list', ()),
+                jsonrpc_call(self, 'common', 'login', ('newdb', 'usr', 'pss')),
+                jsonrpc_call(self, 'object', 'execute_kw', ('newdb', 1, 'pss', 'res.users', 'context_get', ())),
+            ]
         self.assertCalls(*expected_calls)
         self.assertOutput('')
 
@@ -191,8 +202,7 @@ class TestCreateClient(XmlRpcTestCase):
             client.env._cache,
             {(key_1, 'newdb', url_xmlrpc): client.env(context={}),
              (key_2, 'newdb', url_xmlrpc): client.env,
-             ('auth', 'newdb', url_xmlrpc): {1: (1, 'pss'),
-                                             'usr': (1, 'pss')},
+             ('auth', 'newdb', url_xmlrpc): {'usr': (1, 'pss')},
              ('model_names', 'newdb', url_xmlrpc): {'res.users'}})
         self.assertOutput('')
 
@@ -246,6 +256,7 @@ class TestCreateClient(XmlRpcTestCase):
         )
 
         # A: Invalid login
+        self.service.common.login.return_value = False
         self.assertRaises(odooly.Error, odooly.Client.from_config, 'test')
         self.assertCalls(*expected_calls)
         self.assertEqual(read_config.call_count, 1)
@@ -393,18 +404,16 @@ class TestClientApi(XmlRpcTestCase):
         expected_calls = [
             call.db.duplicate_database('abc', 'database', 'db1'),
             call.db.list(),
-            call.common.login('db1', 'user', 'passwd'),
             call.object.execute_kw('db1', 4, 'passwd', 'res.users', 'context_get', ()),
             call.db.duplicate_database('xyz', 'db1', 'db2', True),
             call.db.list(),
-            call.common.login('db2', 'user', 'passwd'),
             call.object.execute_kw('db2', 4, 'passwd', 'res.users', 'context_get', ()),
         ]
 
         if float(self.server_version) < 16.0:
             # Error: Argument 'neutralize_database' is not supported
             self.assertRaises(odooly.Error, clone_database, 'xyz', 'db2', neutralize_database=True)
-            del expected_calls[-4:]
+            del expected_calls[-3:]
         else:
             clone_database('xyz', 'db2', neutralize_database=True)
         self.assertCalls(*expected_calls)
@@ -576,28 +585,23 @@ class TestClientApi(XmlRpcTestCase):
 
     def test_sudo(self):
         ctx_lang = {'lang': 'it_IT'}
-        self.service.object.execute_kw.side_effect = [False, 123, {}, ctx_lang]
-        getpass = mock.patch('odooly.getpass', return_value='xxx').start()
+        self.service.object.execute_kw.side_effect = [ctx_lang]
+        getpass = mock.patch('odooly.getpass', side_effect=['xxx', 'ooo']).start()
         env = self.env(user='guest')
 
-        self.service.object.execute_kw.side_effect = [False, 1, {}, ctx_lang, ctx_lang]
+        self.service.object.execute_kw.side_effect = [ctx_lang, ctx_lang]
+        self.service.common.login.side_effect = [1]
         self.assertTrue(env.sudo().access('res.users', 'write'))
         self.assertFalse(env.access('res.users', 'write'))
 
         self.assertCalls(
-            OBJ('ir.model.access', 'check', 'res.users', 'write'),
-            OBJ('res.users', 'search', [('login', '=', 'guest')]),
-            ('object.execute_kw', self.database, 123, 'xxx', 'ir.model', 'fields_get', ([None],)),
-            ('object.execute_kw', self.database, 123, 'xxx', 'res.users', 'context_get', ()),
+            call.common.login('database', 'guest', 'xxx'),
+            ('object.execute_kw', self.database, 4, 'xxx', 'res.users', 'context_get', ()),
             #
-            ('object.execute_kw', self.database, 123, 'xxx',
-             'ir.model.access', 'check', ('res.users', 'write'), {'context': ctx_lang}),
-            ('object.execute_kw', self.database, 123, 'xxx',
-             'res.users', 'search', ([('login', '=', 'admin')],), {'context': ctx_lang}),
-            ('object.execute_kw', self.database, 1, 'xxx', 'ir.model', 'fields_get', ([None],)),
-            ('object.execute_kw', self.database, 1, 'xxx', 'res.users', 'context_get', ()),
-            ('object.execute_kw', self.database, 1, 'xxx', 'ir.model.access', 'check', ('res.users', 'write'), {'context': ctx_lang}),
-            ('object.execute_kw', self.database, 123, 'xxx', 'ir.model.access', 'check', ('res.users', 'write'), {'context': ctx_lang}),
+            call.common.login('database', 'admin', 'ooo'),
+            ('object.execute_kw', self.database, 1, 'ooo', 'res.users', 'context_get', ()),
+            ('object.execute_kw', self.database, 1, 'ooo', 'ir.model.access', 'check', ('res.users', 'write'), {'context': ctx_lang}),
+            ('object.execute_kw', self.database, 4, 'passwd', 'ir.model.access', 'check', ('res.users', 'write'), {'context': ctx_lang}),
         )
         self.assertOutput('')
 

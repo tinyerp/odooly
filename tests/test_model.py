@@ -23,8 +23,8 @@ class TestCase(XmlRpcTestCase):
                     return [777]
                 if 'ir.default' in str(domain):
                     return [50]
-            if domain == [('name', '=', 'Morice')] or domain == [('login', '=', ANY)]:
-                return [1003]
+            if domain == [('name', '=', ANY)] or domain == [('login', '=', ANY)]:
+                return [{'admin': 2, 'guest': 711}.get(domain[0][2], 1003)]
             if 'missing' in str(domain):
                 return []
             return [1001, 1002]
@@ -86,8 +86,9 @@ class TestCase(XmlRpcTestCase):
                 (method == 'create' and hasattr(args[0], 'items'))
             )
             return 1999 if single_id else list(range(1001, 1001 + len(args[0])))
-        if model == 'ir.model' and method == 'check':
-            return uid < 3
+        if method == 'check' and args == ('res.users', 'write'):
+            assert model == 'ir.model.access'
+            raise RuntimeError
         return [sentinel.OTHER]
 
     def setUp(self):

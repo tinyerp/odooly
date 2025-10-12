@@ -635,70 +635,44 @@ class Env:
     def __repr__(self):
         return f"<Env '{self.user.login if self.uid else ''}@{self.db_name}'>"
 
-    def check_uid(self, uid, password):
-        """Check if ``(uid, password)`` is valid.
-
-        Return ``uid`` on success, ``False`` on failure.
-        The invalid entry is removed from the authentication cache.
-        """
-        try:
-            self.client._object.execute_kw(self.db_name, uid, password,
-                                           'ir.model', 'fields_get', ([None],))
-        except Exception:
-            auth_cache = self._cache_get('auth')
-            if uid in auth_cache:
-                del auth_cache[uid]
-            uid = False
-        return uid
-
-    def _auth(self, user, password, api_key):
+    def _check_user_password(self, user, password, api_key):
         if self.client._object and not self.db_name:
             raise Error('Error: Not connected')
-        uid = verified = None
-        if isinstance(user, int):
-            (user, uid) = (None, user)
+        assert isinstance(user, str) and user
+        # Read from cache
         auth_cache = self._cache_get('auth', dict)
-        if not password:
-            # Read from cache
-            (uid, password) = auth_cache.get(user or uid) or (uid, None)
-            verified = password and uid
-            # Read from model 'res.users'
-            if user and not uid and self.access('res.users', 'write'):
-                [uid] = self['res.users'].search([('login', '=', user)]).ids or [False]
-            # Ask for password
-            if not password and not api_key and uid is not False:
-                name = f'UID {uid}' if user is None else repr(user)
-                password = getpass(f"Password for {name}: ")
-        if uid is None or (uid and not self.client._object):
-            # Do a standard 'login'
-            try:
+        (uid, pwcache) = auth_cache.get(user) or (None, None)
+        password = password or pwcache
+        # Ask for password
+        if not password and not api_key:
+            password = getpass(f"Password for {user!r}: ")
+        if not self.client._object:
+            try:  # Standard Web or JSON-2 authentication
                 info = self.client._authenticate(self.db_name, user, password, api_key)
                 uid = info['uid']
             except Exception as exc:
                 if 'does not exist' in str(exc):    # Heuristic
                     raise Error('Error: Database does not exist')
                 raise
-            if not self.db_name:
-                self.db_name = info.get('db') or ''
-                # Set the cache for authentication
-                self._cache_set('auth', auth_cache)
-                self.refresh()
-        elif uid:
-            # Check if password is valid
-            uid = verified or self.check_uid(uid, api_key or password)
-            info = {'uid': uid}
-        if not uid:
+        else:  # Login through RPC Service (deprecated)
+            if not uid:
+                uid = self.client.common.login(self.db_name, user, api_key or password)
+            if uid:
+                args = self.db_name, uid, api_key or password, 'res.users', 'context_get', ()
+                info = {'uid': uid, 'user_context': self.client._object.execute_kw(*args)}
+        if not uid:  # Failed
+            if user in auth_cache:
+                del auth_cache[user]
             raise Error('Error: Invalid username or password')
-        # Update the cache
-        auth_cache[uid] = (uid, password)
-        if user:
-            auth_cache[user] = auth_cache[uid]
-        user_context = info.get('user_context')
-        if not user_context and self.client._object:
-            args = self.db_name, uid, api_key or password, 'res.users', 'context_get', ()
-            user_context = self.client._object.execute_kw(*args)
-        info['user_context'] = user_context or {}
-        return (uid, password, info)
+        # Discovered database name
+        if not self.db_name:
+            self.db_name = info.get('db') or ''
+            # Set the cache for authentication
+            self._cache_set('auth', auth_cache)
+            self.refresh()
+        # Update credentials in cache
+        auth_cache[user] = uid, password
+        return uid, password, info
 
     def set_api_key(self, api_key, store=True):
         """Configure methods to use an API key."""
@@ -783,7 +757,7 @@ class Env:
     def __call__(self, user=None, password=None, api_key=None, context=None):
         """Return an environment based on ``self`` with modified parameters."""
         if user is not None:
-            (uid, password, session) = self._auth(user, password, api_key)
+            (uid, password, session) = self._check_user_password(user, password, api_key)
             if context is None:
                 context = session['user_context']
         elif context is not None:
@@ -843,7 +817,7 @@ class Env:
     def _identitycheck(self, result):
         assert self.client.version_info >= 14.0
         idcheck = self[result['res_model']].get(result['res_id'])
-        password = self._cache_get('auth')[self.uid][1]
+        password = self._cache_get('auth')[self.user.login][1]
         result = None
         while not result:
             try:
@@ -1092,7 +1066,7 @@ class Env:
         }
         self.session_info = self.client._authenticate_session(**params)
         # When database name is discovered, copy cached data
-        if not self.db_name and login == self.user.login and self.session_info.get('db'):
+        if not self.db_name and (not self.uid or login == self.user.login) and self.session_info.get('db'):
             empty_db_key = (self.db_name, self.client._server)
             self.db_name = self.session_info['db']
             for key in list(self._cache):
@@ -1298,9 +1272,7 @@ class Client:
         self._connections = []
 
     def _authenticate(self, db, login, password, api_key):
-        if self.common:
-            info = {'uid': self.common.login(db, login, api_key or password)}
-        elif api_key and not password and self.version_info >= 19.0:
+        if api_key and not password and self.version_info >= 19.0:
             json2_api = Json2(self, db, api_key)
             context = json2_api('res.users', 'context_get', ())
             info = {'uid': context['uid'], 'user_context': context, 'db': db}
@@ -1501,7 +1473,7 @@ class Client:
 
         # Login with the current user into the new database
         auth_args = {
-            'password': auth_cache[self.env.uid][1],
+            'password': auth_cache[self.env.user.login][1],
             'api_key': self.env._api_key,
             'database': database,
         }
