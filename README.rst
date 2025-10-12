@@ -45,7 +45,7 @@ Command line arguments
 There are few arguments to query Odoo models from the command line.
 Although it is quite limited::
 
-    $ odooly --help
+    ~$ odooly --help
 
     Usage: odooly.py [options] [search_term_or_id [search_term_or_id ...]]
 
@@ -106,7 +106,11 @@ Interactive use
 
 Launch directly, without any configuration.  It connects to the Odoo server, local or remote::
 
-    $ odooly --server http://127.0.0.1:8069/
+    ~$ odooly --server https://demo.odoo.com/
+
+Or::
+
+    ~$ odooly --server http://127.0.0.1:8069/
 
 
 Environments can also be declared in ``odooly.ini``::
@@ -135,8 +139,8 @@ Environments can also be declared in ``odooly.ini``::
 
 Connect to the Odoo server::
 
-    odooly --list
-    odooly --env demo
+    ~$ odooly --list
+    ~$ odooly --env demo
 
 
 This is a sample session::
@@ -167,11 +171,14 @@ This is a sample session::
 
    Use the ``--verbose`` switch to see what happens behind the scene.
    Lines are truncated at 79 chars.  Use ``-vv`` or ``-vvv`` to print
-   more.
+   more.  Example::
+
+       ~$ odooly --server https://demo.odoo.com/ -vv
 
 
 .. note::
 
    To preserve the commands' history when closing the session, first
-   create an empty file in your home directory:
-   ``touch ~/.odooly_history``
+   create an empty file in your home directory::
+
+       ~$ touch ~/.odooly_history
