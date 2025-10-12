@@ -692,7 +692,7 @@ class Env:
             auth_cache[user] = auth_cache[uid]
         user_context = info.get('user_context')
         if not user_context and self.client._object:
-            args = self.db_name, uid, password, 'res.users', 'context_get', ()
+            args = self.db_name, uid, api_key or password, 'res.users', 'context_get', ()
             user_context = self.client._object.execute_kw(*args)
         info['user_context'] = user_context or {}
         return (uid, password, info)
