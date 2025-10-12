@@ -39,6 +39,10 @@ Odoo add-ons.  Please refer to :class:`Env` documentation below.
 
 .. automethod:: Client.login
 
+.. automethod:: Client.save
+
+.. automethod:: Client.get_config
+
 .. attribute:: Client.env
 
    Current :class:`Env` environment of the client.

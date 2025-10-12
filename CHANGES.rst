@@ -12,6 +12,10 @@ Changelog
 * Able to connect with HTTP redirection. For example:
   ``odooly --server http://demo.odoo.com``
 
+* Add method :meth:`Client.save` to save current environment in
+  memory, with a name.  Change :meth:`Client.get_config` to a
+  class method.
+
 * Fix command line usage with a list of IDs.
 
 * Keep ``env.user.login`` when ``env.user.refresh()`` is called.
