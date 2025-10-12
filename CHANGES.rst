@@ -16,6 +16,8 @@ Changelog
 
 * Keep ``env.user.login`` when ``env.user.refresh()`` is called.
 
+* Obfuscate :attr:`Env.context` in cache key.
+
 
 2.4.2 (2025-10-08)
 ~~~~~~~~~~~~~~~~~~
