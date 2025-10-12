@@ -80,8 +80,8 @@ _fields_re = re.compile(r'(?:[^%]|^)%\(([^)]+)\)')
 
 # Web methods (not exhaustive)
 _web_methods = {
-    'database': ['backup', 'change_password', 'create', 'drop',
-                 'duplicate', 'list', 'restore'],
+    'database': ['backup', 'change_password', 'create',
+                 'drop', 'duplicate', 'list', 'restore'],
     'dataset': ['call_button', 'call_kw'],
     'session': ['authenticate', 'check', 'destroy', 'get_lang_list', 'get_session_info'],
     'webclient': ['version_info'],
@@ -95,13 +95,10 @@ _rpc_methods = {
            'change_admin_password', 'server_version', 'migrate_databases'],
     'object': ['execute', 'execute_kw'],
 }
-# New 6.1: (db) create_database db_exist,
-#          (common) authenticate version set_loglevel
-#          (object) execute_kw,  (report) render_report
-# New 7:   (db) duplicate_database
-# New 9:   (db) list_countries
-# No-op:   (common) set_loglevel
-# Remove 19: (common) version, replaced by GET /web/version
+# New Odoo 7:       (db) duplicate_database
+# New Odoo 9:       (db) list_countries
+# No-op:            (common) set_loglevel
+# Removed Odoo 19:  (common) version, replaced by GET /web/version
 
 _obsolete_rpc_methods = {
     'common': [
@@ -121,7 +118,6 @@ _cause_message = ("\nThe above exception was the direct cause "
 _pending_state = ('state', 'not in',
                   ['uninstallable', 'uninstalled', 'installed'])
 http_context = None
-seq_types = (list, tuple)
 
 
 if os.getenv('ODOOLY_SSL_UNVERIFIED'):
@@ -502,7 +498,8 @@ class Service:
                     log.print_recv(res)
                 return res
         else:
-            wrapper = lambda s, *args: s._dispatch(name, args)
+            def wrapper(self, *args):
+                return self._dispatch(name, args)
         return _memoize(self, name, wrapper)
 
 
@@ -723,8 +720,8 @@ class Env:
         if need_auth:
             env.set_api_key(api_key or password, bool(api_key))
         else:  # Copy methods
-            for key in '_execute_kw', '_api_key', '_json2':
-                setattr(env, key, getattr(self, key))
+            env._execute_kw = self._execute_kw
+            env._api_key, env._json2 = self._api_key, self._json2
             for key in ('_execute', 'exec_workflow',
                         'report', 'report_get', 'render_report',
                         'wizard_execute', 'wizard_create'):
@@ -1091,7 +1088,7 @@ class Env:
         configuration: ``api_key = ...``.
         """
         assert self.client.version_info >= 14.0, 'Not supported'
-        key_vals = {'name': f'Created by {__name__!r}'}
+        key_vals = {'name': f'Created by Odooly {__version__}'}
         wiz = self["res.users.apikeys.description"].create(key_vals)
         res = wiz.make_key()
         self.user.refresh()
@@ -1815,7 +1812,7 @@ class BaseRecord(BaseModel):
             idnames = arg or ()
             ids = list(idnames)
             for index, id_ in enumerate(arg):
-                if isinstance(id_, seq_types):
+                if isinstance(id_, (list, tuple)):
                     ids[index] = id_ = id_[0]
                 assert isinstance(id_, int), repr(id_)
             arg = ids
@@ -1992,7 +1989,7 @@ class BaseRecord(BaseModel):
             seen = set()
             uniqids = []
             for idn in ids:
-                id_, name = idn if isinstance(idn, seq_types) else (idn, None)
+                id_, name = idn if isinstance(idn, (list, tuple)) else (idn, None)
                 if id_ not in seen and not seen.add(id_) and id_:
                     uniqids.append((id_, name) if name else id_)
             ids = uniqids
