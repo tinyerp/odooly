@@ -1416,7 +1416,6 @@ class TestRecord(TestCase):
         self.assertCalls(
             OBJ('res.users', 'fields_get'),
             OBJ('res.users', 'write', [1], {'name': 'Admin'}),
-            OBJ('res.users', 'read', [1], ['login']),
             OBJ('foo.bar', 'read', [13, 17], None,
                 context={'lang': 'fr_CA', 'tz': 'Europe/Zurich'}),
             OBJ('foo.bar', 'fields_get',

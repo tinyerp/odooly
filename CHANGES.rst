@@ -11,6 +11,8 @@ Changelog
 
 * Fix command line usage with a list of IDs.
 
+* Keep ``env.user.login`` when ``env.user.refresh()`` is called.
+
 
 2.4.2 (2025-10-08)
 ~~~~~~~~~~~~~~~~~~

@@ -741,7 +741,6 @@ class Env:
         if user:
             assert isinstance(user, str), repr(user)
             env.user.__dict__['login'] = user
-            env.user._cached_keys.add('login')
 
         # Set API methods
         if need_auth:
