@@ -9,6 +9,8 @@ Changelog
 
 * Fix API Key authentication for RPC protocols.
 
+* Fix command line usage with a list of IDs.
+
 
 2.4.2 (2025-10-08)
 ~~~~~~~~~~~~~~~~~~

@@ -2406,13 +2406,12 @@ def main(interact=_interact):
                         api_key=args.api_key, verbose=args.verbose)
 
     if args.model and client.env.uid:
-        ids = client.env.execute(args.model, 'search', domain)
-        data = client.env.execute(args.model, 'read', ids, args.fields)
-        if not args.fields:
-            args.fields = ['id']
-            if data:
-                args.fields.extend([fld for fld in data[0] if fld != 'id'])
-        writer = csv.DictWriter(sys.stdout, args.fields, "", "ignore",
+        if not issearchdomain(domain):
+            domain = [int(res_id) for res_id in domain]
+        data = client.env.execute(args.model, 'read', domain, args.fields)
+        if data and not args.fields:
+            args.fields = ['id'] + [fld for fld in data[0] if fld != 'id']
+        writer = csv.DictWriter(sys.stdout, args.fields or (), "", "ignore",
                                 quoting=csv.QUOTE_NONNUMERIC)
         writer.writeheader()
         writer.writerows(data or ())
