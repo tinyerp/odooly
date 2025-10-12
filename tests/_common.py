@@ -39,7 +39,7 @@ class XmlRpcTestCase(TestCase):
         mock.patch.dict('odooly.Env._cache', clear=True).start()
 
         # Avoid hanging on getpass
-        mock.patch('getpass.getpass', side_effect=RuntimeError).start()
+        mock.patch('odooly.getpass', side_effect=RuntimeError).start()
 
         self.service = self._patch_service()
         if self.server and self.database:

@@ -257,10 +257,10 @@ def read_config(section=None):
 
     The config file ``odooly.ini`` contains a `section` for each environment.
     Each section provides parameters for the connection: ``host``, ``port``,
-    ``database``, ``username`` and (optional) ``password``.  Default values
-    are read from the ``[DEFAULT]`` section.  If the ``password`` is not in
-    the configuration file, it is requested on login.
-    Return a tuple ``(server, db, user, password or None, api_key or None)``.
+    ``username`` and (optional) ``database``, ``password`` and ``api_key``.
+    Default values are read from the ``[DEFAULT]`` section.  If the ``password``
+    is not set or is empty, it is requested on login.
+    Return tuple ``(server, db or None, user, password or None, api_key or None)``.
     Without argument, it returns the list of configured environments.
     """
     p = ConfigParser()
@@ -857,7 +857,6 @@ class Env:
                 # Odoo >= 19 read from context
                 result = idcheck.with_context(password=password).run_check()
             except ServerError:
-                password = None
                 if not self.client._is_interactive():
                     raise
         if self.client._is_interactive():
@@ -1139,6 +1138,7 @@ class Client:
     asked on login.
     """
     _config_file = os.path.join(os.curdir, CONF_FILE)
+    _saved_config = {}
     _globals = None
 
     def __init__(self, server, db=None, user=None, password=None,
@@ -1250,23 +1250,44 @@ class Client:
             return self._post_jsonrpc(f"web/{name or ''}/{method}", params=params)
         return dispatch_web
 
-    get_config = staticmethod(read_config)
+    def save(self, environment=None, skip=False):
+        """Save environment settings with this name, or current name"""
+        self.env.name = environment or self.env.name or self.env.db_name
+        if not skip and self.env.uid:
+            config = (self._server, self.env.db_name, self.env.user.login, None, self.env._api_key)
+            self._saved_config[self.env.name] = config
+        if self._globals and self._globals.get('client', self) is self:
+            self._set_prompt()
+        return self
+
+    @classmethod
+    def get_config(cls, environment):
+        """Retrieve the settings for this environment.
+
+        It can be in memory, if it was saved before with :meth:`Client.save`.
+        If not, it will parse ``odooly.ini`` file, where it searches for the
+        section ``[ <environment> ]``.
+
+        See :func:`read_config` for details of the configuration file format.
+        """
+        assert environment
+        if environment not in cls._saved_config:
+            cls._saved_config[environment] = read_config(environment)
+        return cls._saved_config[environment]
 
     @classmethod
     def from_config(cls, environment, user=None, verbose=False):
         """Create a connection to a defined environment.
 
-        Read the settings from the section ``[environment]`` in the
-        ``odooly.ini`` file and return a connected :class:`Client`.
-        See :func:`read_config` for details of the configuration file format.
+        See :meth:`Client.get_config`
+        Return a connected :class:`Client`.
         """
         (server, db, conf_user, password, api_key) = cls.get_config(environment)
-        if user and user != conf_user:
+        skip_save = user and user != conf_user
+        if skip_save:
             password = None
-        client = cls(server, verbose=verbose)
-        client.env.name = environment
-        client.login(user or conf_user, password=password, api_key=api_key, database=db)
-        return client
+        client = cls(server, db, user or conf_user, password=password, api_key=api_key, verbose=verbose)
+        return client.save(environment, skip=skip_save)
 
     def __repr__(self):
         return f"<Client '{self._server}?db={self.env.db_name or ''}'>"
