@@ -32,16 +32,18 @@ If our configuration is different, then we use arguments, like::
 
     ~$ odooly --server http://192.168.0.42:8069
 
-It connects using the Webclient API. If you want to use the JSON-RPC
-external API instead, then pass the full URL with ``/jsonrpc`` path::
+It connects using the Webclient API.
+
+In case we use a different protocol, we can set the endpoint explicitly.
+For example ``/jsonrpc`` for the JSON-RPC API::
 
     ~$ odooly --server http://127.0.0.1:8069/jsonrpc
 
 
 .. note::
 
-    These protocols JSON-RPC and XML-RPC are deprecated in Odoo 19.0 and will
-    be removed in Odoo 20.0.
+    These protocols JSON-RPC and XML-RPC are deprecated in Odoo 19 and will
+    be removed in Odoo 20.
 
 On login, it prints few lines about the commands available.
 

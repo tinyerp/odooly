@@ -115,8 +115,8 @@ Please refer to `the Odoo documentation`_ for more details.
 
 .. note::
 
-   These RPC services are deprecated in Odoo 19.0.  They are
-   scheduled for removal in Odoo 20.0.
+   These RPC services are deprecated in Odoo 19.  They are scheduled
+   for removal in Odoo 20.
 
 .. attribute:: Client.db
 

@@ -15,9 +15,9 @@ Download and install the `latest release
     pip install -U odooly
 
 
-.. _command-line:
+.. _interactive-mode:
 
 .. include:: ../README.rst
-   :start-after: _command-line:
+   :start-after: _interactive-mode:
 
 More details in the :doc:`tutorial` section.
