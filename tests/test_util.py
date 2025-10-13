@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from odooly import issearchdomain, searchargs
+from odooly import issearchdomain, searchargs, readfmt
 
 
 class TestUtils(TestCase):
@@ -128,3 +128,12 @@ class TestUtils(TestCase):
         self.assertRaises(ValueError, searchargs, (['[id = 1540]'],))
         self.assertRaises(ValueError, searchargs, (['some_id child_off'],))
         self.assertRaises(ValueError, searchargs, (['someth like3'],))
+
+
+    def test_readfmt(self):
+        # Helper for 'read' methods
+        (fields, fmt) = readfmt('a %(color)s elephant enters %(location)r.\n\n%(firstname)s has left')
+        self.assertEqual(fields, ['color', 'location', 'firstname'])
+
+        (fields, fmt) = readfmt('a {color} elephant enters {location[1]}.\n\n{firstname!r} has left')
+        self.assertEqual(fields, ['color', 'location', 'firstname'])
