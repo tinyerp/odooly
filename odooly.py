@@ -18,6 +18,7 @@ import traceback
 
 from configparser import ConfigParser
 from getpass import getpass
+from string import Formatter
 from threading import current_thread
 from urllib.parse import urljoin, urlencode
 from xmlrpc.client import Fault, ServerProxy, MININT, MAXINT
@@ -76,7 +77,6 @@ _term_re = re.compile(
     r'([\w._]+)\s*'   r'(=like\b|=ilike\b|=\?|[<>]=?|!?=|'
     r'\b(?:like|ilike|in|any|not (?:=?like|=?ilike|in|any)|child_of|parent_of)\b)'
     r'(?![?!=<>])\s*(.+)')
-_fields_re = re.compile(r'(?:[^%]|^)%\(([^)]+)\)')
 
 # Web methods (not exhaustive)
 _web_methods = {
@@ -359,6 +359,21 @@ def searchargs(params, kwargs=None):
         if any(args):
             params += args
     return params
+
+
+def readfmt(arg):
+    if '}' in arg:
+        fields = [re.match(r'\w+', tup[1]).group(0)
+                  for tup in Formatter().parse(arg) if tup[1]]
+        formatter = arg.format_map
+    elif '%(' in arg:
+        fields = re.findall(r'(?<!%)%\((\w+)\)', arg)
+        formatter = arg.__mod__
+    else:
+        # transform: "zip city" --> ("zip", "city")
+        fields = arg.split()
+        formatter = (lambda d: d[fields[0]]) if len(fields) == 1 else None
+    return fields, formatter
 
 
 class partial(functools.partial):
@@ -1679,8 +1694,9 @@ class Model(BaseModel):
         The second argument, `fields`, accepts:
          - a single field: ``'first_name'``
          - a tuple of fields: ``('street', 'city')``
-         - a space separated string: ``'street city'``
-         - a format spec: ``'%(street)s %(city)s'``
+         - a space separated list: ``'street city'``
+         - a format string: ``'{street} {city}'``
+         - a %-format string: ``'%(street)s %(city)s'``
 
         If `fields` is omitted, all fields are read.
 
@@ -1693,33 +1709,16 @@ class Model(BaseModel):
         Each item complies with the rules of the previous paragraph.
 
         The optional keyword arguments `offset`, `limit` and `order` are
-        used to restrict the search.  The `order` is also used to order the
-        results returned.  Note: the low-level RPC method ``read`` itself does
-        not preserve the order of the results.
+        used to restrict the search.
         """
         fmt = None
         if len(params) > 1 and isinstance(params[1], str):
-            fmt = ('%(' in params[1]) and params[1]
-            if fmt:
-                fields = _fields_re.findall(fmt)
-            else:
-                # transform: "zip city" --> ("zip", "city")
-                fields = params[1].split()
-                if len(fields) == 1:
-                    fmt = ()    # marker
+            fields, fmt = readfmt(params[1])
             params = (params[0], fields) + params[2:]
         res = self._execute('read', *params, **kwargs)
-        if not res:
+        if not fmt or not res:
             return res
-        if fmt:
-            if isinstance(res, list):
-                return [(d and fmt % d) for d in res]
-            return fmt % res
-        if fmt == ():
-            if isinstance(res, list):
-                return [(d and d[fields[0]]) for d in res]
-            return res[fields[0]]
-        return res
+        return [(d and fmt(d)) for d in res] if isinstance(res, list) else fmt(res)
 
     def _browse_values(self, values):
         """Wrap the values of a Record.

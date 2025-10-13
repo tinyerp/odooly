@@ -369,15 +369,16 @@ Query the ``"res.country"`` model::
      'Dominican Republic',
      'Macedonia, the former Yugoslav Republic of']
     >>> env['res.country'].search(['code > Y'], order='code ASC').read('code name')
-    [{'code': 'YE', 'id': 247, 'name': 'Yemen'},
-     {'code': 'YT', 'id': 248, 'name': 'Mayotte'},
-     {'code': 'ZA', 'id': 250, 'name': 'South Africa'},
-     {'code': 'ZM', 'id': 251, 'name': 'Zambia'},
-     {'code': 'ZW', 'id': 253, 'name': 'Zimbabwe'}]
+    >>> env['res.country'].search(['code > X'], order='code ASC').read('{code} {name}')
+    ['XI Northern Ireland',
+     'XK Kosovo',
+     'YE Yemen',
+     'YT Mayotte',
+     'ZA South Africa',
+     'ZM Zambia',
+     'ZW Zimbabwe']
     >>> #
 
-..
-    env['res.country'].search(['code > Y'], order='code ASC').read('%(code)s %(name)s')
 
 ... the tutorial is done.
 

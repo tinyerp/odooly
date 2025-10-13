@@ -272,6 +272,10 @@ class TestModel(TestCase):
         FooBar._execute('read', [searchterm])
 
         rv = FooBar.read([searchterm],
+                         'aaa {birthdate!r} bbb {city:°>9}', offset=80, limit=99)
+        self.assertEqual(rv, ["aaa 'v_birthdate' bbb °°°v_city"] * 2)
+
+        rv = FooBar.read([searchterm],
                          'aaa %(birthdate)s bbb %(city)s', offset=80, limit=99)
         self.assertEqual(rv, ['aaa v_birthdate bbb v_city'] * 2)
 
@@ -293,6 +297,8 @@ class TestModel(TestCase):
             OBJ('foo.bar', 'search', domain2), call_read(),
             OBJ('foo.bar', 'search', domain), call_read(),
             OBJ('foo.bar', 'search', domain), call_read(),
+            OBJ('foo.bar', 'search', domain, 80, 99, None),
+            call_read(['birthdate', 'city']),
             OBJ('foo.bar', 'search', domain, 80, 99, None),
             call_read(['birthdate', 'city']),
         )
@@ -606,6 +612,12 @@ class TestRecord(TestCase):
         rec.read('name message')
         records.read('birthdate city')
 
+        rv = records.read('aaa {birthdate!r} bbb {city:°>9}')
+        self.assertEqual(rv, ["aaa 'v_birthdate' bbb °°°v_city"] * 2)
+
+        rv = rec.read('aaa %(birthdate)r bbb %(city)s')
+        self.assertEqual(rv, "aaa 'v_birthdate' bbb v_city")
+
         self.assertCalls(
             OBJ('foo.bar', 'read', [42], None),
             OBJ('foo.bar', 'fields_get'),
@@ -614,6 +626,8 @@ class TestRecord(TestCase):
             OBJ('foo.bar', 'read', [13, 17], ['message']),
             OBJ('foo.bar', 'read', [42], ['name', 'message']),
             OBJ('foo.bar', 'read', [13, 17], ['birthdate', 'city']),
+            OBJ('foo.bar', 'read', [13, 17], ['birthdate', 'city']),
+            OBJ('foo.bar', 'read', [42], ['birthdate', 'city']),
         )
         self.assertOutput('')
 
