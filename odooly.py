@@ -29,7 +29,7 @@ except ImportError:
     requests = None
 
 __version__ = '2.4.3'
-__all__ = ['Client', 'Env', 'WebAPI', 'Service', 'Json2',
+__all__ = ['Client', 'Env', 'HTTPSession', 'WebAPI', 'Service', 'Json2',
            'Printer', 'Error', 'ServerError',
            'BaseModel', 'Model', 'BaseRecord', 'Record', 'RecordList',
            'format_exception', 'read_config', 'start_odoo_services']
@@ -37,8 +37,8 @@ __all__ = ['Client', 'Env', 'WebAPI', 'Service', 'Json2',
 CONF_FILE = 'odooly.ini'
 HIST_FILE = os.path.expanduser('~/.odooly_history')
 DEFAULT_URL = 'http://localhost:8069/'
-DEFAULT_USER = 'admin'
 ADMIN_USER = 'admin'
+SYSTEM_USER = '__system__'
 MAXCOL = [79, 179, 9999]    # Line length in verbose mode
 
 USAGE = """\
@@ -119,7 +119,6 @@ _pending_state = ('state', 'not in',
                   ['uninstallable', 'uninstalled', 'installed'])
 http_context = None
 
-
 if os.getenv('ODOOLY_SSL_UNVERIFIED'):
     import ssl
 
@@ -131,6 +130,33 @@ if os.getenv('ODOOLY_SSL_UNVERIFIED'):
 
 if not requests:
     from urllib.request import HTTPCookieProcessor, HTTPSHandler, Request, build_opener
+
+
+class HTTPSession:
+    if requests:  # requests.Session
+        def __init__(self):
+            self._session = requests.Session()
+
+        def request(self, url, *, method='POST', data=None, json=None, headers=None, **kw):
+            resp = self._session.request(method, url, data=data, json=json, headers=headers, **kw)
+            resp.raise_for_status()
+            return resp if method == 'HEAD' else resp.text if json is None else resp.json()
+
+    else:  # urllib.request
+        def __init__(self):
+            self._session = build_opener(HTTPCookieProcessor(), HTTPSHandler(context=http_context))
+
+        def request(self, url, *, method='POST', data=None, json=None, headers=None, _json=json, **kw):
+            headers = dict(headers or ())
+            if json is not None:
+                headers.setdefault('Content-Type', 'application/json')
+            if method == 'POST':
+                data = (urlencode(data) if json is None else _json.dumps(json)).encode()
+            elif data is not None:
+                url, data = f'{url}?{urlencode(data)}', None
+            request = Request(url, data=data, headers=headers, method=method)
+            resp = self._session.open(request)
+            return resp if method == 'HEAD' else resp.read().decode() if json is None else _json.load(resp)
 
 
 def _memoize(inst, attr, value, doc_values=None):
@@ -188,6 +214,12 @@ def is_list_of_dict(iterator):
         if item:
             return isinstance(item, dict)
     return False
+
+
+def format_params(params, hide=('passw', 'pwd')):
+    secret = {key: ... for key in params if any(sub in key for sub in hide)}
+    return [f'{key}={v!r}' if v != ... else f'{key}=*'
+            for (key, v) in {**params, **secret}.items()]
 
 
 def format_exception(exc_type, exc, tb, limit=None, chain=True,
@@ -448,17 +480,9 @@ class WebAPI:
 
     def __getattr__(self, name):
         if self._printer:
-            def sanitize(kw):
-                secret = {}
-                for key in kw:
-                    if 'passw' in key or 'pwd' in key:
-                        secret[key] = ...
-                return {**kw, **secret}.items()
-
             def wrapper(self, _func=None, **params):
                 method = f'{name}/{_func}' if _func else name
-                snt = ' '.join(f'{key}={v!r}' if v != ... else f'{key}=*'
-                               for (key, v) in sanitize(params))
+                snt = ' '.join(format_params(params))
                 with self._printer as log:
                     log.print_sent(f"POST {self._endpoint}/{method} {snt}")
                     res = self._dispatch(method, params)
@@ -527,7 +551,7 @@ class Json2:
     _doc_endpoint = '/doc-bearer'
 
     def __init__(self, client, database, api_key):
-        self._req = client._post
+        self._req = HTTPSession().request
         self._server = urljoin(client._server, '/')
         self._headers = {
             'Authorization': f'Bearer {api_key}',
@@ -570,13 +594,13 @@ class Json2:
     def __repr__(self):
         return f"<Json2 '{self._server[:-1]}{self._endpoint}'>"
 
-    def _check(self):
-        url = urljoin(self._server, f'{self._doc_endpoint}/ir.model.json')
+    def _check(self, uid=None):
+        url = urljoin(self._server, f'{self._endpoint}/res.users/context_get')
         try:
-            self._req(url, headers=self._headers, method='GET')
+            context = self._req(url, json={}, headers=self._headers)
         except (OSError, ServerError):
             return False
-        return self
+        return self if (not uid or uid == context['uid']) else False
 
     def _request(self, path, params=None):
         verb = 'GET' if params is None else 'POST'
@@ -609,6 +633,10 @@ class Env:
     _cache = {}
 
     def __new__(cls, client, db_name=()):
+        if db_name:
+            env = cls._cache.get((Env, db_name, client._server))
+            if env and env.client == client:
+                return env
         if not db_name or client.env.db_name:
             env = object.__new__(cls)
             env.client, env.db_name, env.context = client, db_name, {}
@@ -617,7 +645,6 @@ class Env:
         if db_name:
             env._model_names = env._cache_get('model_names', set)
             env._models = {}
-        env._call_kw = client._call_kw
         env._web = client.web
         return env
 
@@ -651,6 +678,9 @@ class Env:
         if self.client._object and not self.db_name:
             raise Error('Error: Not connected')
         assert isinstance(user, str) and user
+        if user == SYSTEM_USER:
+            info = self.client._authenticate_system()
+            return info['uid'], password, info
         # Read from cache
         auth_cache = self._cache_get('auth', dict)
         (uid, pwcache) = auth_cache.get(user) or (None, None)
@@ -678,10 +708,13 @@ class Env:
             raise Error('Error: Invalid username or password')
         # Discovered database name
         if not self.db_name:
-            self.db_name = info.get('db') or ''
+            self.db_name = info.get('db') or ()
             # Set the cache for authentication
             self._cache_set('auth', auth_cache)
             self.refresh()
+        if not self.uid:
+            # Cache the unauthenticated Env and the client
+            self._cache_set(Env, self)
         # Update credentials in cache
         auth_cache[user] = uid, password
         return uid, password, info
@@ -691,7 +724,7 @@ class Env:
         def env_auth(method):     # Authenticated endpoints
             return partial(method, self.db_name, self.uid, api_key)
         if self.client.web and self.client.version_info >= 19.0:
-            self._json2 = Json2(self.client, self.db_name, api_key)._check()
+            self._json2 = Json2(self.client, self.db_name, api_key)._check(self.uid)
         if self.client._object:  # RPC endpoint if available
             self._execute = env_auth(self.client._object.execute)
             self._execute_kw = env_auth(self.client._object.execute_kw)
@@ -711,14 +744,10 @@ class Env:
         return api_key
 
     def _configure(self, uid, user, password, api_key, context, session):
-        need_auth = uid != self.uid or (api_key and api_key != self._api_key)
-        if self.uid:              # Create a new Env() instance
-            env = Env(self.client)
-            (env.db_name, env.name) = (self.db_name, self.name)
-            env._model_names = self._model_names
-            env._models = {}
-        else:                     # Configure the Env() instance
-            env = self
+        env = Env(self.client)
+        (env.db_name, env.name) = (self.db_name, self.name)
+        env._model_names = self._model_names
+        env._models = {}
 
         # Setup uid and user
         if isinstance(user, Record):
@@ -732,7 +761,7 @@ class Env:
             env.user.__dict__['login'] = user
 
         # Set API methods
-        if need_auth:
+        if uid != self.uid or (api_key and api_key != self._api_key):
             env.set_api_key(api_key or password, bool(api_key))
         else:  # Copy methods
             env._execute_kw = self._execute_kw
@@ -783,8 +812,14 @@ class Env:
             self._cache_set(env_key, env)
         return env
 
-    def sudo(self, user=ADMIN_USER):
-        """Attach to the provided user, or 'admin'."""
+    def sudo(self, user=None):
+        """Attach to the provided user, or Superuser."""
+        if user is None:
+            if (self.client._object or self.client.version_info < 12.0 or
+                    not self.session_info or not self.session_info.get('is_system')):
+                user = ADMIN_USER
+            else:
+                user = SYSTEM_USER
         return self(user=user)
 
     def ref(self, xml_id):
@@ -817,7 +852,7 @@ class Env:
         except KeyError:
             pass
         if func is not None:
-            return self._cache_set(key, func()) if self.db_name else func()
+            return self._cache_set(key, func())
 
     def _cache_set(self, key, value, db_name=None):
         self._cache[key, db_name or self.db_name, self.client._server] = value
@@ -850,6 +885,12 @@ class Env:
             print("Security Control - PASSED")
         return result
 
+    def _call_kw(self, model, method, args, kw=None):
+        if self.uid != self.client._session_uid:
+            password = self._cache_get('auth')[self.user.login][1]
+            self.client._authenticate_session(self.db_name, self.user.login, password)
+        return self.client.web_dataset.call_kw(model=model, method=method, args=args, kwargs=kw or {})
+
     def execute(self, obj, method, *params, **kwargs):
         """Wrapper around ``/web/dataset/call_kw`` Webclient endpoint,
         or ``/json/2`` API endpoint or ``object.execute_kw`` RPC method.
@@ -879,10 +920,9 @@ class Env:
                     [ids] = searchargs(params[:1])
             else:
                 order_ids = kwargs.pop('order', False) and params[0]
-                ids = set(params[0]) - {False}
+                ids = sorted(set(params[0]) - {False})
                 if not ids and order_ids:
                     return [False] * len(order_ids)
-                ids = sorted(ids)
             if not ids:
                 return ids
             params = (ids,) + params[1:]
@@ -899,9 +939,8 @@ class Env:
         if self._is_identitycheck(res):
             res = self._identitycheck(res)
         if order_ids:
-            # The results are not in the same order as the IDs
-            # when received from the server, in case of missing
-            # records or duplicate ID
+            # Results were not in the same order as the IDs
+            # in case of missing records or duplicate ID
             resdic = {val['id']: val for val in res}
             res = [resdic.get(id_, False) for id_ in order_ids]
         return res[0] if single_id else res
@@ -1094,6 +1133,7 @@ class Env:
     def session_destroy(self):
         """Terminate current Webclient session."""
         self.session_info = None
+        self.client._session_uid = None
         try:
             return self.client.web_session.destroy()
         except ServerError as exc:
@@ -1134,7 +1174,9 @@ class Client:
 
     def __init__(self, server, db=None, user=None, password=None,
                  api_key=None, transport=None, verbose=False):
-        self._init_http_session()
+        self._http = HTTPSession()
+        self._session_uid = None
+
         self._set_services(server, db, transport, verbose)
         self.env = Env(self)
         if user:  # Try to login
@@ -1146,6 +1188,10 @@ class Client:
             server = start_odoo_services(server, appname=appname)
         elif isinstance(server, str) and server[-1:] == '/':
             server = server.rstrip('/')
+        self._printer = Printer(verbose=verbose) if verbose else None
+        self._server = server
+        self._verbose = verbose
+        self._connections = []
 
         if not isinstance(server, str):
             api_v7 = server.release.version_info < (8,)
@@ -1158,16 +1204,12 @@ class Client:
         else:
             if not db:
                 # Resolve redirects
-                server = self._post(server, method='HEAD').url
+                __, server = self._request_parse(server, method='HEAD')
             if not server.endswith('/web'):
                 server = urljoin(server, '/web')
+            self._server = server
             self._proxy = self.db = self.common = None
             self._object = self._report = self._wizard = None
-
-        self._connections = []
-        self._printer = Printer(verbose=verbose) if verbose else None
-        self._server = server
-        self._verbose = verbose
         assert not transport or self._proxy is self._proxy_xmlrpc, 'Not supported'
 
         if isinstance(server, str):
@@ -1206,10 +1248,32 @@ class Client:
             self._report = get_service('report') if float_version < 11.0 else None
             self._wizard = get_service('wizard') if float_version < 7.0 else None
 
+    def _parse_response(self, method, result, regex):
+        if method == 'HEAD':
+            return result.url
+        found = re.search(regex or r'odoo._*session_info_* = (.*);', result)
+        return found and found.group(1)
+
+    def _request_parse(self, path, *, method=None, data=None, headers=None, regex=None):
+        headers = {'User-Agent': 'Mozilla/5.0 (X11)', **(headers or {})}
+        verb = method or ('GET' if data is None else 'POST')
+        url = urljoin(self._server, path)
+        if not self._printer:
+            res = self._http.request(url, data=data, headers=headers, method=verb)
+            return res, self._parse_response(verb, res, regex)
+
+        snt = ' '.join(format_params(data or {}))
+        with self._printer as log:
+            log.print_sent(f"{verb} {path} {snt}".rstrip())
+            res = self._http.request(url, data=data, headers=headers, method=verb)
+            parsed = self._parse_response(verb, res, regex)
+            log.print_recv(parsed, str)
+        return res, parsed
+
     def _post_jsonrpc(self, endpoint='', params=None):
         req_id = f"{os.getpid():04x}{int(time.time() * 1E6) % 2**40:010x}"
         payload = {'jsonrpc': '2.0', 'method': 'call', 'params': params or {}, 'id': req_id}
-        resp = self._post(urljoin(self._server, endpoint), json=payload)
+        resp = self._http.request(urljoin(self._server, endpoint), json=payload)
         if resp.get('error'):
             raise ServerError(resp['error'])
         return resp.get('result')
@@ -1234,7 +1298,7 @@ class Client:
     def _proxy_web(self, name):
         def dispatch_web(method, params):
             if name == 'database' and method != 'list':
-                return self._post(urljoin(self._server, f"web/{name or ''}/{method}"), data=params)
+                return self._http.request(urljoin(self._server, f"web/{name or ''}/{method}"), data=params)
             return self._post_jsonrpc(f"web/{name or ''}/{method}", params=params)
         return dispatch_web
 
@@ -1274,7 +1338,11 @@ class Client:
         skip_save = user and user != conf_user
         if skip_save:
             password = None
-        client = cls(server, db, user or conf_user, password=password, api_key=api_key, verbose=verbose)
+        try:
+            client = Env._cache[Env, db, server].client
+            client.login(user or conf_user, password=password, api_key=api_key)
+        except KeyError:
+            client = cls(server, db, user or conf_user, password=password, api_key=api_key, verbose=verbose)
         return client.save(environment, skip=skip_save)
 
     def __repr__(self):
@@ -1305,6 +1373,7 @@ class Client:
                     info = self._authenticate_web(db=db, login=login, password=password)
             else:
                 info = self._authenticate_web(login=login, password=password)
+            self._session_uid = info.get('uid')
         except AttributeError:
             # Cannot extract `csrf_token` or `session_info` with Regex
             pass
@@ -1315,20 +1384,16 @@ class Client:
         return info
 
     def _authenticate_web(self, **kw):
-        headers = {'User-Agent': 'Mozilla/5.0 (X11)'}
-        url_web = urljoin(self._server, 'web')
-        db_name = kw.get('db', '')
-
         # 1. Get CSRF token
-        rv = self._post(f'{url_web}?{urlencode(dict(db=db_name))}', method='GET', headers=headers)
-        csrf = re.search(r'csrf_token: "(\w+)"', rv).group(1)
+        qs = f"?{urlencode(dict(db=kw['db']))}" if "db" in kw else ""
+        __, csrf = self._request_parse('/web' + qs, regex=r'csrf_token: "(\w+)"')
 
         # 2. Login
-        rv = self._post(f'{url_web}/login', data={'csrf_token': csrf, **kw}, headers=headers)
+        rv, sess = self._request_parse('/web/login', data={'csrf_token': csrf, **kw})
 
         for retry in range(4):
             # 3. Parse 'session_info'
-            session_info = json.loads(re.search(r'odoo._*session_info_* = (.*);', rv).group(1))
+            session_info = json.loads(sess)
             if 'user_id' in session_info and 'uid' not in session_info:  # Odoo < 18
                 session_info['uid'] = session_info['user_id']
             if session_info['uid'] or 'totp_token' not in rv or retry == 3:
@@ -1341,7 +1406,14 @@ class Client:
 
             # 5. Submit TOTP
             params = {'csrf_token': csrf, 'totp_token': token, 'remember': 1}
-            rv = self._post(f'{url_web}/login/totp', data=params, headers=headers)
+            rv, sess = self._request_parse('/web/login/totp', data=params)
+        return session_info
+
+    def _authenticate_system(self):
+        session_info = json.loads(self._request_parse('/web/become')[1])
+        self._session_uid = session_info.get('uid')
+        if self._session_uid != 1:
+            raise Error("Cannot become Superuser")
         return session_info
 
     def _select_database(self, db_list, limit=20):
@@ -1414,7 +1486,7 @@ class Client:
             self.__class__(server, user=user, verbose=self._verbose)
         else:
             assert not user, "Use client.login(...) instead"
-            self._globals['client'] = self
+            self._globals['client'] = self.env.client
             self._globals['env'] = self.env
             self._globals['self'] = self.env.user if self.env.uid else None
             self._set_prompt()
@@ -1443,7 +1515,7 @@ class Client:
         return cls._globals is not None
 
     def create_database(self, passwd, database, demo=False, lang='en_US',
-                        user_password='admin', login='admin',
+                        user_password=ADMIN_USER, login=ADMIN_USER,
                         country_code=None):
         """Create a new database.
 
@@ -1452,7 +1524,7 @@ class Client:
         and no country is set into the database.
         Login if successful.
         """
-        extra = (login, country_code) if login != 'admin' or country_code else ()
+        extra = (login, country_code) if login != ADMIN_USER or country_code else ()
         if extra and self.version_info < 9.0:
             raise Error("Custom 'login' and 'country_code' are not supported")
         if self.db:
@@ -1509,34 +1581,6 @@ class Client:
         if database in db_list:
             raise Error("Failed - Database was not deleted")
 
-    def _call_kw(self, model, method, args, kw=None):
-        return self.web_dataset.call_kw(model=model, method=method, args=args, kwargs=kw or {})
-
-    if requests:  # requests.Session
-        def _init_http_session(self):
-            self._http_session = requests.Session()
-
-        def _post(self, url, *, method='POST', data=None, json=None, headers=None, **kw):
-            resp = self._http_session.request(method, url, data=data, json=json, headers=headers, **kw)
-            resp.raise_for_status()
-            return resp if method == 'HEAD' else resp.text if json is None else resp.json()
-
-    else:  # urllib.request
-        def _init_http_session(self):
-            self._http_session = build_opener(HTTPCookieProcessor(), HTTPSHandler(context=http_context))
-
-        def _post(self, url, *, method='POST', data=None, json=None, headers=None, _json=json, **kw):
-            headers = dict(headers or ())
-            if json is not None:
-                headers.setdefault('Content-Type', 'application/json')
-            if method == 'POST':
-                data = (urlencode(data) if json is None else _json.dumps(json)).encode()
-            elif data is not None:
-                url, data = f'{url}?{urlencode(data)}', None
-            request = Request(url, data=data, headers=headers, method=method)
-            resp = self._http_session.open(request)
-            return resp if method == 'HEAD' else resp.read().decode() if json is None else _json.load(resp)
-
 
 class BaseModel:
 
@@ -1546,9 +1590,9 @@ class BaseModel:
         """Attach to the provided environment."""
         return env[self._name]
 
-    def sudo(self, user=ADMIN_USER):
-        """Attach to the provided user, or 'admin'."""
-        return self.with_env(self.env(user=user))
+    def sudo(self, user=None):
+        """Attach to the provided user, or Superuser."""
+        return self.with_env(self.env.sudo(user=user))
 
     def with_context(self, *args, **kwargs):
         """Attach to an extended context."""
@@ -2408,7 +2452,7 @@ def main(interact=_interact):
             if domain and not args.model:
                 args.server = args.server + domain if args.config else domain
         if not args.user:
-            args.user = DEFAULT_USER
+            args.user = ADMIN_USER
         client = Client(args.server, args.db, args.user, password=args.password,
                         api_key=args.api_key, verbose=args.verbose)
 

@@ -51,14 +51,14 @@ class XmlRpcTestCase(TestCase):
             # reset the mock
             self.service.reset_mock()
 
-    def _patch_http_post(self, uid=None, context=sample_context):
+    def _patch_http_request(self, uid=None, context=sample_context):
         def func(url, *, method='POST', data=None, json=None, headers=None):
             if url.endswith("/web/session/authenticate"):
                 result = {'uid': uid or self.uid, 'user_context': context}
             else:
                 raise HTTPError(url, 404, 'Not Found', headers, None)
             return {'result': result}
-        return mock.patch('odooly.Client._post', side_effect=func).start()
+        return mock.patch('odooly.HTTPSession.request', side_effect=func).start()
 
     def _patch_service(self):
         def get_svc(server, name, *args, **kwargs):

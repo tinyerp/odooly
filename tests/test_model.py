@@ -1536,7 +1536,7 @@ class TestModel19(TestModel):
     server_version = '19.0'
 
     def _patch_service(self):
-        self.auth_http = self._patch_http_post()
+        self.auth_http = self._patch_http_request()
         return super()._patch_service()
 
     def test_auth_http(self):
@@ -1545,13 +1545,13 @@ class TestModel19(TestModel):
             'Content-Type': 'application/json',
             'X-Odoo-Database': 'database',
         }
-        test_url = urljoin(self.server, '/doc-bearer/ir.model.json')
-        self.assertEqual(self.auth_http.mock_calls, [call(test_url, headers=headers, method='GET')])
+        test_url = urljoin(self.server, '/json/2/res.users/context_get')
+        self.assertEqual(self.auth_http.mock_calls, [call(test_url, json={}, headers=headers)])
 
 
 class TestRecord19(TestRecord):
     server_version = '19.0'
 
     def _patch_service(self):
-        self.auth_http = self._patch_http_post()
+        self.auth_http = self._patch_http_request()
         return super()._patch_service()
