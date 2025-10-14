@@ -61,7 +61,7 @@ class TestService(XmlRpcTestCase):
         client._server = f"{self.server}/{self.protocol}"
         client._post_jsonrpc = odooly.Client._post_jsonrpc.__get__(client, odooly.Client)
         if self.protocol == 'jsonrpc':
-            client._post = self.service
+            client._http.request = self.service
         return client
 
     def test_service(self):
@@ -105,7 +105,7 @@ class TestService(XmlRpcTestCase):
         if self.protocol == 'jsonrpc':
             return_values = [{'result': rv} for rv in return_values]
         if server_version >= 19.0:
-            return_values += [{}]
+            return_values += [{'uid': 1}]
         self.service.side_effect = return_values
         client = odooly.Client(server, 'newdb', 'usr', 'pss')
 
@@ -147,7 +147,7 @@ class TestService(XmlRpcTestCase):
                 jsonrpc_call(self, 'object', 'execute_kw', ('newdb', 1, 'pss', 'res.users', 'context_get', ())),
             ]
             if server_version >= 19.0:
-                expected_calls += [call(f"{self.server}/doc-bearer/ir.model.json", headers=ANY, method="GET")]
+                expected_calls += [call(f"{self.server}/json/2/res.users/context_get", json={}, headers=ANY)]
 
         self.assertCalls(*expected_calls)
         self.assertOutput('')
@@ -173,7 +173,7 @@ class TestService(XmlRpcTestCase):
         self.test_service_openerp_client(server_version=18.0)
 
         if self.protocol == 'xmlrpc':
-            mock.patch('odooly.Client._post', side_effect=odooly.ServerError).start()
+            mock.patch('odooly.HTTPSession.request', side_effect=odooly.ServerError).start()
 
         self.test_service_openerp_client(server_version=19.0)
         self.test_service_openerp_client(server_version=20.0)
@@ -184,7 +184,7 @@ class TestServiceJsonRpc(TestService):
     protocol = 'jsonrpc'
 
     def _patch_service(self):
-        return mock.patch('odooly.Client._post', return_value={'result': 'JSON_RESULT'}).start()
+        return mock.patch('odooly.HTTPSession.request', return_value={'result': 'JSON_RESULT'}).start()
 
 
 class TestCreateClient(XmlRpcTestCase):
@@ -219,7 +219,8 @@ class TestCreateClient(XmlRpcTestCase):
         self.assertCalls(*expected_calls)
         self.assertEqual(
             client.env._cache,
-            {(key_1, 'newdb', url_xmlrpc): client.env(context={}),
+            {(odooly.Env, 'newdb', url_xmlrpc): odooly.Env(client, 'newdb'),
+             (key_1, 'newdb', url_xmlrpc): client.env(context={}),
              (key_2, 'newdb', url_xmlrpc): client.env,
              ('auth', 'newdb', url_xmlrpc): {'usr': (1, 'pss')},
              ('model_names', 'newdb', url_xmlrpc): {'res.users'}})
@@ -731,7 +732,7 @@ class TestClientApi19(TestClientApi):
     test_report = test_render_report = test_report_get = _skip_test
 
     def _patch_service(self):
-        self.auth_http = self._patch_http_post()
+        self.auth_http = self._patch_http_request()
         return super()._patch_service()
 
     def test_obsolete_methods(self):

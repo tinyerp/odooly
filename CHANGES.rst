@@ -10,6 +10,13 @@ Changelog
 
 * Use ``search_read`` method with Odoo >= 8.
 
+* Fix cache when switching between environments.
+
+* Use a separate HTTP session when using JSON-2 API Key.
+
+* Change :meth:`Model.sudo` and :meth:`RecordList.sudo` to
+  become Superuser, on Odoo >= 12.
+
 
 2.4.3 (2025-10-12)
 ~~~~~~~~~~~~~~~~~~
