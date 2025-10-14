@@ -862,7 +862,7 @@ class Env:
         assert self.uid, 'Not connected'
         assert isinstance(obj, str)
         assert isinstance(method, str) and method != 'browse'
-        ordered = single_id = False
+        order_ids = single_id = False
         if method == 'read':
             assert params, 'Missing parameter'
             if not isinstance(params[0], list):
@@ -870,15 +870,18 @@ class Env:
                 ids = [params[0]] if params[0] else False
             elif params[0] and issearchdomain(params[0]):
                 # Combine search+read
-                search_params = searchargs(params[:1], kwargs)
-                ordered = len(search_params) > 3 and search_params[3]
-                kw = ({'context': self.context},) if self.context else ()
-                ids = self._execute_kw(obj, 'search', search_params, *kw)
+                if self.client.version_info < 8.0:
+                    search_params = searchargs(params[:1], kwargs)
+                    kw = ({'context': self.context},) if self.context else ()
+                    ids = self._execute_kw(obj, 'search', search_params, *kw)
+                else:
+                    method = 'search_read'
+                    [ids] = searchargs(params[:1])
             else:
-                ordered = kwargs.pop('order', False) and params[0]
+                order_ids = kwargs.pop('order', False) and params[0]
                 ids = set(params[0]) - {False}
-                if not ids and ordered:
-                    return [False] * len(ordered)
+                if not ids and order_ids:
+                    return [False] * len(order_ids)
                 ids = sorted(ids)
             if not ids:
                 return ids
@@ -888,18 +891,19 @@ class Env:
             params = searchargs(params, kwargs)
         elif method == 'search_count':
             params = searchargs(params)
+        elif method == 'search_read':
+            params = searchargs(params[:1]) + params[1:]
         kw = ((dict(kwargs, context=self.context),)
               if self.context else (kwargs and (kwargs,) or ()))
         res = self._execute_kw(obj, method, params, *kw)
         if self._is_identitycheck(res):
             res = self._identitycheck(res)
-        if ordered:
-            # The results are not in the same order as the ids
-            # when received from the server
+        if order_ids:
+            # The results are not in the same order as the IDs
+            # when received from the server, in case of missing
+            # records or duplicate ID
             resdic = {val['id']: val for val in res}
-            if not isinstance(ordered, list):
-                ordered = ids
-            res = [resdic.get(id_, False) for id_ in ordered]
+            res = [resdic.get(id_, False) for id_ in order_ids]
         return res[0] if single_id else res
 
     def access(self, model_name, mode="read"):
@@ -1689,7 +1693,8 @@ class Model(BaseModel):
     def read(self, *params, **kwargs):
         """Wrapper for ``client.execute(model, 'read', [...], ('a', 'b'))``.
 
-        The first argument is a list of ids ``[1, 3]`` or a single id ``42``.
+        The first argument is a list of ids ``[1, 3]`` or a single id ``42``
+        or a search domain.
 
         The second argument, `fields`, accepts:
          - a single field: ``'first_name'``

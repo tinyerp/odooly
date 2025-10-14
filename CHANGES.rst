@@ -8,6 +8,8 @@ Changelog
 * Support ``{...}`` string format for :meth:`RecordList.read`
   and :meth:`Model.read`.
 
+* Use ``search_read`` method with Odoo >= 8.
+
 
 2.4.3 (2025-10-12)
 ~~~~~~~~~~~~~~~~~~
