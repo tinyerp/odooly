@@ -375,8 +375,8 @@ class TestClientApi(XmlRpcTestCase):
     def obj_exec(self, *args):
         if args[4] == 'search':
             return [ID2, ID1]
-        if args[4] == 'read':
-            return [IdentDict(res_id) for res_id in args[5][::-1]]
+        if args[4] in ('read', 'search_read'):
+            return [IdentDict(res_id) for res_id in [ID1, ID2]]
         return sentinel.OTHER
 
     def test_create_database(self):
@@ -478,28 +478,30 @@ class TestClientApi(XmlRpcTestCase):
     def test_model(self):
         self.service.object.execute_kw.side_effect = self.obj_exec
 
+        if float(self.server_version) < 8.0:
+            expected_calls = [
+                OBJ('ir.model', 'search', [('model', 'like', 'foo.bar')]),
+                OBJ('ir.model', 'read', [ID2, ID1], ('model',)),
+            ]
+            side_effect = [[ID2, ID1], [{'id': 13, 'model': 'foo.bar'}]]
+        else:
+            expected_calls = [
+                OBJ('ir.model', 'search_read', [('model', 'like', 'foo.bar')], ('model',)),
+            ]
+            side_effect = [[{'id': 13, 'model': 'foo.bar'}]]
+
         self.assertTrue(self.env.models('foo.bar'))
-        self.assertCalls(
-            OBJ('ir.model', 'search', [('model', 'like', 'foo.bar')]),
-            OBJ('ir.model', 'read', [ID2, ID1], ('model',)),
-        )
+        self.assertCalls(*expected_calls)
         self.assertOutput('')
 
         self.assertRaises(odooly.Error, self.env.__getitem__, 'foo.bar')
-        self.assertCalls(
-            OBJ('ir.model', 'search', [('model', 'like', 'foo.bar')]),
-            OBJ('ir.model', 'read', [ID2, ID1], ('model',)),
-        )
+        self.assertCalls(*expected_calls)
         self.assertOutput('')
 
-        self.service.object.execute_kw.side_effect = [
-            sentinel.IDS, [{'id': 13, 'model': 'foo.bar'}]]
+        self.service.object.execute_kw.side_effect = side_effect
         self.assertIsInstance(self.env['foo.bar'], odooly.Model)
         self.assertIs(self.env['foo.bar'], odooly.Model(self.env, 'foo.bar'))
-        self.assertCalls(
-            OBJ('ir.model', 'search', [('model', 'like', 'foo.bar')]),
-            OBJ('ir.model', 'read', sentinel.IDS, ('model',)),
-        )
+        self.assertCalls(*expected_calls)
         self.assertOutput('')
 
     def test_access(self):
@@ -572,7 +574,7 @@ class TestClientApi(XmlRpcTestCase):
 
     def _module_upgrade(self, button='upgrade'):
         execute_return = [
-            [7, 0], [42], [], {'name': 'Upgrade'}, [4, 42, 5],
+            [7, 0], [42], [], {'name': 'Upgrade'},
             [{'id': 4, 'state': ANY, 'name': ANY},
              {'id': 5, 'state': ANY, 'name': ANY},
              {'id': 42, 'state': ANY, 'name': ANY}], ANY]
@@ -581,26 +583,38 @@ class TestClientApi(XmlRpcTestCase):
         expected_calls = [
             imm('update_list'),
             imm('search', [('name', 'in', ('dummy', 'spam'))]),
-            imm('search', [('state', 'not in', STABLE)]),
+            imm('search_read', [('state', 'not in', STABLE)], ['name', 'state']),
             imm('button_' + button, [42]),
-            imm('search', [('state', 'not in', STABLE)]),
-            imm('read', [4, 42, 5], ['name', 'state']),
+            imm('search_read', [('state', 'not in', STABLE)], ['name', 'state']),
             bmu('upgrade_module', []),
         ]
+        if float(self.server_version) < 8.0:
+            execute_return[4:4] = [[4, 42, 5]]
+            expected_calls[2:5] = [
+                imm('search', [('state', 'not in', STABLE)]),
+                imm('button_' + button, [42]),
+                imm('search', [('state', 'not in', STABLE)]),
+                imm('read', [4, 42, 5], ['name', 'state']),
+            ]
         if button == 'uninstall':
-            expected_calls[3:3] = [
-                imm('search', [('id', 'in', [42]),
-                               ('state', '!=', 'installed'),
-                               ('state', '!=', 'to upgrade'),
-                               ('state', '!=', 'to remove')])
+            domain = [
+                ('id', 'in', [42]),
+                ('state', '!=', 'installed'),
+                ('state', '!=', 'to upgrade'),
+                ('state', '!=', 'to remove'),
             ]
             if self.server_version == '6.1':
-                expected_calls[4:4] = [
+                expected_calls[3:3] = [
+                    imm('search', domain),
                     imm('fields_get'),
                     imm('write', [42], {'state': 'to remove'}),
                 ]
                 execute_return[3:3] = [[], {'state': {'type': 'selection'}}, ANY]
+            elif self.server_version == '7.0':
+                expected_calls[3:3] = [imm('search', domain)]
+                execute_return[3:3] = [[]]
             else:
+                expected_calls[3:3] = [imm('search_read', domain, ['name'])]
                 execute_return[3:3] = [[]]
 
         self.service.object.execute_kw.side_effect = execute_return
@@ -611,10 +625,7 @@ class TestClientApi(XmlRpcTestCase):
 
         self.service.object.execute_kw.side_effect = [[0, 0], []]
         self.assertIsNone(action())
-        self.assertCalls(
-            imm('update_list'),
-            imm('search', [('state', 'not in', STABLE)]),
-        )
+        self.assertCalls(expected_calls[0], expected_calls[2])
         self.assertOutput('0 module(s) updated\n')
 
     def test_module_upgrade(self):
@@ -628,12 +639,17 @@ class TestClientApi(XmlRpcTestCase):
             {'id': 5, 'state': 'to remove', 'name': ANY},
             {'id': 42, 'state': 'to install', 'name': ANY},
         ]
-        execute_return = [[7, 0], [4, 42, 5], states, None, None]
+        execute_return = [[7, 0], states, None, None]
         expected_calls = [
             imm('update_list'),
-            imm('search', [('state', 'not in', STABLE)]),
-            imm('read', [4, 42, 5], ['name', 'state']),
+            imm('search_read', [('state', 'not in', STABLE)], ['name', 'state']),
         ]
+        if float(self.server_version) < 8.0:
+            execute_return[1:1] = [[4, 42, 5]]
+            expected_calls[1:2] = [
+                imm('search', [('state', 'not in', STABLE)]),
+                imm('read', [4, 42, 5], ['name', 'state']),
+            ]
         if float(self.server_version) < 19.0:
             expected_calls += [
                 imm('button_install_cancel', [42]),
@@ -655,10 +671,7 @@ class TestClientApi(XmlRpcTestCase):
 
         self.service.object.execute_kw.side_effect = [[0, 0], []]
         self.assertIsNone(self.env.upgrade_cancel())
-        self.assertCalls(
-            imm('update_list'),
-            imm('search', [('state', 'not in', STABLE)]),
-        )
+        self.assertCalls(*expected_calls[:2])
         self.assertOutput('0 module(s) updated\n')
 
     def test_sudo(self):

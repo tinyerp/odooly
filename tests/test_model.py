@@ -15,6 +15,10 @@ class TestCase(XmlRpcTestCase):
     uid = 1
 
     def obj_exec(self, db_name, uid, passwd, model, method, args=None, kw=None):
+        if method == 'search_read':
+            ids = self.obj_exec(db_name, uid, passwd, model, 'search', args)
+            args = (ids,) + args[1:]
+            method = 'read'
         if method == 'search':
             domain = args[0]
             if model.startswith('ir.model'):
@@ -109,16 +113,30 @@ class TestModel(TestCase):
 
         self.assertRaises(odooly.Error, self.env.__getitem__, 'mic.mac')
         self.assertRaises(AttributeError, getattr, self.client, 'MicMac')
-        self.assertCalls(ANY, ANY)
+        expected_calls = [
+            OBJ('ir.model', 'search_read', [('model', 'like', 'mic.mac')], ('model',)),
+        ]
+        if float(self.server_version) < 8.0:
+            expected_calls = [
+                OBJ('ir.model', 'search', [('model', 'like', 'mic.mac')]),
+                OBJ('ir.model', 'read', ANY, ('model',)),
+            ]
+        self.assertCalls(*expected_calls)
         self.assertOutput('')
 
         self.assertIs(self.env['foo.bar'],
                       odooly.Model(self.env, 'foo.bar'))
         self.assertEqual(self.env['foo.bar']._name, 'foo.bar')
-        self.assertCalls(
-            OBJ('ir.model', 'search', [('model', 'like', 'foo.bar')]),
-            OBJ('ir.model', 'read', [777], ('model',)),
-        )
+
+        expected_calls = [
+            OBJ('ir.model', 'search_read', [('model', 'like', 'foo.bar')], ('model',)),
+        ]
+        if float(self.server_version) < 8.0:
+            expected_calls = [
+                OBJ('ir.model', 'search', [('model', 'like', 'foo.bar')]),
+                OBJ('ir.model', 'read', [777], ('model',)),
+            ]
+        self.assertCalls(*expected_calls)
         self.assertOutput('')
 
     def test_keys(self):
@@ -281,27 +299,44 @@ class TestModel(TestCase):
 
         domain = [('name', 'like', 'Morice')]
         domain2 = [('name', '=', 'mushroom'), ('state', '!=', 'draft')]
-        self.assertCalls(
-            OBJ('foo.bar', 'search', domain), call_read(),
-            OBJ('foo.bar', 'search', domain, 0, 2, None), call_read(),
-            OBJ('foo.bar', 'search', domain, 80, 99, None), call_read(),
-            OBJ('foo.bar', 'search', domain, 0, None, 'name ASC'),
-            call_read(),
-            OBJ('foo.bar', 'search', domain), call_read(['birthdate', 'city']),
-            OBJ('foo.bar', 'search', domain, 0, 2, None),
-            call_read(['birthdate', 'city']),
-            OBJ('foo.bar', 'search', domain, 0, 2, None),
-            call_read(fields=['birthdate', 'city']),
-            OBJ('foo.bar', 'search', domain, 0, None, 'name ASC'),
-            call_read(),
-            OBJ('foo.bar', 'search', domain2), call_read(),
-            OBJ('foo.bar', 'search', domain), call_read(),
-            OBJ('foo.bar', 'search', domain), call_read(),
-            OBJ('foo.bar', 'search', domain, 80, 99, None),
-            call_read(['birthdate', 'city']),
-            OBJ('foo.bar', 'search', domain, 80, 99, None),
-            call_read(['birthdate', 'city']),
-        )
+        expected_calls = [
+            OBJ('foo.bar', 'search_read', domain),
+            OBJ('foo.bar', 'search_read', domain, limit=2),
+            OBJ('foo.bar', 'search_read', domain, offset=80, limit=99),
+            OBJ('foo.bar', 'search_read', domain, order='name ASC'),
+            OBJ('foo.bar', 'search_read', domain, ['birthdate', 'city']),
+            OBJ('foo.bar', 'search_read', domain, ['birthdate', 'city'], limit=2),
+            OBJ('foo.bar', 'search_read', domain, fields=['birthdate', 'city'], limit=2),
+            OBJ('foo.bar', 'search_read', domain, order='name ASC'),
+            OBJ('foo.bar', 'search_read', domain2),
+            OBJ('foo.bar', 'search_read', domain),
+            OBJ('foo.bar', 'search_read', domain),
+            OBJ('foo.bar', 'search_read', domain, ['birthdate', 'city'], offset=80, limit=99),
+            OBJ('foo.bar', 'search_read', domain, ['birthdate', 'city'], offset=80, limit=99),
+        ]
+        if float(self.server_version) < 8.0:
+            expected_calls = [
+                OBJ('foo.bar', 'search', domain), call_read(),
+                OBJ('foo.bar', 'search', domain, 0, 2, None), call_read(),
+                OBJ('foo.bar', 'search', domain, 80, 99, None), call_read(),
+                OBJ('foo.bar', 'search', domain, 0, None, 'name ASC'),
+                call_read(),
+                OBJ('foo.bar', 'search', domain), call_read(['birthdate', 'city']),
+                OBJ('foo.bar', 'search', domain, 0, 2, None),
+                call_read(['birthdate', 'city']),
+                OBJ('foo.bar', 'search', domain, 0, 2, None),
+                call_read(fields=['birthdate', 'city']),
+                OBJ('foo.bar', 'search', domain, 0, None, 'name ASC'),
+                call_read(),
+                OBJ('foo.bar', 'search', domain2), call_read(),
+                OBJ('foo.bar', 'search', domain), call_read(),
+                OBJ('foo.bar', 'search', domain), call_read(),
+                OBJ('foo.bar', 'search', domain, 80, 99, None),
+                call_read(['birthdate', 'city']),
+                OBJ('foo.bar', 'search', domain, 80, 99, None),
+                call_read(['birthdate', 'city']),
+            ]
+        self.assertCalls(*expected_calls)
         self.assertOutput('')
 
         self.assertEqual(FooBar.read([]), [])
@@ -317,7 +352,10 @@ class TestModel(TestCase):
         self.assertCalls(OBJ('foo.bar', 'read', [searchterm]))
 
         FooBar.read([searchterm], missingkey=42)
-        self.assertCalls(OBJ('foo.bar', 'search', domain), call_read(missingkey=42))
+        if float(self.server_version) < 8.0:
+            self.assertCalls(OBJ('foo.bar', 'search', domain), call_read(missingkey=42))
+        else:
+            self.assertCalls(OBJ('foo.bar', 'search_read', domain, missingkey=42))
         self.assertOutput('')
 
         self.assertRaises(AssertionError, FooBar.read)
@@ -457,14 +495,21 @@ class TestModel(TestCase):
         # model mismatch
         self.assertRaises(AssertionError, BabarFoo.get, 'base.foo_company')
 
-        self.assertCalls(
-            OBJ('ir.model.data', 'search', [('module', '=', 'base'), ('name', '=', 'missing_company')]),
-            OBJ('ir.model.data', 'search', [('module', '=', 'base'), ('name', '=', 'foo_company')]),
-            OBJ('ir.model.data', 'read', [777], ['model', 'res_id']),
-            OBJ('ir.model.data', 'search', [('module', '=', 'base'), ('name', '=', 'foo_company')]),
-            OBJ('ir.model.data', 'read', [777], ['model', 'res_id']),
-        )
+        expected_calls = [
+            OBJ('ir.model.data', 'search_read', [('module', '=', 'base'), ('name', '=', 'missing_company')], ['model', 'res_id']),
+            OBJ('ir.model.data', 'search_read', [('module', '=', 'base'), ('name', '=', 'foo_company')], ['model', 'res_id']),
+            OBJ('ir.model.data', 'search_read', [('module', '=', 'base'), ('name', '=', 'foo_company')], ['model', 'res_id']),
+        ]
+        if float(self.server_version) < 8.0:
+            expected_calls = [
+                OBJ('ir.model.data', 'search', [('module', '=', 'base'), ('name', '=', 'missing_company')]),
+                OBJ('ir.model.data', 'search', [('module', '=', 'base'), ('name', '=', 'foo_company')]),
+                OBJ('ir.model.data', 'read', [777], ['model', 'res_id']),
+                OBJ('ir.model.data', 'search', [('module', '=', 'base'), ('name', '=', 'foo_company')]),
+                OBJ('ir.model.data', 'read', [777], ['model', 'res_id']),
+            ]
 
+        self.assertCalls(*expected_calls)
         self.assertOutput('')
 
     def test_get_passthrough(self):
@@ -583,13 +628,20 @@ class TestModel(TestCase):
         self.assertEqual(FooBar._get_external_ids(), {'this_module.xml_name': FooBar.get(42)})
         FooBar._get_external_ids([])
         FooBar._get_external_ids([2001, 2002])
-        self.assertCalls(
-            OBJ('ir.model.data', 'search', [('model', '=', 'foo.bar')]),
-            OBJ('ir.model.data', 'read', [777], ['module', 'name', 'res_id']),
-            OBJ('ir.model.data', 'search', [('model', '=', 'foo.bar'), ('res_id', 'in', [])]),
-            OBJ('ir.model.data', 'search', [('model', '=', 'foo.bar'), ('res_id', 'in', [2001, 2002])]),
-            OBJ('ir.model.data', 'read', [777], ['module', 'name', 'res_id']),
-        )
+        expected_calls = [
+            OBJ('ir.model.data', 'search_read', [('model', '=', 'foo.bar')], ['module', 'name', 'res_id']),
+            OBJ('ir.model.data', 'search_read', [('model', '=', 'foo.bar'), ('res_id', 'in', [])], ['module', 'name', 'res_id']),
+            OBJ('ir.model.data', 'search_read', [('model', '=', 'foo.bar'), ('res_id', 'in', [2001, 2002])], ['module', 'name', 'res_id']),
+        ]
+        if float(self.server_version) < 8.0:
+            expected_calls = [
+                OBJ('ir.model.data', 'search', [('model', '=', 'foo.bar')]),
+                OBJ('ir.model.data', 'read', [777], ['module', 'name', 'res_id']),
+                OBJ('ir.model.data', 'search', [('model', '=', 'foo.bar'), ('res_id', 'in', [])]),
+                OBJ('ir.model.data', 'search', [('model', '=', 'foo.bar'), ('res_id', 'in', [2001, 2002])]),
+                OBJ('ir.model.data', 'read', [777], ['module', 'name', 'res_id']),
+            ]
+        self.assertCalls(*expected_calls)
         self.assertOutput('')
 
 
@@ -1022,14 +1074,21 @@ class TestRecord(TestCase):
         self.assertEqual(records._external_id, [False, False])
         self.assertEqual(rec3._external_id, [False, False, 'this_module.xml_name'])
 
-        self.assertCalls(
-            OBJ('ir.model.data', 'search', [('model', '=', 'foo.bar'), ('res_id', 'in', [42])]),
-            OBJ('ir.model.data', 'read', [777], ['module', 'name', 'res_id']),
-            OBJ('ir.model.data', 'search', [('model', '=', 'foo.bar'), ('res_id', 'in', [13, 17])]),
-            OBJ('ir.model.data', 'read', [777], ['module', 'name', 'res_id']),
-            OBJ('ir.model.data', 'search', [('model', '=', 'foo.bar'), ('res_id', 'in', [17, 13, 42])]),
-            OBJ('ir.model.data', 'read', [777], ['module', 'name', 'res_id']),
-        )
+        expected_calls = [
+            OBJ('ir.model.data', 'search_read', [('model', '=', 'foo.bar'), ('res_id', 'in', [42])], ['module', 'name', 'res_id']),
+            OBJ('ir.model.data', 'search_read', [('model', '=', 'foo.bar'), ('res_id', 'in', [13, 17])], ['module', 'name', 'res_id']),
+            OBJ('ir.model.data', 'search_read', [('model', '=', 'foo.bar'), ('res_id', 'in', [17, 13, 42])], ['module', 'name', 'res_id']),
+        ]
+        if float(self.server_version) < 8.0:
+            expected_calls = [
+                OBJ('ir.model.data', 'search', [('model', '=', 'foo.bar'), ('res_id', 'in', [42])]),
+                OBJ('ir.model.data', 'read', [777], ['module', 'name', 'res_id']),
+                OBJ('ir.model.data', 'search', [('model', '=', 'foo.bar'), ('res_id', 'in', [13, 17])]),
+                OBJ('ir.model.data', 'read', [777], ['module', 'name', 'res_id']),
+                OBJ('ir.model.data', 'search', [('model', '=', 'foo.bar'), ('res_id', 'in', [17, 13, 42])]),
+                OBJ('ir.model.data', 'read', [777], ['module', 'name', 'res_id']),
+            ]
+        self.assertCalls(*expected_calls)
         self.assertOutput('')
 
     def test_set_external_id(self):
