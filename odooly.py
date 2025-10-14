@@ -927,8 +927,8 @@ class Env:
         try:
             return self._models[name]
         except KeyError:
-            self._models[name] = m = Model._new(self, name)
-        return m
+            self._models[name] = Model._new(self, name)
+        return self._models[name]
 
     def models(self, name=''):
         """Search Odoo models.
@@ -1147,16 +1147,6 @@ class Client:
         elif isinstance(server, str) and server[-1:] == '/':
             server = server.rstrip('/')
 
-        def get_web_api(name):
-            methods = list(_web_methods.get(name) or [])
-            return WebAPI(self, name, methods)
-
-        def get_service(name):
-            methods = list(_rpc_methods.get(name) or [])
-            if float_version < 11.0:
-                methods += _obsolete_rpc_methods.get(name) or ()
-            return Service(self, name, methods)
-
         if not isinstance(server, str):
             api_v7 = server.release.version_info < (8,)
             self._proxy = self._proxy_v7 if api_v7 else self._proxy_odoo
@@ -1171,7 +1161,8 @@ class Client:
                 server = self._post(server, method='HEAD').url
             if not server.endswith('/web'):
                 server = urljoin(server, '/web')
-            self._proxy = None
+            self._proxy = self.db = self.common = None
+            self._object = self._report = self._wizard = None
 
         self._connections = []
         self._printer = Printer(verbose=verbose) if verbose else None
@@ -1180,6 +1171,10 @@ class Client:
         assert not transport or self._proxy is self._proxy_xmlrpc, 'Not supported'
 
         if isinstance(server, str):
+
+            def get_web_api(name):
+                methods = list(_web_methods.get(name) or [])
+                return WebAPI(self, name, methods)
             self.web = get_web_api(None)
             self.database = get_web_api('database')
             self.web_dataset = get_web_api('dataset')
@@ -1188,26 +1183,28 @@ class Client:
         else:
             self.web = None
 
+        # Request server version
         if self._proxy is None:
-            ver = self.web_webclient.version_info()
-            self.server_version = ver = ver["server_version"]
-            major_minor = re.search(r'\d+\.?\d*', ver).group()
-            self.version_info = float(major_minor)
-            self.db = self.common = None
-            self._object = self._report = self._wizard = None
-            return
-
-        float_version = 99.0
-        self.server_version = ver = get_service('db').server_version()
-        major_minor = re.search(r'\d+\.?\d*', ver).group()
+            self.server_version = self.web_webclient.version_info()["server_version"]
+        else:
+            self.server_version = Service(self, 'db', ['server_version']).server_version()
+        major_minor = re.search(r'\d+\.?\d*', self.server_version).group()
         self.version_info = float_version = float(major_minor)
-        assert float_version > 6.0, f'Not supported: {ver}'
+        assert float_version > 6.0, f'Not supported: {float_version}'
+
         # Create the RPC services
-        self.db = get_service('db')
-        self.common = get_service('common')
-        self._object = get_service('object')
-        self._report = get_service('report') if float_version < 11.0 else None
-        self._wizard = get_service('wizard') if float_version < 7.0 else None
+        if self._proxy is not None:
+
+            def get_service(name):
+                methods = list(_rpc_methods.get(name) or [])
+                if float_version < 11.0:
+                    methods += _obsolete_rpc_methods.get(name) or ()
+                return Service(self, name, methods)
+            self.db = get_service('db')
+            self.common = get_service('common')
+            self._object = get_service('object')
+            self._report = get_service('report') if float_version < 11.0 else None
+            self._wizard = get_service('wizard') if float_version < 7.0 else None
 
     def _post_jsonrpc(self, endpoint='', params=None):
         req_id = f"{os.getpid():04x}{int(time.time() * 1E6) % 2**40:010x}"
@@ -1350,7 +1347,7 @@ class Client:
     def _select_database(self, db_list, limit=20):
         if len(db_list) == 1:
             return db_list[0]
-        if not self._is_interactive():
+        if not db_list or not self._is_interactive():
             return
         print('Available databases:')
         for idx, name in enumerate(db_list[:limit], start=1):
