@@ -1,3 +1,4 @@
+from io import BytesIO
 from urllib.request import HTTPError
 from unittest import mock, TestCase
 from unittest.mock import call, sentinel
@@ -56,7 +57,8 @@ class XmlRpcTestCase(TestCase):
             if url.endswith("/web/session/authenticate"):
                 result = {'uid': uid or self.uid, 'user_context': context}
             else:
-                raise HTTPError(url, 404, 'Not Found', headers, None)
+                with HTTPError(url, 404, 'Not Found', headers, BytesIO()) as not_found:
+                    raise not_found
             return {'result': result}
         return mock.patch('odooly.HTTPSession.request', side_effect=func).start()
 
