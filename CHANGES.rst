@@ -17,6 +17,8 @@ Changelog
 * Change :meth:`Model.sudo` and :meth:`RecordList.sudo` to
   become Superuser, on Odoo >= 12.
 
+* Fix ResourceWarning with Python 3.14.
+
 
 2.4.3 (2025-10-12)
 ~~~~~~~~~~~~~~~~~~

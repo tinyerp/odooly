@@ -155,8 +155,8 @@ class HTTPSession:
             elif data is not None:
                 url, data = f'{url}?{urlencode(data)}', None
             request = Request(url, data=data, headers=headers, method=method)
-            resp = self._session.open(request)
-            return resp if method == 'HEAD' else resp.read().decode() if json is None else _json.load(resp)
+            with self._session.open(request) as resp:
+                return resp if method == 'HEAD' else resp.read().decode() if json is None else _json.load(resp)
 
 
 def _memoize(inst, attr, value, doc_values=None):
