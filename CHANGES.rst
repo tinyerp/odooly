@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-2.x.x (unreleased)
+2.4.4 (2025-10-16)
 ~~~~~~~~~~~~~~~~~~
 
 * Support ``{...}`` string format for :meth:`RecordList.read`
