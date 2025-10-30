@@ -2209,10 +2209,6 @@ class RecordList(BaseRecord):
             msg = f"has no attribute {attr!r}"
         raise AttributeError("'RecordList' object " + msg)
 
-    def __eq__(self, other):
-        return (isinstance(other, RecordList) and
-                self.id == other.id and self._model is other._model)
-
 
 class Record(BaseRecord):
     """A class for all Odoo records.
@@ -2334,10 +2330,6 @@ class Record(BaseRecord):
         if attr == 'id':
             raise AttributeError("'Record' object attribute 'id' is read-only")
         self.write({attr: value})
-
-    def __eq__(self, other):
-        return (isinstance(other, Record) and
-                self.id == other.id and self._model is other._model)
 
 
 def _interact(global_vars, use_pprint=True, usage=USAGE):
