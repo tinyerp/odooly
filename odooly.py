@@ -284,9 +284,11 @@ def format_exception(exc_type, exc, tb, limit=None, chain=True,
 def read_config(section=None):
     """Read the environment settings from the configuration file.
 
-    The config file ``odooly.ini`` contains a `section` for each environment.
-    Each section provides parameters for the connection: ``host``, ``port``,
+    Config file ``odooly.ini`` contains a `section` for each environment.
+    Each section provides parameters for the connection: ``server``,
     ``username`` and (optional) ``database``, ``password`` and ``api_key``.
+    As an alternative, server can be declared with 4 parameters:
+    ``scheme / host / port / protocol``.
     Default values are read from the ``[DEFAULT]`` section.  If the ``password``
     is not set or is empty, it is requested on login.
     Return tuple ``(server, db or None, user, password or None, api_key or None)``.
@@ -299,9 +301,10 @@ def read_config(section=None):
         return p.sections()
     env = dict(p.items(section))
     scheme = env.get('scheme', 'http')
+    server = env.get('server')
     if scheme == 'local':
-        server = shlex.split(env.get('options', ''))
-    else:
+        server = shlex.split(server or env.get('options', ''))
+    elif not server:
         protocol = env.get('protocol', 'web')
         server = f"{scheme}://{env['host']}:{env['port']}/{protocol}"
     return (server, env.get('database', ''), env['username'], env.get('password'), env.get('api_key'))
@@ -1376,7 +1379,7 @@ class Client:
             else:
                 info = self._authenticate_web(login=login, password=password)
             self._session_uid = info.get('uid')
-        except AttributeError:
+        except TypeError:
             # Cannot extract `csrf_token` or `session_info` with Regex
             pass
         except ServerError as exc:
@@ -1398,10 +1401,10 @@ class Client:
             session_info = json.loads(sess)
             if 'user_id' in session_info and 'uid' not in session_info:  # Odoo < 18
                 session_info['uid'] = session_info['user_id']
+            if retry and not session_info['uid']:
+                print('Verification failed')
             if session_info['uid'] or 'totp_token' not in rv or retry == 3:
                 break
-            if retry:
-                print('Verification failed')
 
             # 4. Ask TOTP code
             token = getpass(f"Authentication Code for {kw['login']!r} (2FA 6-digits): ")
