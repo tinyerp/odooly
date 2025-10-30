@@ -18,6 +18,7 @@ import traceback
 
 from configparser import ConfigParser
 from getpass import getpass
+from pathlib import Path
 from string import Formatter
 from threading import current_thread
 from urllib.parse import urlencode, urljoin
@@ -34,8 +35,8 @@ __all__ = ['Client', 'Env', 'HTTPSession', 'WebAPI', 'Service', 'Json2',
            'BaseModel', 'Model', 'BaseRecord', 'Record', 'RecordList',
            'format_exception', 'read_config', 'start_odoo_services']
 
-CONF_FILE = 'odooly.ini'
-HIST_FILE = os.path.expanduser('~/.odooly_history')
+CONF_FILE = Path('odooly.ini')
+HIST_FILE = Path('~/.odooly_history').expanduser()
 DEFAULT_URL = 'http://localhost:8069/'
 ADMIN_USER = 'admin'
 SYSTEM_USER = '__system__'
@@ -295,7 +296,7 @@ def read_config(section=None):
     Without argument, it returns the list of configured environments.
     """
     p = ConfigParser()
-    with open(Client._config_file) as f:
+    with Path(Client._config_file).open() as f:
         p.read_file(f)
     if section is None:
         return p.sections()
@@ -1179,7 +1180,7 @@ class Client:
     table ``res.users``.  If the `password` is not provided, it will be
     asked on login.
     """
-    _config_file = os.path.join(os.curdir, CONF_FILE)
+    _config_file = CONF_FILE
     _saved_config = {}
     _globals = None
 
@@ -1195,7 +1196,7 @@ class Client:
 
     def _set_services(self, server, db, transport, verbose):
         if isinstance(server, list):
-            appname = os.path.basename(__file__).rstrip('co')
+            appname = Path(__file__).name.rstrip('co')
             server = start_odoo_services(server, appname=appname)
         elif isinstance(server, str) and server[-1:] == '/':
             server = server.rstrip('/')
@@ -2402,7 +2403,7 @@ def main(interact=_interact):
         help='read connection settings from the given section')
     parser.add_option(
         '-c', '--config', default=None,
-        help=f'specify alternate config file (default: {CONF_FILE!r})')
+        help=f'specify alternate config file (default: {CONF_FILE})')
     parser.add_option(
         '--server', default=None,
         help=f'full URL of the server (default: {DEFAULT_URL})')
@@ -2429,7 +2430,7 @@ def main(interact=_interact):
 
     (args, domain) = parser.parse_args()
 
-    Client._config_file = os.path.join(os.getcwd(), args.config or CONF_FILE)
+    Client._config_file = Path.cwd() / (args.config or CONF_FILE)
     if args.list_env:
         print('Available settings:  ' + ' '.join(read_config()))
         return
