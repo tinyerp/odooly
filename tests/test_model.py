@@ -33,6 +33,16 @@ class TestCase(XmlRpcTestCase):
             if 'missing' in str(domain):
                 return []
             return [1001, 1002]
+        if method == 'name_get' or (method == 'read' and args[1:2] == (['display_name'],)):
+            ids = list(args[0])
+            if 404 in ids:
+                1 / 0
+            if 8888 in ids:
+                ids[ids.index(8888)] = b'\xdan\xeecode'.decode('latin-1')
+            res = [{'id': res_id, 'display_name': (b'name_%s'.decode() % res_id)} for res_id in ids]
+            if method == 'name_get':
+                return [(val['id'], val['display_name']) for val in res]
+            return res
         if method == 'read':
             if args[0] in ([777], [50]):
                 if model == 'ir.model.data':
@@ -65,24 +75,18 @@ class TestCase(XmlRpcTestCase):
                 return [records[res_id] for res_id in args[0]]
             return [IdentDict(arg, args[1]) for arg in args[0]]
         if method == 'fields_get':
+            keys = ('id', 'display_name')
             if model == 'ir.model.data':
-                keys = ('id', 'model', 'module', 'name', 'res_id')
+                keys += ('model', 'module', 'name', 'res_id')
             elif model == 'res.users':
-                keys = ('id', 'login', 'name', 'password')  # etc ...
+                keys += ('login', 'name', 'password')  # etc ...
             else:
-                keys = ('id', 'name', 'message', 'spam', 'birthdate', 'city')
+                keys += ('name', 'message', 'spam', 'birthdate', 'city')
             fields = dict.fromkeys(keys, {'type': sentinel.FIELD_TYPE})
             fields['misc_id'] = {'type': 'many2one', 'relation': 'foo.misc'}
             fields['line_ids'] = {'type': 'one2many', 'relation': 'foo.lines'}
             fields['many_ids'] = {'type': 'many2many', 'relation': 'foo.many'}
             return fields
-        if method == 'name_get':
-            ids = list(args[0])
-            if 404 in ids:
-                1 / 0
-            if 8888 in ids:
-                ids[ids.index(8888)] = b'\xdan\xeecode'.decode('latin-1')
-            return [(res_id, b'name_%s'.decode() % res_id) for res_id in ids]
         if method == 'context_get':
             return {'tz': 'Europe/Zurich', 'lang': 'en_US'}
         if method in ('create', 'copy'):
@@ -95,6 +99,16 @@ class TestCase(XmlRpcTestCase):
             assert model == 'ir.model.access'
             raise RuntimeError
         return [sentinel.OTHER]
+
+    def _call_display_name(self, model, res_id):
+        if float(self.server_version) < 8.0:
+            return OBJ(model, 'name_get', [res_id])
+        return OBJ(model, 'read', [res_id], ['display_name'])
+
+    def _return_display_name(self, res_id, name):
+        if float(self.server_version) < 8.0:
+            return [(res_id, name)]
+        return [{'id': res_id, 'display_name': name}]
 
     def setUp(self):
         super().setUp()
@@ -1052,8 +1066,8 @@ class TestRecord(TestCase):
 
         self.assertCalls(
             OBJ('foo.bar', 'fields_get'),
-            OBJ('foo.bar', 'name_get', [42]),
-            OBJ('foo.bar', 'name_get', [404]),
+            self._call_display_name('foo.bar', 42),
+            self._call_display_name('foo.bar', 404),
         )
 
         # This str() is never updated (for performance reason).
@@ -1074,7 +1088,7 @@ class TestRecord(TestCase):
 
         self.assertCalls(
             OBJ('foo.bar', 'fields_get'),
-            OBJ('foo.bar', 'name_get', [8888]),
+            self._call_display_name('foo.bar', 8888),
         )
 
     def test_external_id(self):
@@ -1165,26 +1179,24 @@ class TestRecord(TestCase):
         m = self.env['foo.bar']
         self.service.object.execute_kw.side_effect = [
             [{'id': k, 'fld1': 'val%s' % k} for k in [4, 17, 7, 42, 112, 13]],
-            {'fld1': {'type': 'char'}, 'foo_categ_id': {'relation': 'foo.categ', 'type': 'many2one'}},
+            {'fld1': {'type': 'char'}, 'display_name': {'type': 'char'}, 'foo_categ_id': {'relation': 'foo.categ', 'type': 'many2one'}},
             [{'id': k, 'foo_categ_id': [k * 10, 'Categ C%04d' % k]} for k in [4, 17, 7, 42, 112, 13]],
             [{'id': k, 'foo_categ_id': [k * 10, 'Categ C%04d' % k]} for k in [4, 17, 7, 42, 112, 13]],
             [{'id': k * 10, 'fld2': 'f2_%04d' % k} for k in [4, 17, 7, 42, 112, 13]],
             {'fld2': {'type': 'char'}},
-            [(42, 'Record 42')],
-            [(False, '<none>')],
-            [(4, 'Record 4')],
-            [(42, 'Record 42')],
-            [(False, '<none>')],
-            [(4, 'Record 4')],
+            self._return_display_name(42, 'Record 42'),
+            self._return_display_name(4, 'Record 4'),
+            self._return_display_name(42, 'Record 42'),
+            self._return_display_name(4, 'Record 4'),
 
             [{'id': 42, 'foo_categ_id': [33, 'Categ 33']}],
             [{'id': 33, 'fld2': 'c33 f2'}],
-            [(42, 'Sample42')],
-            [(42, 'Sample42')],
+            self._return_display_name(42, 'Sample42'),
+            self._return_display_name(42, 'Sample42'),
 
             [{'id': 88, 'foo_categ_id': [33, 'Categ 33']}],
             [{'id': 33, 'fld2': 'c33 f2'}],
-            [(88, 'Sample88')],
+            self._return_display_name(88, 'Sample88'),
         ]
 
         ids1 = [42, 13, 17, 112, 4, 7]
@@ -1217,21 +1229,19 @@ class TestRecord(TestCase):
             OBJ('foo.bar', 'read', ids1_sorted, ['foo_categ_id']),
             OBJ('foo.categ', 'read', [k * 10 for k in ids1_sorted], ['fld2']),
             OBJ('foo.categ', 'fields_get'),
-            OBJ('foo.bar', 'name_get', [42]),
-            OBJ('foo.bar', 'name_get', [False]),
-            OBJ('foo.bar', 'name_get', [4]),
-            OBJ('foo.bar', 'name_get', [42]),
-            OBJ('foo.bar', 'name_get', [False]),
-            OBJ('foo.bar', 'name_get', [4]),
+            self._call_display_name('foo.bar', 42),
+            self._call_display_name('foo.bar', 4),
+            self._call_display_name('foo.bar', 42),
+            self._call_display_name('foo.bar', 4),
 
             OBJ('foo.bar', 'read', [42], ['foo_categ_id']),
             OBJ('foo.categ', 'read', [33], ['fld2']),
-            OBJ('foo.bar', 'name_get', [42]),
-            OBJ('foo.bar', 'name_get', [42]),
+            self._call_display_name('foo.bar', 42),
+            self._call_display_name('foo.bar', 42),
 
             OBJ('foo.bar', 'read', [88], ['foo_categ_id']),
             OBJ('foo.categ', 'read', [33], ['fld2']),
-            OBJ('foo.bar', 'name_get', [88]),
+            self._call_display_name('foo.bar', 88),
         )
 
         records3 = m.browse([])
@@ -1355,10 +1365,10 @@ class TestRecord(TestCase):
             [42, 4, 7, 17, 112],
             [42, 4, 7, 17, 112],
             [{'id': k, 'fld1': 'val%s' % k} for k in [4, 17, 7, 42, 112, 13]],
-            {'fld1': {'type': 'char'}},
+            {'fld1': {'type': 'char'}, 'display_name': {'type': 'char'}},
             [{'id': k, 'fld1': 'val%s' % k} for k in [4, 17, 7, 42, 112, 13]],
-            [(4, 'Record 4')],
-            [(4, 'Record 4')],
+            self._return_display_name(4, 'Record 4'),
+            self._return_display_name(4, 'Record 4'),
             [{'id': k} for k in [4, 17, 7, 42, 112]],
         ]
 
@@ -1387,8 +1397,8 @@ class TestRecord(TestCase):
             OBJ('foo.bar', 'read', ids1_sorted, ['fld1']),
             OBJ('foo.bar', 'fields_get'),
             OBJ('foo.bar', 'read', ids1_sorted, ['fld1']),
-            OBJ('foo.bar', 'name_get', [4]),
-            OBJ('foo.bar', 'name_get', [4]),
+            self._call_display_name('foo.bar', 4),
+            self._call_display_name('foo.bar', 4),
             OBJ('foo.bar', 'read', ids1_sorted, ['fld1.fld2']),
         )
 

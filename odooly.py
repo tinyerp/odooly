@@ -1586,10 +1586,6 @@ class BaseModel:
 
     ids = ()
 
-    def with_env(self, env):
-        """Attach to the provided environment."""
-        return env[self._name]
-
     def sudo(self, user=None):
         """Attach to the provided user, or Superuser."""
         return self.with_env(self.env.sudo(user=user))
@@ -1623,6 +1619,10 @@ class Model(BaseModel):
 
     def __repr__(self):
         return f"<Model '{self._name}'>"
+
+    def with_env(self, env):
+        """Attach to the provided environment."""
+        return env[self._name]
 
     def keys(self):
         """Return the keys of the model."""
@@ -1874,7 +1874,7 @@ class BaseRecord(BaseModel):
         if isinstance(inst, Record):
             attrs['_cached_keys'] = set()
             if name is not None:
-                attrs['_Record__name'] = name
+                attrs['_Record__name'] = attrs['display_name'] = name
         # Bypass the __setattr__ method
         inst.__dict__.update(attrs)
         return inst
@@ -2224,16 +2224,18 @@ class Record(BaseRecord):
     """
 
     def __str__(self):
-        return self.__name
+        return self.__name if self.id else 'False'
 
     def _get_name(self):
         try:
-            (id_name,) = self._execute('name_get', [self.id])
-            name = f'{id_name[1]}'
+            if self.env.client.version_info < 8.0:
+                [(id_, name)] = self._execute('name_get', [self.id])
+            else:
+                name = self.display_name
         except Exception:
             name = f'{self._name},{self.id}'
-        self.__dict__['_idnames'] = [(self.id, name)]
-        return _memoize(self, '_Record__name', name)
+        self.__dict__['_idnames'] = [(self.id, str(name))]
+        return _memoize(self, '_Record__name', str(name))
 
     def refresh(self):
         """Force refreshing the record's data."""
