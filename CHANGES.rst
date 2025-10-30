@@ -5,6 +5,8 @@ Changelog
 2.x.x (unreleased)
 ~~~~~~~~~~~~~~~~~~
 
+* Configure ``server = ...`` instead of ``scheme / host / port / protocol``.
+
 * Better error message for ``in`` operator on :class:`RecordList`.
 
 * Use ``display_name`` instead of ``name_get()`` for Odoo >= 8,
