@@ -974,10 +974,10 @@ class TestRecord(TestCase):
         rec1 = self.env['foo.bar'].get(88)
 
         sum1 = records1 + records2
-        sum2 = records1 + records3
+        sum2 = records1 | records3
         sum3 = records3
         sum3 += records1
-        sum4 = rec1 + records1
+        sum4 = rec1 | records1
         sum5 = rec1 + rec1
         self.assertIsInstance(sum1, odooly.RecordList)
         self.assertIsInstance(sum2, odooly.RecordList)
@@ -990,11 +990,23 @@ class TestRecord(TestCase):
         self.assertEqual(records3.id, [13, 17])
         self.assertEqual(sum4.id, [88, 42])
         self.assertEqual(sum5.id, [88, 88])
+        self.assertTrue(records1 in sum2)
+        self.assertFalse(records3 in sum1)
 
-        with self.assertRaises(TypeError):
+        with self.assertRaises(TypeError) as cm:
             records1 + records4
-        with self.assertRaises(TypeError):
+        expected = "Mixing apples and oranges: <RecordList 'foo.bar,[42]'> + <RecordList 'foo.other,[4]'>"
+        self.assertEqual(cm.exception.args, (expected,))
+
+        with self.assertRaises(TypeError) as cm:
             records1 + [rec1]
+        expected = "Mixing apples and oranges: <RecordList 'foo.bar,[42]'> + [<Record 'foo.bar,88'>]"
+        self.assertEqual(cm.exception.args, (expected,))
+
+        with self.assertRaises(TypeError) as cm:
+            records4 in records3
+        expected = "Mixing apples and oranges: <RecordList 'foo.other,[4]'> in <RecordList 'foo.bar,[13, 17]'>"
+        self.assertEqual(cm.exception.args, (expected,))
 
         self.assertCalls()
         self.assertOutput('')
