@@ -2,6 +2,12 @@ Changelog
 ---------
 
 
+2.x.x (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* Better error message for ``in`` operator on :class:`RecordList`.
+
+
 2.4.4 (2025-10-16)
 ~~~~~~~~~~~~~~~~~~
 

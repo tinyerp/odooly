@@ -1908,7 +1908,7 @@ class BaseRecord(BaseModel):
 
     def __contains__(self, item):
         if isinstance(item, BaseRecord):
-            self._check_model(item, 'contains')
+            item._check_model(self, 'in')
             return len(item) == 1 and item.ids[0] in self.ids
 
     def __add__(self, other):
