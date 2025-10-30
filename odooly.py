@@ -417,7 +417,7 @@ def parse_http_response(method, result, regex):
     if method == 'HEAD':
         return result.url
     found = re.search(regex or r'odoo._*session_info_* = (.*);', result)
-    return found and found.group(1)
+    return found and (found.group(1) if regex else json.loads(found.group(1)))
 
 
 class partial(functools.partial):
@@ -1398,11 +1398,10 @@ class Client:
         __, csrf = self._request_parse('/web' + qs, regex=r'csrf_token: "(\w+)"')
 
         # 2. Login
-        rv, sess = self._request_parse('/web/login', data={'csrf_token': csrf, **kw})
+        rv, session_info = self._request_parse('/web/login', data={'csrf_token': csrf, **kw})
 
         for retry in range(4):
             # 3. Parse 'session_info'
-            session_info = json.loads(sess)
             if 'user_id' in session_info and 'uid' not in session_info:  # Odoo < 18
                 session_info['uid'] = session_info['user_id']
             if retry and not session_info['uid']:
@@ -1415,11 +1414,11 @@ class Client:
 
             # 5. Submit TOTP
             params = {'csrf_token': csrf, 'totp_token': token, 'remember': 1}
-            rv, sess = self._request_parse('/web/login/totp', data=params)
+            rv, session_info = self._request_parse('/web/login/totp', data=params)
         return session_info
 
     def _authenticate_system(self):
-        session_info = json.loads(self._request_parse('/web/become')[1])
+        __, session_info = self._request_parse('/web/become')
         self._session_uid = session_info.get('uid')
         if self._session_uid != 1:
             raise Error("Cannot become Superuser")
