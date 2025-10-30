@@ -2257,7 +2257,7 @@ class Record(BaseRecord):
         rv = self._model.read(self.id, fields)
         if isinstance(rv, dict):
             return self._update(rv)
-        elif isinstance(fields, str) and '%(' not in fields:
+        if isinstance(fields, str) and fields in self._model._keys:
             return self._update({fields: rv})[fields]
         return rv
 
