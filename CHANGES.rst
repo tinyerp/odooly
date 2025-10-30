@@ -2,6 +2,12 @@ Changelog
 ---------
 
 
+2.4.x (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* Fix ``sudo()`` KeyError in some cases.
+
+
 2.4.5 (2025-10-30)
 ~~~~~~~~~~~~~~~~~~
 
