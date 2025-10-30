@@ -7,6 +7,9 @@ Changelog
 
 * Better error message for ``in`` operator on :class:`RecordList`.
 
+* Use ``display_name`` instead of ``name_get()`` for Odoo >= 8,
+  because ``name_get`` is deprecated in Odoo 17 and removed in Odoo 18.
+
 
 2.4.4 (2025-10-16)
 ~~~~~~~~~~~~~~~~~~
