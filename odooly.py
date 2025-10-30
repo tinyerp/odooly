@@ -40,6 +40,7 @@ DEFAULT_URL = 'http://localhost:8069/'
 ADMIN_USER = 'admin'
 SYSTEM_USER = '__system__'
 MAXCOL = [79, 179, 9999]    # Line length in verbose mode
+USER_AGENT = 'Mozilla/5.0 (X11)'
 
 USAGE = """\
 Usage (some commands):
@@ -406,6 +407,13 @@ def readfmt(arg):
         fields = arg.split()
         formatter = (lambda d: d[fields[0]]) if len(fields) == 1 else None
     return fields, formatter
+
+
+def parse_http_response(method, result, regex):
+    if method == 'HEAD':
+        return result.url
+    found = re.search(regex or r'odoo._*session_info_* = (.*);', result)
+    return found and found.group(1)
 
 
 class partial(functools.partial):
@@ -1248,25 +1256,19 @@ class Client:
             self._report = get_service('report') if float_version < 11.0 else None
             self._wizard = get_service('wizard') if float_version < 7.0 else None
 
-    def _parse_response(self, method, result, regex):
-        if method == 'HEAD':
-            return result.url
-        found = re.search(regex or r'odoo._*session_info_* = (.*);', result)
-        return found and found.group(1)
-
     def _request_parse(self, path, *, method=None, data=None, headers=None, regex=None):
-        headers = {'User-Agent': 'Mozilla/5.0 (X11)', **(headers or {})}
+        headers = {'User-Agent': USER_AGENT, **(headers or {})}
         verb = method or ('GET' if data is None else 'POST')
         url = urljoin(self._server, path)
         if not self._printer:
             res = self._http.request(url, data=data, headers=headers, method=verb)
-            return res, self._parse_response(verb, res, regex)
+            return res, parse_http_response(verb, res, regex)
 
         snt = ' '.join(format_params(data or {}))
         with self._printer as log:
             log.print_sent(f"{verb} {path} {snt}".rstrip())
             res = self._http.request(url, data=data, headers=headers, method=verb)
-            parsed = self._parse_response(verb, res, regex)
+            parsed = parse_http_response(verb, res, regex)
             log.print_recv(parsed, str)
         return res, parsed
 
