@@ -20,8 +20,8 @@ from configparser import ConfigParser
 from getpass import getpass
 from string import Formatter
 from threading import current_thread
-from urllib.parse import urljoin, urlencode
-from xmlrpc.client import Fault, ServerProxy, MININT, MAXINT
+from urllib.parse import urlencode, urljoin
+from xmlrpc.client import Fault, MININT, MAXINT, ServerProxy
 
 try:
     import requests
@@ -2142,7 +2142,11 @@ class RecordList(BaseRecord):
     """
 
     def read(self, fields=None):
-        """Wrapper for :meth:`Record.read` method."""
+        """Read the `fields` of the :class:`RecordList`.
+
+        The argument `fields` accepts different kinds of values.
+        See :meth:`Model.read` for details.
+        """
         if self.id:
             values = self._model.read(self.id, fields, order=True)
             if is_list_of_dict(values):
