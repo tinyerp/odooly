@@ -2344,11 +2344,16 @@ def _interact(global_vars, use_pprint=True, usage=USAGE):
     if use_pprint:
         def displayhook(value, _printer=pprint.pprint, _builtins=builtins):
             # Pretty-format the output
-            if value is None:
-                return
-            _printer(value)
-            _builtins._ = value
+            if value is not None:
+                _printer(value)
+                _builtins._ = value
         sys.displayhook = displayhook
+
+    def excepthook(exc_type, exc, tb):
+        # Print readable 'Fault' errors
+        msg = ''.join(format_exception(exc_type, exc, tb, chain=False))
+        print(msg.strip())
+    sys.excepthook = excepthook
 
     class Usage:
         def __call__(self):
@@ -2370,21 +2375,8 @@ def _interact(global_vars, use_pprint=True, usage=USAGE):
         # better append instead of replace?
         atexit.register(rl.write_history_file, HIST_FILE)
 
-    class Console(code.InteractiveConsole):
-        def runcode(self, code):
-            try:
-                exec(code, global_vars)
-            except SystemExit:
-                raise
-            except:
-                # Print readable 'Fault' errors
-                # Work around http://bugs.python.org/issue12643
-                (exc_type, exc, tb) = sys.exc_info()
-                msg = ''.join(format_exception(exc_type, exc, tb, chain=False))
-                print(msg.strip())
-
     # Key UP to avoid an empty line
-    Console().interact('\033[A')
+    code.InteractiveConsole(global_vars).interact('\033[A', '')
 
 
 def main(interact=_interact):
@@ -2435,7 +2427,7 @@ def main(interact=_interact):
         print('Available settings:  ' + ' '.join(read_config()))
         return
 
-    if (args.interact or not args.model):
+    if args.interact or not args.model:
         global_vars = Client._set_interactive()
         print(USAGE)
 
