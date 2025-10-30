@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-2.x.x (unreleased)
+2.4.5 (2025-10-30)
 ~~~~~~~~~~~~~~~~~~
 
 * Configure ``server = ...`` instead of ``scheme / host / port / protocol``.
