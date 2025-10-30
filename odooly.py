@@ -2310,12 +2310,8 @@ class Record(BaseRecord):
                   '&', ('model', '=', self._name), ('res_id', '=', self.id)]
         if self.env['ir.model.data'].search(domain):
             raise ValueError(f'ID {xml_id!r} collides with another entry')
-        self.env['ir.model.data'].create({
-            'model': self._name,
-            'res_id': self.id,
-            'module': mod,
-            'name': name,
-        })
+        values = {'model': self._name, 'res_id': self.id, 'module': mod, 'name': name}
+        self.env['ir.model.data'].create(values)
 
     def __getattr__(self, attr):
         if attr in self._model._keys:
