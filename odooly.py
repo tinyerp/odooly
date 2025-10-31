@@ -962,9 +962,10 @@ class Env:
 
     def _models_get(self, name, check=False):
         if name not in self._model_names:
-            if check:
+            if not check:
+                self._model_names.add(name)
+            elif self.access('ir.model'):
                 raise KeyError(name)
-            self._model_names.add(name)
         try:
             return self._models[name]
         except KeyError:
