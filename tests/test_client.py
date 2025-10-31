@@ -314,7 +314,7 @@ class TestSampleSession(XmlRpcTestCase):
 
     def test_simple(self):
         self.service.object.execute_kw.side_effect = [
-            4, 71, [{'model': 'ir.cron'}], sentinel.IDS, sentinel.CRON]
+            4, True, 71, [{'model': 'ir.cron'}], sentinel.IDS, sentinel.CRON]
 
         res_users = self.env['res.users']
         self.assertEqual(res_users.search_count(), 4)
@@ -322,6 +322,7 @@ class TestSampleSession(XmlRpcTestCase):
             ['active = False'], 'active function'), sentinel.CRON)
         self.assertCalls(
             OBJ('res.users', 'search_count', []),
+            OBJ('ir.model.access', 'check', 'ir.model', 'read'),
             OBJ('ir.model', 'search', [('model', 'like', 'ir.cron')]),
             OBJ('ir.model', 'read', 71, ('model',)),
             OBJ('ir.cron', 'search', [('active', '=', False)]),
@@ -481,23 +482,23 @@ class TestClientApi(XmlRpcTestCase):
 
         if float(self.server_version) < 8.0:
             expected_calls = [
+                OBJ('ir.model.access', 'check', 'ir.model', 'read'),
                 OBJ('ir.model', 'search', [('model', 'like', 'foo.bar')]),
                 OBJ('ir.model', 'read', [ID2, ID1], ('model',)),
             ]
-            side_effect = [[ID2, ID1], [{'id': 13, 'model': 'foo.bar'}]]
+            side_effect = [True, [ID2, ID1], [{'id': 13, 'model': 'foo.bar'}]]
         else:
             expected_calls = [
+                OBJ('ir.model.access', 'check', 'ir.model', 'read'),
                 OBJ('ir.model', 'search_read', [('model', 'like', 'foo.bar')], ('model',)),
             ]
-            side_effect = [[{'id': 13, 'model': 'foo.bar'}]]
+            side_effect = [True, [{'id': 13, 'model': 'foo.bar'}]]
 
         self.assertTrue(self.env.models('foo.bar'))
-        self.assertCalls(*expected_calls)
-        self.assertOutput('')
+        self.assertCalls(*expected_calls[1:])
 
         self.assertRaises(odooly.Error, self.env.__getitem__, 'foo.bar')
         self.assertCalls(*expected_calls)
-        self.assertOutput('')
 
         self.service.object.execute_kw.side_effect = side_effect
         self.assertIsInstance(self.env['foo.bar'], odooly.Model)

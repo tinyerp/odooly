@@ -612,7 +612,7 @@ class Json2:
     def _check(self, uid=None):
         url = urljoin(self._server, f'{self._endpoint}/res.users/context_get')
         try:
-            context = self._http.request(url, json={}, headers=self._headers, method='POST')
+            context = self._http.request(url, json={}, headers=self._headers)
         except (OSError, ServerError):
             return False
         return self if (not uid or uid == context['uid']) else False
