@@ -10,6 +10,8 @@ Changelog
 
 * Fix ``sudo()`` KeyError in some cases.
 
+* Do not raise an error when a field is read on a ghost :class:`Record`.
+
 
 2.4.5 (2025-10-30)
 ~~~~~~~~~~~~~~~~~~

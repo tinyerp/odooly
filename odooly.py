@@ -950,7 +950,7 @@ class Env:
             # in case of missing records or duplicate ID
             resdic = {val['id']: val for val in res}
             res = [resdic.get(id_, False) for id_ in order_ids]
-        return res[0] if single_id else res
+        return (res or [None])[0] if single_id else res
 
     def access(self, model_name, mode="read"):
         """Check if the user has access to this model.
@@ -2263,7 +2263,7 @@ class Record(BaseRecord):
         rv = self._model.read(self.id, fields)
         if isinstance(rv, dict):
             return self._update(rv)
-        if isinstance(fields, str) and fields in self._model._keys:
+        if rv is not None and isinstance(fields, str) and fields in self._model._keys:
             return self._update({fields: rv})[fields]
         return rv
 
