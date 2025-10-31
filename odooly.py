@@ -144,6 +144,9 @@ class HTTPSession:
             resp.raise_for_status()
             return resp if method == 'HEAD' else resp.text if json is None else resp.json()
 
+        def _parse_error(self, error):
+            return error.response.status_code, error.response.json()
+
     else:  # urllib.request
         def __init__(self):
             self._session = build_opener(HTTPCookieProcessor(), HTTPSHandler(context=http_context))
@@ -159,6 +162,9 @@ class HTTPSession:
             request = Request(url, data=data, headers=headers, method=method)
             with self._session.open(request) as resp:
                 return resp if method == 'HEAD' else resp.read().decode() if json is None else _json.load(resp)
+
+        def _parse_error(self, error):
+            return error.code, json.load(error)
 
 
 def _memoize(inst, attr, value, doc_values=None):
@@ -551,7 +557,7 @@ class Json2:
     _doc_endpoint = '/doc-bearer'
 
     def __init__(self, client, database, api_key):
-        self._req = HTTPSession().request
+        self._http = HTTPSession()
         self._server = urljoin(client._server, '/')
         self._headers = {
             'Authorization': f'Bearer {api_key}',
@@ -594,10 +600,19 @@ class Json2:
     def __repr__(self):
         return f"<Json2 '{self._server[:-1]}{self._endpoint}'>"
 
+    def _req(self, url, json, headers, method):
+        try:
+            return self._http.request(url, method=method, json=json, headers=headers)
+        except OSError as exc:
+            status_code, result = self._http._parse_error(exc)
+            if status_code == 422:  # UnprocessableEntity
+                raise ServerError({'code': status_code, 'data': result})
+            raise
+
     def _check(self, uid=None):
         url = urljoin(self._server, f'{self._endpoint}/res.users/context_get')
         try:
-            context = self._req(url, json={}, headers=self._headers)
+            context = self._http.request(url, json={}, headers=self._headers, method='POST')
         except (OSError, ServerError):
             return False
         return self if (not uid or uid == context['uid']) else False
