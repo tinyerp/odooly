@@ -59,7 +59,7 @@ Usage (some commands):
     rec.read(fields=None)           # Return values for the fields
 
     client.login(user)              # Login with another user
-    client.connect(env)             # Connect to another env.
+    client.connect(env_name)        # Connect to another env.
     client.connect(server=None)     # Connect to another server
     env.models(name)                # List models matching pattern
     env.modules(name)               # List modules matching pattern

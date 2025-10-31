@@ -65,7 +65,7 @@ On login, it prints few lines about the commands available.
         rec.read(fields=None)           # Return values for the fields
 
         client.login(user)              # Login with another user
-        client.connect(env)             # Connect to another env.
+        client.connect(env_name)        # Connect to another env.
         client.connect(server=None)     # Connect to another server
         env.models(name)                # List models matching pattern
         env.modules(name)               # List modules matching pattern
@@ -82,7 +82,7 @@ And it confirms that the default database is not available::
 Though, we have a connected client, ready to use::
 
     >>> client
-    <Client 'http://localhost:8069/web#()'>
+    <Client 'http://localhost:8069/web?db='>
     >>> client.server_version
     '18.0'
     >>> #
@@ -105,7 +105,7 @@ Default password is ``"admin"``.
     >>> client.create_database('super_password', 'demo')
     Logged in as 'admin'
     >>> client
-    <Client 'http://localhost:8069/web#demo'>
+    <Client 'http://localhost:8069/web?db=demo'>
     >>> client.database.list()
     ['demo']
     >>> env
@@ -113,7 +113,7 @@ Default password is ``"admin"``.
     >>> env.modules(installed=True)
     {'installed': ['base', 'web', 'web_mobile', 'web_tests']}
     >>> len(env.modules()['uninstalled'])
-    202
+    1398
     >>> #
 
 .. note::
@@ -122,8 +122,7 @@ Default password is ``"admin"``.
    environments.  Example::
 
        [DEFAULT]
-       host = localhost
-       port = 8069
+       server = http://localhost:8069/web
 
        [demo]
        database = demo
@@ -146,15 +145,15 @@ database name and the superadmin password.
     >>> client.clone_database('super_password', 'demo_test')
     Logged in as 'admin'
     >>> client
-    <Client 'http://localhost:8069/web#demo_test'>
+    <Client 'http://localhost:8069/web?db=demo_test'>
     >>> client.database.list()
     ['demo', 'demo_test']
     >>> env
-    <Env 'admin@demo'>
+    <Env 'admin@demo_test'>
     >>> client.modules(installed=True)
     {'installed': ['base', 'web', 'web_mobile', 'web_tests']}
     >>> len(client.modules()['uninstalled'])
-    202
+    1398
     >>> #
 
 
@@ -169,7 +168,7 @@ Where is the table for the users?
 .. sourcecode:: pycon
 
     >>> client
-    <Client 'http://localhost:8069/web#demo'>
+    <Client 'http://localhost:8069/web?db=demo'>
     >>> env.models('user')
     ['res.users', 'res.users.log']
 
@@ -212,19 +211,25 @@ Let's examine the ``'admin'`` user in details.
     >>> env['res.users'].search_count()
     1
     >>> admin_user = env['res.users'].browse(1)
-    >>> admin_user.group_ids
-    <RecordList 'res.groups,[1, 2, 3]'>
-    >>> admin_user.group_ids.full_name
+    >>> admin_user.groups_id
+    <RecordList 'res.groups,length=7'>
+    >>> admin_user.groups_id.full_name
     ['Administration / Access Rights',
-     'Administration / Configuration',
-     'Human Resources / Employee']
+     'Technical / Access to export feature',
+     'Bypass HTML Field Sanitize',
+     'Extra Rights / Contact Creation',
+     'User types / Internal User',
+     'Administration / Settings',
+     'Extra Rights / Technical Features']
     >>> admin_user.get_metadata()
-    {'create_date': False,
-     'create_uid': False,
-     'id': 1,
-     'write_date': '2012-09-01 09:01:36.631090',
-     'write_uid': [1, 'Administrator'],
-     'xmlid': 'base.user_admin'}
+    [{'create_date': '2024-10-01 10:08:20',
+      'create_uid': False,
+      'id': 1,
+      'noupdate': True,
+      'write_date': '2024-10-01 10:08:30',
+      'write_uid': [1, 'System'],
+      'xmlid': 'base.user_root',
+      'xmlids': [{'noupdate': True, 'xmlid': 'base.user_root'}]}]
 
 
 Create a new user
@@ -235,25 +240,27 @@ Let's create ``Joe``.
 
 .. sourcecode:: pycon
 
-    >>> env['res.users'].create({'login': 'joe'})
-    Fault: Integrity Error
+    >>> env['res.users'].create({'name': 'Joe'})
+    odoo.exceptions.ValidationError: The operation cannot be completed:
+    - Create/update: a mandatory field is not set.
+    - Delete: another model requires the record being deleted. If possible, archive it instead.
 
-    The operation cannot be completed, probably due to the following:
-    - deletion: you may be trying to delete a record while other records still reference it
-    - creation/update: a mandatory field is not correctly set
-
-    [object with reference: name - name]
+    Model: User (res.users)
+    Field: Login (login)
     >>> #
 
-It seems we've forgotten some mandatory data.  Let's give him a ``name``.
+It seems we've forgotten some mandatory data.  Let's give him a ``name`` and a ``login``.
 
 .. sourcecode:: pycon
 
     >>> env['res.users'].create({'login': 'joe', 'name': 'Joe'})
     <Record 'res.users,3'>
     >>> joe_user = _
-    >>> joe_user.group_ids.full_name
-    ['Human Resources / Employee', 'Partner Manager']
+    >>> joe_user.groups_id.full_name
+    ['Technical / Access to export feature',
+     'Extra Rights / Contact Creation',
+     'User types / Internal User',
+     'Extra Rights / Technical Features']
 
 The user ``Joe`` does not have a password: we cannot login as ``joe``.
 We set a password for ``Joe`` and we try again.
@@ -285,72 +292,81 @@ We keep connected as user ``Joe`` and we explore the world around us.
     >>> env.user.login
     'joe'
     >>> all_models = env.models()
-    >>> len(all_models)
-    92
+    odoo.exceptions.AccessError: You are not allowed to access 'Models' (ir.model) records.
 
-Among these 92 objects, some of them are ``read-only``, others are
+    This operation is allowed for the following groups:
+            - Administration/Access Rights
+
+    Contact your administrator to request access if necessary.
+    >>> all_models = env.sudo().models()
+    >>> len(all_models)
+    140
+
+Among these 140 objects, some of them are ``read-only``, others are
 ``read-write``.  We can also filter the ``non-empty`` models.
 
 .. sourcecode:: pycon
 
     >>> # Read-only models
     >>> len([m for m in all_models if not env[m].access('write')])
-    44
+    116
     >>> #
     >>> # Writable but cannot delete
     >>> [m for m in all_models if env[m].access('write') and not env[m].access('unlink')]
-    ['ir.property', 'web.planner']
+    ['base.language.export',
+     'base.partner.merge.automatic.wizard',
+     'base_import.import',
+     'res.users.identitycheck']
     >>> #
     >>> # Unreadable models
-    >>> [m for m in all_models if not env[m].access('read')]
-    ['ir.actions.todo',
-     'ir.actions.todo.category',
-     'res.payterm']
+    >>> len([m for m in all_models if not env[m].access('read')])
+    94
     >>> #
     >>> # Now print the number of entries in all (readable) models
     >>> for m in all_models:
+    ...     if m == 'res.users.apikeys.show':
+    ...         continue  # This one returns an error
     ...     mcount = env[m].access() and env[m].search_count()
     ...     if not mcount:
     ...         continue
     ...     print('%4d  %s' % (mcount, m))
-    ... 
-       1  ir.actions.act_url
-      64  ir.actions.act_window
-      14  ir.actions.act_window.view
-      76  ir.actions.act_window_close
-      76  ir.actions.actions
-       4  ir.actions.client
-       4  ir.actions.report
-       3  ir.actions.server
+    ...
+       1  iap.service
+       1  ir.attachment
        1  ir.default
-     112  ir.model
-    3649  ir.model.data
-    1382  ir.model.fields
-      33  ir.ui.menu
-     221  ir.ui.view
+      22  ir.ui.menu
+       7  report.layout
        3  report.paperformat
+       2  res.bank
        1  res.company
-     249  res.country
-       2  res.country.group
-     678  res.country.state
-       2  res.currency
-       9  res.groups
+     250  res.country
+       6  res.country.group
+    1780  res.country.state
+       1  res.currency
+     162  res.currency.rate
+      11  res.groups
        1  res.lang
-       5  res.partner
+      38  res.partner
+       1  res.partner.bank
+       7  res.partner.category
       21  res.partner.industry
        5  res.partner.title
-       1  res.request.link
        4  res.users
-      12  res.users.log
+       1  res.users.settings
     >>> #
     >>> # Show the content of a model
-    >>> config_params = env['ir.config_parameter'].search([])
-    >>> config_params.read('key value')
-    [{'id': 1, 'key': 'web.base.url', 'value': 'http://localhost:8069'},
-     {'id': 2, 'key': 'database.create_date', 'value': '2012-09-01 09:01:12'},
-     {'id': 3,
-      'key': 'database.uuid',
-      'value': '52fc9630-f49e-2222-e622-08002763afeb'}]
+    >>> config_params = env['ir.config_parameter'].sudo().search([])
+    >>> config_params.read('[{id:2}]  {key:30} {value}')
+    ['[ 8]  base.default_max_email_size    10',
+     '[ 5]  base.login_cooldown_after      10',
+     '[ 6]  base.login_cooldown_duration   60',
+     '[ 7]  base.template_portal_user_id   5',
+     '[10]  base_setup.default_user_rights True',
+     '[ 9]  base_setup.show_effect         True',
+     '[ 3]  database.create_date           2024-10-01 06:10:24',
+     '[ 1]  database.secret                88888888-8888-8888-8888-888888888888',
+     '[ 2]  database.uuid                  77777777-7777-7777-7777-777777777777',
+     '[ 4]  web.base.url                   http://localhost:8069']
 
 
 Browse the records
@@ -361,17 +377,14 @@ Query the ``"res.country"`` model::
     >>> env['res.country'].keys()
     ['address_format', 'code', 'name']
     >>> env['res.country'].search(['name like public'])
-    <RecordList 'res.country,[41, 42, 57, 62, 144]'>
+    <RecordList 'res.country,[...]'>
     >>> env['res.country'].search(['name like public']).name
     ['Central African Republic',
-     'Congo, Democratic Republic of the',
      'Czech Republic',
-     'Dominican Republic',
-     'Macedonia, the former Yugoslav Republic of']
-    >>> env['res.country'].search(['code > Y'], order='code ASC').read('code name')
+     'Democratic Republic of the Congo',
+     'Dominican Republic']
     >>> env['res.country'].search(['code > X'], order='code ASC').read('{code} {name}')
-    ['XI Northern Ireland',
-     'XK Kosovo',
+    ['XK Kosovo',
      'YE Yemen',
      'YT Mayotte',
      'ZA South Africa',
