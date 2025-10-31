@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-2.4.x (unreleased)
+2.4.6 (2025-10-31)
 ~~~~~~~~~~~~~~~~~~
 
 * For WebAPI and JSON-RPC, do not print traceback for common
