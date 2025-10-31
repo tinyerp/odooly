@@ -5,6 +5,9 @@ Changelog
 2.4.x (unreleased)
 ~~~~~~~~~~~~~~~~~~
 
+* For WebAPI and JSON-RPC, do not print traceback for common
+  Odoo errors, like ``UserError`` and ``ValidationError``.
+
 * Fix ``sudo()`` KeyError in some cases.
 
 

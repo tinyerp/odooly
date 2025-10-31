@@ -238,30 +238,26 @@ def format_exception(exc_type, exc, tb, limit=None, chain=True,
         values = [f"{exc}\n"]
     elif issubclass(exc_type, OSError):         # HTTPError (requests or urllib)
         values = [f"{exc_type.__name__}: {exc}\n"]
-    elif issubclass(exc_type, ServerError):     # JSON-RPC
+    elif issubclass(exc_type, ServerError):     # JSON-RPC or Web API
         server_error = exc.args[0]['data']
+        print_tb = not server_error.get('name', '').startswith('odoo.')
     elif (issubclass(exc_type, Fault) and       # XML-RPC
           isinstance(exc.faultCode, str)):
         (message, tb) = (exc.faultCode, exc.faultString)
         exc_name = exc_type.__name__
-        warning = message.startswith('warning --')
-        if warning:
+        print_tb = not message.startswith('warning --')
+        if print_tb:       # ValidationError, DatabaseExists, etc ...
+            parts = message.rsplit('\n', 1)
+            if parts[-1] == 'None':
+                message, print_tb = parts[0], False
+            last_line = tb.rstrip().rsplit('\n', 1)[-1]
+            if last_line.startswith('odoo.'):
+                exc_name, print_tb = last_line.split(':', 1)[0], False
+        else:
             message = re.sub(r'\((.*), None\)$',
                              lambda m: literal_eval(m.group(1)),
                              message.split(None, 2)[2])
-        else:       # ValidationError, DatabaseExists, etc ...
-            parts = message.rsplit('\n', 1)
-            if parts[-1] == 'None':
-                warning, message = True, parts[0]
-            last_line = tb.rstrip().rsplit('\n', 1)[-1]
-            if last_line.startswith('odoo.'):
-                warning, exc_name = True, last_line.split(':', 1)[0]
-        server_error = {
-            'exception_type': 'warning' if warning else 'internal_error',
-            'name': exc_name,
-            'arguments': (message,),
-            'debug': tb,
-        }
+        server_error = {'name': exc_name, 'arguments': (message,), 'debug': tb}
     if server_error:
         # Format readable XML-RPC and JSON-RPC errors
         try:
@@ -269,16 +265,12 @@ def format_exception(exc_type, exc, tb, limit=None, chain=True,
         except Exception:
             message = str(server_error['arguments'])
         fault = f"{server_error['name']}: {message}"
-        exc_type = server_error.get('exception_type', 'internal_error')
-        if exc_type != 'internal_error' or message.startswith('FATAL:'):
-            server_tb = None
-        else:
-            server_tb = server_error['debug']
+        tb = print_tb and not message.startswith('FATAL:') and server_error['debug']
         if chain:
-            values = [server_tb or fault, _cause_message] + values
+            values = [tb or fault, _cause_message] + values
             values[-1] = fault
         else:
-            values = [server_tb or fault]
+            values = [tb or fault]
     return values
 
 
