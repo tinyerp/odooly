@@ -2,6 +2,13 @@ Changelog
 ---------
 
 
+2.5.x (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* Interactive: add possibility to change verbosity. E.g.:
+  ``client._printer.cols = 180``.  Set to ``0`` to disable.
+
+
 2.4.6 (2025-10-31)
 ~~~~~~~~~~~~~~~~~~
 

@@ -29,7 +29,7 @@ try:
 except ImportError:
     requests = None
 
-__version__ = '2.4.6'
+__version__ = '2.4.7.dev0'
 __all__ = ['Client', 'Env', 'HTTPSession', 'WebAPI', 'Service', 'Json2',
            'Printer', 'Error', 'ServerError',
            'BaseModel', 'Model', 'BaseRecord', 'Record', 'RecordList',
@@ -429,22 +429,22 @@ class ServerError(Exception):
 
 
 class Printer:
-    def __init__(self, verbose):
-        self._maxcol = MAXCOL[min(len(MAXCOL), verbose) - 1]
+    def __init__(self, cols):
+        self.cols = MAXCOL[min(3, cols) - 1] if (cols or 9) < 9 else cols or None
 
-    def print_sent(self, request):
-        snt = str(request)
-        if len(snt) > self._maxcol:
-            suffix = f"... L={len(snt)}"
-            snt = snt[:self._maxcol - len(suffix)] + suffix
-        print(f"--> {snt}")
+    def _print_(self, message, _prefix):
+        cols = max(36, self.cols)
+        xch = str(message)
+        if len(xch) > cols:
+            suffix = f"... L={len(xch)}"
+            xch = xch[:cols - len(suffix)] + suffix
+        print(f"{_prefix} {xch}")
 
-    def print_recv(self, result, _convert=repr):
-        rcv = _convert(result)
-        if len(rcv) > self._maxcol:
-            suffix = f"... L={len(rcv)}"
-            rcv = rcv[:self._maxcol - len(suffix)] + suffix
-        print(f"<-- {rcv}")
+    print_sent = functools.partialmethod(_print_, _prefix='-->')
+    print_recv = functools.partialmethod(_print_, _prefix='<--')
+
+    def __bool__(self):
+        return bool(self.cols)
 
     def __enter__(self):
         return self
@@ -453,7 +453,7 @@ class Printer:
         if exc_type:
             if issubclass(exc_type, ServerError):
                 exc = exc.args[0]["data"]["name"]
-            self.print_recv(f"{exc_type.__name__}: {exc}", str)
+            self.print_recv(f"{exc_type.__name__}: {exc}")
 
 
 class WebAPI:
@@ -483,18 +483,16 @@ class WebAPI:
         return sorted(self._methods)
 
     def __getattr__(self, name):
-        if self._printer:
-            def wrapper(self, _func=None, **params):
-                method = f'{name}/{_func}' if _func else name
-                snt = ' '.join(format_params(params))
-                with self._printer as log:
-                    log.print_sent(f"POST {self._endpoint}/{method} {snt}")
-                    res = self._dispatch(method, params)
-                    log.print_recv(res)
-                return res
-        else:
-            def wrapper(self, _func=None, **params):
-                return self._dispatch(f'{name}/{_func}' if _func else name, params)
+        def wrapper(self, _func=None, **params):
+            method = f'{name}/{_func}' if _func else name
+            if not self._printer:
+                return self._dispatch(method, params)
+            snt = ' '.join(format_params(params))
+            with self._printer as log:
+                log.print_sent(f"POST {self._endpoint}/{method} {snt}")
+                res = self._dispatch(method, params)
+                log.print_recv(repr(res))
+            return res
         return _memoize(self, name, wrapper)
 
 
@@ -526,23 +524,21 @@ class Service:
     def __getattr__(self, name):
         if name not in self._methods:
             raise AttributeError(f"'Service' object has no attribute {name!r}")
-        if self._printer:
-            def sanitize(args):
-                if self._endpoint != 'db' and len(args) > 2:
-                    args = list(args)
-                    args[2] = '*'
-                return args
+        def sanitize(args):
+            if self._endpoint != 'db' and len(args) > 2:
+                args = list(args)
+                args[2] = '*'
+            return args
 
-            def wrapper(self, *args):
-                snt = ', '.join(repr(arg) for arg in sanitize(args))
-                with self._printer as log:
-                    log.print_sent(f"{self._endpoint}.{name}({snt})")
-                    res = self._dispatch(name, args)
-                    log.print_recv(res)
-                return res
-        else:
-            def wrapper(self, *args):
+        def wrapper(self, *args):
+            if not self._printer:
                 return self._dispatch(name, args)
+            snt = ', '.join(repr(arg) for arg in sanitize(args))
+            with self._printer as log:
+                log.print_sent(f"{self._endpoint}.{name}({snt})")
+                res = self._dispatch(name, args)
+                log.print_recv(repr(res))
+            return res
         return _memoize(self, name, wrapper)
 
 
@@ -612,12 +608,11 @@ class Json2:
 
         if not self._printer:
             return self._req(url, json=params, headers=self._headers, method=verb)
-
         snt = ' '.join(f'{key}={v!r}' for (key, v) in (params or {}).items())
         with self._printer as log:
             log.print_sent(f"{verb} {path} {snt}".rstrip())
             res = self._req(url, json=params, headers=self._headers, method=verb)
-            log.print_recv(res)
+            log.print_recv(repr(res))
         return res
 
 
@@ -1183,21 +1178,19 @@ class Client:
                  api_key=None, transport=None, verbose=False):
         self._http = HTTPSession()
         self._session_uid = None
-
         self._set_services(server, db, transport, verbose)
         self.env = Env(self)
         if user:  # Try to login
             self.login(user, password=password, api_key=api_key, database=db)
 
-    def _set_services(self, server, db, transport, verbose):
+    def _set_services(self, server, db, transport, cols):
         if isinstance(server, list):
             appname = Path(__file__).name.rstrip('co')
             server = start_odoo_services(server, appname=appname)
         elif isinstance(server, str) and server[-1:] == '/':
             server = server.rstrip('/')
-        self._printer = Printer(verbose=verbose) if verbose else None
+        self._printer = Printer(cols)
         self._server = server
-        self._verbose = verbose
         self._connections = []
 
         if not isinstance(server, str):
@@ -1262,13 +1255,12 @@ class Client:
         if not self._printer:
             res = self._http.request(url, data=data, headers=headers, method=verb)
             return res, parse_http_response(verb, res, regex)
-
         snt = ' '.join(format_params(data or {}))
         with self._printer as log:
             log.print_sent(f"{verb} {path} {snt}".rstrip())
             res = self._http.request(url, data=data, headers=headers, method=verb)
             parsed = parse_http_response(verb, res, regex)
-            log.print_recv(parsed, str)
+            log.print_recv(parsed)
         return res, parsed
 
     def _post_jsonrpc(self, endpoint='', params=None):
@@ -1341,6 +1333,7 @@ class Client:
             password = None
         try:
             client = Env._cache[Env, db, server].client
+            client._printer.__init__(verbose)
             client.login(user or conf_user, password=password, api_key=api_key)
         except KeyError:
             client = cls(server, db, user or conf_user, password=password, api_key=api_key, verbose=verbose)
@@ -1481,11 +1474,11 @@ class Client:
         """Connect to another environment and replace the globals()."""
         assert self._is_interactive(), 'Not available'
         if env_name:
-            self.from_config(env_name, user=user, verbose=self._verbose)
+            self.from_config(env_name, user=user, verbose=self._printer.cols)
         elif server:
             if not user and self.env.uid:
                 user = self.env.user.login
-            self.__class__(server, user=user, verbose=self._verbose)
+            self.__class__(server, user=user, verbose=self._printer.cols)
         else:
             assert not user, "Use client.login(...) instead"
             self._globals['client'] = self.env.client
@@ -2432,8 +2425,7 @@ def main(interact=_interact):
         print(USAGE)
 
     if args.env:
-        client = Client.from_config(args.env,
-                                    user=args.user, verbose=args.verbose)
+        client = Client.from_config(args.env, user=args.user, verbose=args.verbose)
     else:
         if not args.server:
             args.server = ['-c', args.config] if args.config else DEFAULT_URL

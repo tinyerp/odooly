@@ -115,6 +115,9 @@ This is a sample session::
 
        ~$ odooly --server https://demo.odoo.com/ -vv
 
+   It's also possible to set verbosity from the interactive prompt::
+
+       >>> client._printer.cols = 180
 
 .. note::
 
