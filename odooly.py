@@ -1453,6 +1453,8 @@ class Client:
                     raise Error("Database '%s' does not exist: %s" %
                                 (database, dbs))
         if database and env.db_name != database:
+            if self._session_uid:
+                env.session_destroy()
             env = Env(self, database)
         try:
             self.env = env(user=user, password=password, api_key=api_key)

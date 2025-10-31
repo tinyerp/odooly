@@ -12,6 +12,8 @@ Changelog
 
 * Do not raise an error when a field is read on a ghost :class:`Record`.
 
+* Fix HTTP session error when switching to a different database.
+
 
 2.4.5 (2025-10-30)
 ~~~~~~~~~~~~~~~~~~
