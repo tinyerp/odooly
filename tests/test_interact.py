@@ -117,7 +117,7 @@ class TestInteract(XmlRpcTestCase):
         mock.patch('odooly.getpass', return_value='x').start()
         self.service.db.list.return_value = ['database']
         self.service.common.login.side_effect = [17, None]
-        self.service.object.execute_kw.side_effect = [{}, True, 42, {}, True, 42, {}, 42]
+        self.service.object.execute_kw.side_effect = [{}, True, 42, {}, 42, {}, 42]
 
         # Launch interactive
         self.infunc.side_effect = [
@@ -138,7 +138,6 @@ class TestInteract(XmlRpcTestCase):
                   [('model', 'like', 'res.company')]),
             usr17('ir.model', 'read', 42, ('model',)),
             ('common.login', 'database', 'gaspard', 'x'),
-            ('object.execute_kw', 'database', 17, 'passwd', 'ir.model.access', 'check', ('ir.model', 'read')),
             usr17('ir.model', 'search',
                   [('model', 'like', 'res.company')]),
             usr17('ir.model', 'read', 42, ('model',)),

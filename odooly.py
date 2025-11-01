@@ -613,7 +613,7 @@ class Json2:
         url = urljoin(self._server, f'{self._endpoint}/res.users/context_get')
         try:
             context = self._http.request(url, json={}, headers=self._headers)
-        except (OSError, ServerError):
+        except OSError:
             return False
         return self if (not uid or uid == context['uid']) else False
 
@@ -975,11 +975,16 @@ class Env:
         except Exception:
             return False
 
+    def _can_list_models(self):
+        if not hasattr(self, '_access_ir_model'):
+            self._access_ir_model = self.access('ir.model')
+        return self._access_ir_model
+
     def _models_get(self, name, check=False):
         if name not in self._model_names:
             if not check:
                 self._model_names.add(name)
-            elif self.access('ir.model'):
+            elif self._can_list_models():
                 raise KeyError(name)
         try:
             return self._models[name]

@@ -128,11 +128,10 @@ class TestModel(TestCase):
         self.assertRaises(odooly.Error, self.env.__getitem__, 'mic.mac')
         self.assertRaises(AttributeError, getattr, self.client, 'MicMac')
         expected_calls = [
-            OBJ('ir.model.access', 'check', 'ir.model', 'read'),
             OBJ('ir.model', 'search_read', [('model', 'like', 'mic.mac')], ('model',)),
         ]
         if float(self.server_version) < 8.0:
-            expected_calls[1:] = [
+            expected_calls = [
                 OBJ('ir.model', 'search', [('model', 'like', 'mic.mac')]),
                 OBJ('ir.model', 'read', ANY, ('model',)),
             ]
@@ -144,11 +143,10 @@ class TestModel(TestCase):
         self.assertEqual(self.env['foo.bar']._name, 'foo.bar')
 
         expected_calls = [
-            OBJ('ir.model.access', 'check', 'ir.model', 'read'),
             OBJ('ir.model', 'search_read', [('model', 'like', 'foo.bar')], ('model',)),
         ]
         if float(self.server_version) < 8.0:
-            expected_calls[1:] = [
+            expected_calls = [
                 OBJ('ir.model', 'search', [('model', 'like', 'foo.bar')]),
                 OBJ('ir.model', 'read', [777], ('model',)),
             ]

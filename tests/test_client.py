@@ -173,7 +173,7 @@ class TestService(XmlRpcTestCase):
         self.test_service_openerp_client(server_version=18.0)
 
         if self.protocol == 'xmlrpc':
-            mock.patch('odooly.HTTPSession.request', side_effect=odooly.ServerError).start()
+            mock.patch('odooly.HTTPSession.request', side_effect=OSError).start()
 
         self.test_service_openerp_client(server_version=19.0)
         self.test_service_openerp_client(server_version=20.0)
@@ -482,23 +482,23 @@ class TestClientApi(XmlRpcTestCase):
 
         if float(self.server_version) < 8.0:
             expected_calls = [
-                OBJ('ir.model.access', 'check', 'ir.model', 'read'),
                 OBJ('ir.model', 'search', [('model', 'like', 'foo.bar')]),
                 OBJ('ir.model', 'read', [ID2, ID1], ('model',)),
             ]
-            side_effect = [True, [ID2, ID1], [{'id': 13, 'model': 'foo.bar'}]]
+            side_effect = [[ID2, ID1], [{'id': 13, 'model': 'foo.bar'}]]
         else:
             expected_calls = [
-                OBJ('ir.model.access', 'check', 'ir.model', 'read'),
                 OBJ('ir.model', 'search_read', [('model', 'like', 'foo.bar')], ('model',)),
             ]
-            side_effect = [True, [{'id': 13, 'model': 'foo.bar'}]]
+            side_effect = [[{'id': 13, 'model': 'foo.bar'}]]
 
         self.assertTrue(self.env.models('foo.bar'))
-        self.assertCalls(*expected_calls[1:])
+        self.assertCalls(*expected_calls)
 
         self.assertRaises(odooly.Error, self.env.__getitem__, 'foo.bar')
-        self.assertCalls(*expected_calls)
+        self.assertCalls(
+            OBJ('ir.model.access', 'check', 'ir.model', 'read'),
+            *expected_calls)
 
         self.service.object.execute_kw.side_effect = side_effect
         self.assertIsInstance(self.env['foo.bar'], odooly.Model)
