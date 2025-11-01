@@ -34,8 +34,9 @@ class IdentDict(object):
     def __repr__(self):
         return 'IdentDict(%s)' % (self._id,)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key, default=None):
         return (key == 'id') and self._id or ('v_%s_%s' % (key, self._id))
+    get = __getitem__
 
     def __eq__(self, other):
         return self._id == other._id
@@ -223,7 +224,7 @@ class TestCreateClient(XmlRpcTestCase):
              (key_1, 'newdb', url_xmlrpc): client.env(context={}),
              (key_2, 'newdb', url_xmlrpc): client.env,
              ('auth', 'newdb', url_xmlrpc): {'usr': (1, 'pss')},
-             ('model_names', 'newdb', url_xmlrpc): {'res.users'}})
+             ('model_names', 'newdb', url_xmlrpc): {'res.users': False}})
         self.assertOutput('')
 
     def test_create_getpass(self):
@@ -314,7 +315,7 @@ class TestSampleSession(XmlRpcTestCase):
 
     def test_simple(self):
         self.service.object.execute_kw.side_effect = [
-            4, True, 71, [{'model': 'ir.cron'}], sentinel.IDS, sentinel.CRON]
+            4, {'id', 'model'}, [71], [{'model': 'ir.cron'}], sentinel.IDS, sentinel.CRON]
 
         res_users = self.env['res.users']
         self.assertEqual(res_users.search_count(), 4)
@@ -322,9 +323,9 @@ class TestSampleSession(XmlRpcTestCase):
             ['active = False'], 'active function'), sentinel.CRON)
         self.assertCalls(
             OBJ('res.users', 'search_count', []),
-            OBJ('ir.model.access', 'check', 'ir.model', 'read'),
-            OBJ('ir.model', 'search', [('model', 'like', 'ir.cron')]),
-            OBJ('ir.model', 'read', 71, ('model',)),
+            OBJ('ir.model', 'fields_get'),
+            OBJ('ir.model', 'search', []),
+            OBJ('ir.model', 'read', [71], ('model', 'osv_memory')),
             OBJ('ir.cron', 'search', [('active', '=', False)]),
             OBJ('ir.cron', 'read', sentinel.IDS, ['active', 'function']),
         )
@@ -379,6 +380,11 @@ class TestClientApi(XmlRpcTestCase):
             return [ID2, ID1]
         if args[4] in ('read', 'search_read'):
             return [IdentDict(res_id) for res_id in [ID1, ID2]]
+        if args[4] == 'fields_get':
+            keys = ('id', 'model', 'transient')
+            if float(self.server_version) >= 19.0:
+                keys += ('abstract',)
+            return dict.fromkeys(keys, sentinel.FIELD)
         return sentinel.OTHER
 
     def test_create_database(self):
@@ -482,24 +488,23 @@ class TestClientApi(XmlRpcTestCase):
 
         if float(self.server_version) < 8.0:
             expected_calls = [
-                OBJ('ir.model', 'search', [('model', 'like', 'foo.bar')]),
-                OBJ('ir.model', 'read', [ID2, ID1], ('model',)),
+                OBJ('ir.model', 'search', []),
+                OBJ('ir.model', 'read', [ID1, ID2], ('model', 'transient')),
             ]
             side_effect = [[ID2, ID1], [{'id': 13, 'model': 'foo.bar'}]]
         else:
-            expected_calls = [
-                OBJ('ir.model', 'search_read', [('model', 'like', 'foo.bar')], ('model',)),
-            ]
+            domain = [('abstract', '=', False)] if float(self.server_version) >= 19.0 else []
+            expected_calls = [OBJ('ir.model', 'search_read', domain, ('model', 'transient'))]
             side_effect = [[{'id': 13, 'model': 'foo.bar'}]]
 
-        self.assertTrue(self.env.models('foo.bar'))
+        self.assertFalse(self.env.models('foo.bar'))
+        self.assertCalls(OBJ('ir.model', 'fields_get'), *expected_calls)
+
+        self.env._access_models = None
+        self.assertRaises(odooly.Error, self.env.__getitem__, 'foo.bar')
         self.assertCalls(*expected_calls)
 
-        self.assertRaises(odooly.Error, self.env.__getitem__, 'foo.bar')
-        self.assertCalls(
-            OBJ('ir.model.access', 'check', 'ir.model', 'read'),
-            *expected_calls)
-
+        self.env._access_models = None
         self.service.object.execute_kw.side_effect = side_effect
         self.assertIsInstance(self.env['foo.bar'], odooly.Model)
         self.assertIs(self.env['foo.bar'], odooly.Model(self.env, 'foo.bar'))

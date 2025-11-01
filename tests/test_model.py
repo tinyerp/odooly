@@ -24,7 +24,7 @@ class TestCase(XmlRpcTestCase):
             if model.startswith('ir.model'):
                 if "'in', []" in str(domain) or 'other_module' in str(domain):
                     return []
-                if 'foo' in str(domain):
+                if domain == [] or 'foo' in str(domain):
                     return [777]
                 if 'ir.default' in str(domain):
                     return [50]
@@ -76,7 +76,9 @@ class TestCase(XmlRpcTestCase):
             return [IdentDict(arg, args[1]) for arg in args[0]]
         if method == 'fields_get':
             keys = ('id', 'display_name')
-            if model == 'ir.model.data':
+            if model == 'ir.model':
+                keys += ('model', 'module', 'name', 'transient')
+            elif model == 'ir.model.data':
                 keys += ('model', 'module', 'name', 'res_id')
             elif model == 'res.users':
                 keys += ('login', 'name', 'password')  # etc ...
@@ -124,33 +126,22 @@ class TestModel(TestCase):
     def test_model(self):
         # Reset cache for this test
         self.env._model_names.clear()
+        self.env._access_models = None
 
         self.assertRaises(odooly.Error, self.env.__getitem__, 'mic.mac')
         self.assertRaises(AttributeError, getattr, self.client, 'MicMac')
-        expected_calls = [
-            OBJ('ir.model', 'search_read', [('model', 'like', 'mic.mac')], ('model',)),
-        ]
+        expected_calls = [OBJ('ir.model', 'search_read', [], ('model', 'transient'))]
         if float(self.server_version) < 8.0:
             expected_calls = [
-                OBJ('ir.model', 'search', [('model', 'like', 'mic.mac')]),
-                OBJ('ir.model', 'read', ANY, ('model',)),
+                OBJ('ir.model', 'search', []),
+                OBJ('ir.model', 'read', ANY, ('model', 'transient')),
             ]
         self.assertCalls(*expected_calls)
-        self.assertOutput('')
 
         self.assertIs(self.env['foo.bar'],
                       odooly.Model(self.env, 'foo.bar'))
         self.assertEqual(self.env['foo.bar']._name, 'foo.bar')
-
-        expected_calls = [
-            OBJ('ir.model', 'search_read', [('model', 'like', 'foo.bar')], ('model',)),
-        ]
-        if float(self.server_version) < 8.0:
-            expected_calls = [
-                OBJ('ir.model', 'search', [('model', 'like', 'foo.bar')]),
-                OBJ('ir.model', 'read', [777], ('model',)),
-            ]
-        self.assertCalls(*expected_calls)
+        self.assertCalls()
         self.assertOutput('')
 
     def test_keys(self):

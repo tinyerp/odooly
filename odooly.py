@@ -643,7 +643,7 @@ class Env:
         >>> env["some.model"]
     """
 
-    name = uid = user = session_info = _api_key = _json2 = None
+    name = uid = user = session_info = _api_key = _json2 = _access_models = None
     _cache = {}
 
     def __new__(cls, client, db_name=()):
@@ -657,14 +657,14 @@ class Env:
         else:
             env, env.db_name = client.env, db_name
         if db_name:
-            env._model_names = env._cache_get('model_names', set)
+            env._model_names = env._cache_get('model_names', dict)
             env._models = {}
         env._web = client.web
         return env
 
     def __contains__(self, name):
         """Test wether this model exists."""
-        return name in self._model_names or name in self.models(name)
+        return name in self.models(name)
 
     def __getitem__(self, name):
         """Return the :class:`Model` for the given ``name``."""
@@ -780,7 +780,7 @@ class Env:
         else:  # Copy methods
             env._execute_kw = self._execute_kw
             env._api_key, env._json2 = self._api_key, self._json2
-            for key in ('_execute', 'exec_workflow',
+            for key in ('_execute', 'exec_workflow', '_access_models',
                         'report', 'report_get', 'render_report',
                         'wizard_execute', 'wizard_create'):
                 if hasattr(self, key):
@@ -794,8 +794,7 @@ class Env:
         Supported since Odoo 8.
         """
         assert self.client.version_info >= 8.0, 'Not supported'
-        return self.client._server.api.Environment(self.cr, self.uid,
-                                                   self.context)
+        return self.client._server.api.Environment(self.cr, self.uid, self.context)
 
     @property
     def cr(self):
@@ -830,7 +829,7 @@ class Env:
         """Attach to the provided user, or Superuser."""
         if user is None:
             if (self.client._object or self.client.version_info < 12.0 or
-                    not self.session_info or not self.session_info.get('is_system')):
+                    not (self.session_info or {}).get('is_system')):
                 user = ADMIN_USER
             else:
                 user = SYSTEM_USER
@@ -855,7 +854,8 @@ class Env:
         for key in list(self._cache):
             if key[1:] == db_key and key[0] != 'auth':
                 del self._cache[key]
-        self._model_names = self._cache_set('model_names', set())
+        self._access_models = None
+        self._model_names = self._cache_set('model_names', {})
         self._models = {}
         if self._json2:
             self._json2._method_params = {}
@@ -975,24 +975,18 @@ class Env:
         except Exception:
             return False
 
-    def _can_list_models(self):
-        if not hasattr(self, '_access_ir_model'):
-            self._access_ir_model = self.access('ir.model')
-        return self._access_ir_model
-
     def _models_get(self, name, check=False):
         if name not in self._model_names:
-            if not check:
-                self._model_names.add(name)
-            elif self._can_list_models():
+            if check:
                 raise KeyError(name)
+            self._model_names[name] = False
         try:
             return self._models[name]
         except KeyError:
             self._models[name] = Model._new(self, name)
         return self._models[name]
 
-    def models(self, name=''):
+    def models(self, name='', transient=False):
         """Search Odoo models.
 
         The argument `name` is a pattern to filter the models returned.
@@ -1000,11 +994,19 @@ class Env:
 
         The return value is a sorted list of model names.
         """
-        domain = [('model', 'like', name)]
-        models = self.execute('ir.model', 'read', domain, ('model',))
-        names = [m['model'] for m in models]
-        self._model_names.update(names)
-        return sorted(names)
+        if self._access_models is None:
+            ir_model = self._get('ir.model', False)
+            fld_transient = 'transient' if 'transient' in ir_model._keys else 'osv_memory'
+            domain = [('abstract', '=', False)] if 'abstract' in ir_model._keys else []  # Odoo 19
+            try:
+                models = ir_model.search_read(domain, ('model', fld_transient))
+            except ServerError:
+                # Only Odoo 15 prevents non-admin user to retrieve models
+                models = ir_model.get_available_models() if self.client.version_info >= 16.0 else {}
+            self._model_names.update({m['model']: m.get(fld_transient, False) for m in models})
+            self._access_models = bool(models)
+        return sorted(mod for mod, is_transient in self._model_names.items()
+                      if name in mod and transient == is_transient)
 
     def _get(self, name, check=True):
         """Return a :class:`Model` instance.
@@ -1013,12 +1015,12 @@ class Env:
         argument `check` is :const:`False`, no validity check is done.
         """
         try:
-            return self._models_get(name, check)
+            return self._models_get(name, check and self._access_models is not False)
         except KeyError:
             model_names = self.models(name)
-        if name in model_names:
-            return self._models_get(name, True)
-        if model_names:
+        if name in self._model_names or not self._access_models:
+            return self._models_get(name, self._access_models)
+        if model_names and self._access_models:
             errmsg = 'Model not found.  These models exist:'
         else:
             errmsg = f'Model not found: {name}'

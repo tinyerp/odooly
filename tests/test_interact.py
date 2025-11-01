@@ -117,7 +117,7 @@ class TestInteract(XmlRpcTestCase):
         mock.patch('odooly.getpass', return_value='x').start()
         self.service.db.list.return_value = ['database']
         self.service.common.login.side_effect = [17, None]
-        self.service.object.execute_kw.side_effect = [{}, True, 42, {}, 42, {}, 42]
+        self.service.object.execute_kw.side_effect = [{}, {}, [42], [{'model': 'abc'}]]
 
         # Launch interactive
         self.infunc.side_effect = [
@@ -133,14 +133,10 @@ class TestInteract(XmlRpcTestCase):
         expected_calls = self.startup_calls + (
             ('common.login', 'database', 'usr', 'passwd'),
             ('object.execute_kw', 'database', 17, 'passwd', 'res.users', 'context_get', ()),
-            ('object.execute_kw', 'database', 17, 'passwd', 'ir.model.access', 'check', ('ir.model', 'read')),
-            usr17('ir.model', 'search',
-                  [('model', 'like', 'res.company')]),
-            usr17('ir.model', 'read', 42, ('model',)),
+            usr17('ir.model', 'fields_get'),
+            usr17('ir.model', 'search', []),
+            usr17('ir.model', 'read', [42], ('model', 'osv_memory')),
             ('common.login', 'database', 'gaspard', 'x'),
-            usr17('ir.model', 'search',
-                  [('model', 'like', 'res.company')]),
-            usr17('ir.model', 'read', 42, ('model',)),
         )
         self.assertCalls(*expected_calls)
         outlines = self.stdout.popvalue().splitlines()

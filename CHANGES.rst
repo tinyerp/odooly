@@ -8,8 +8,11 @@ Changelog
 * Interactive: add possibility to change verbosity. E.g.:
   ``client._printer.cols = 180``.  Set to ``0`` to disable.
 
-* Consider users with restricted rights.  Since Odoo 15, most
-  users don't have access to ``ir.model``.
+* Retrieve models when user does not have access to ``ir.model``.
+  Only for Odoo 15 there's no workaround.  For Odoo >= 16 a
+  method ``get_available_models`` is available to all users.
+
+* Do not list ``transient`` models with :meth:`Env.models`.
 
 * Enhance error management for JSON-2 API with Odoo >= 19.
 
