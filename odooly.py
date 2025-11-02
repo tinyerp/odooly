@@ -173,7 +173,7 @@ def _memoize(inst, attr, value, doc_values=None):
     if hasattr(value, '__get__') and not hasattr(value, '__self__'):
         value.__name__ = attr
         if doc_values is not None:
-            value.__doc__ %= doc_values
+            value.__doc__.format(*doc_values)
         value = value.__get__(inst, type(inst))
     inst.__dict__[attr] = value
     return value
@@ -919,8 +919,7 @@ class Env:
         arguments are collected in `kwargs`.
         """
         assert self.uid, 'Not connected'
-        assert isinstance(obj, str)
-        assert isinstance(method, str) and method != 'browse'
+        assert isinstance(obj, str) and isinstance(method, str) and method != 'browse'
         order_ids = single_id = False
         if method == 'read':
             assert params, 'Missing parameter'
@@ -934,8 +933,7 @@ class Env:
                     kw = ({'context': self.context},) if self.context else ()
                     ids = self._execute_kw(obj, 'search', search_params, *kw)
                 else:
-                    method = 'search_read'
-                    [ids] = searchargs(params[:1])
+                    method, [ids] = 'search_read', searchargs(params[:1])
             else:
                 order_ids = kwargs.pop('order', False) and params[0]
                 ids = sorted(set(params[0]) - {False})
@@ -1086,8 +1084,7 @@ class Env:
                 mods = ir_module.read([_pending_state], 'name state')
         if not mods:
             if sel:
-                print('Already up-to-date: %s' %
-                      self.modules([('id', 'in', sel.ids)]))
+                print(f"Already up-to-date: {self.modules([('id', 'in', sel.ids)])}")
             elif modules:
                 raise Error(f"Module(s) not found: {', '.join(modules)}")
             print(f'{updated} module(s) updated')
@@ -1466,8 +1463,7 @@ class Client:
                     # Database selector page
                     database = self._select_database(dbs)
                 elif dbs and database not in dbs:
-                    raise Error("Database '%s' does not exist: %s" %
-                                (database, dbs))
+                    raise Error(f"Database {database!r} does not exist: {dbs}")
         if database and env.db_name != database:
             if self._session_uid:
                 env.session_destroy()
@@ -1853,7 +1849,7 @@ class Model(BaseModel):
             raise AttributeError(f"'Model' object has no attribute {attr!r}")
 
         def wrapper(self, *params, **kwargs):
-            """Wrapper for client.execute(%r, %r, *params, **kwargs)."""
+            """Wrapper for client.execute({!r}, {!r}, *params, **kwargs)."""
             return self._execute(attr, *params, **kwargs)
         return _memoize(self, attr, wrapper, (self._name, attr))
 
@@ -2026,10 +2022,8 @@ class BaseRecord(BaseModel):
         return env[self._name].browse(self.id)
 
     def _check_model(self, other, oper):
-        if not (isinstance(other, BaseRecord) and
-                self._model is other._model):
-            raise TypeError("Mixing apples and oranges: %s %s %s" %
-                            (self, oper, other))
+        if not (isinstance(other, BaseRecord) and self._model is other._model):
+            raise TypeError(f"Mixing apples and oranges: {self} {oper} {other}")
 
     def _concat_ids(self, args):
         ids = list(self._idnames)
@@ -2220,7 +2214,7 @@ class RecordList(BaseRecord):
             raise AttributeError(errmsg)
 
         def wrapper(self, *params, **kwargs):
-            """Wrapper for client.execute(%r, %r, [...], *params, **kwargs)."""
+            """Wrapper for client.execute({!r}, {!r}, [...], *params, **kwargs)."""
             return self._execute(attr, self.id, *params, **kwargs)
         return _memoize(self, attr, wrapper, (self._name, attr))
 
@@ -2334,7 +2328,7 @@ class Record(BaseRecord):
             raise AttributeError(f"'Record' object has no attribute {attr!r}")
 
         def wrapper(self, *params, **kwargs):
-            """Wrapper for client.execute(%r, %r, %d, *params, **kwargs)."""
+            """Wrapper for client.execute({!r}, {!r}, {:d}, *params, **kwargs)."""
             res = self._execute(attr, [self.id], *params, **kwargs)
             self.refresh()
             if isinstance(res, list) and len(res) == 1:
