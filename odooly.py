@@ -41,7 +41,7 @@ DEFAULT_URL = 'http://localhost:8069/'
 ADMIN_USER = 'admin'
 SYSTEM_USER = '__system__'
 MAXCOL = [79, 179, 9999]    # Line length in verbose mode
-USER_AGENT = 'Mozilla/5.0 (X11)'
+USER_AGENT = f'Mozilla/5.0 (X11) odooly.py/{__version__}'
 
 USAGE = """\
 Usage (some commands):
@@ -138,6 +138,7 @@ class HTTPSession:
     if requests:  # requests.Session
         def __init__(self):
             self._session = requests.Session()
+            self._session.headers.update({'User-Agent': USER_AGENT})
 
         def request(self, url, *, method='POST', data=None, json=None, headers=None, **kw):
             resp = self._session.request(method, url, data=data, json=json, headers=headers, **kw)
@@ -150,6 +151,7 @@ class HTTPSession:
     else:  # urllib.request
         def __init__(self):
             self._session = build_opener(HTTPCookieProcessor(), HTTPSHandler(context=http_context))
+            self._session.addheaders = [('User-Agent', USER_AGENT)]
 
         def request(self, url, *, method='POST', data=None, json=None, headers=None, _json=json, **kw):
             headers = dict(headers or ())
@@ -600,15 +602,6 @@ class Json2:
     def __repr__(self):
         return f"<Json2 '{self._server[:-1]}{self._endpoint}'>"
 
-    def _req(self, url, json, headers, method):
-        try:
-            return self._http.request(url, method=method, json=json, headers=headers)
-        except OSError as exc:
-            status_code, result = self._http._parse_error(exc)
-            if status_code == 422:  # UnprocessableEntity
-                raise ServerError({'code': status_code, 'data': result})
-            raise
-
     def _check(self, uid=None):
         url = urljoin(self._server, f'{self._endpoint}/res.users/context_get')
         try:
@@ -617,16 +610,24 @@ class Json2:
             return False
         return self if (not uid or uid == context['uid']) else False
 
+    def _http_req(self, path, params, method):
+        url = urljoin(self._server, path)
+        try:
+            return self._http.request(url, method=method, json=params, headers=self._headers)
+        except OSError as exc:
+            status_code, result = self._http._parse_error(exc)
+            if status_code == 422:  # UnprocessableEntity
+                raise ServerError({'code': status_code, 'data': result})
+            raise
+
     def _request(self, path, params=None):
         verb = 'GET' if params is None else 'POST'
-        url = urljoin(self._server, path)
-
         if not self._printer:
-            return self._req(url, json=params, headers=self._headers, method=verb)
+            return self._http_req(path, params, method=verb)
         snt = ' '.join(f'{key}={v!r}' for (key, v) in (params or {}).items())
         with self._printer as log:
             log.print_sent(f"{verb} {path} {snt}".rstrip())
-            res = self._req(url, json=params, headers=self._headers, method=verb)
+            res = self._http_req(path, params, method=verb)
             log.print_recv(repr(res))
         return res
 
@@ -1272,7 +1273,6 @@ class Client:
             self._wizard = get_service('wizard') if float_version < 7.0 else None
 
     def _request_parse(self, path, *, method=None, data=None, headers=None, regex=None):
-        headers = {'User-Agent': USER_AGENT, **(headers or {})}
         verb = method or ('GET' if data is None else 'POST')
         url = urljoin(self._server, path)
         if not self._printer:
