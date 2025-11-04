@@ -1807,13 +1807,16 @@ class Model(BaseModel):
         """Unwrap the id of Record and RecordList."""
         new_values = values.copy()
         for (key, value) in values.items():
-            field_type = self._fields[key]['type']
+            many = self._fields[key]['type'] in ('one2many', 'many2many')
             if hasattr(value, 'id'):
-                if field_type == 'reference':
+                if self._fields[key]['type'] == 'reference':
                     new_values[key] = f'{value._name},{value.id}'
                 else:
-                    new_values[key] = value = value.id
-            if field_type in ('one2many', 'many2many'):
+                    fld_model = self._fields[key].get('relation')
+                    if fld_model and value._name != fld_model:
+                        raise TypeError(f"Mixing apples and oranges: {fld_model} <> {value._name}")
+                    new_values[key] = value = value.id and (value.ids if many else int(value))
+            if many:
                 if not value:
                     new_values[key] = [(6, 0, [])]
                 elif isinstance(value[0], int):

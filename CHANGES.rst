@@ -16,6 +16,8 @@ Changelog
 
 * Enhance error management for JSON-2 API with Odoo >= 19.
 
+* Improve type-checking for ``write`` methods.
+
 
 2.4.6 (2025-10-31)
 ~~~~~~~~~~~~~~~~~~

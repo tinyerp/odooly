@@ -50,6 +50,9 @@ class TestCase(XmlRpcTestCase):
                              'name': 'xml_name', 'id': 777, 'res_id': 42}]
                 return [{'model': 'foo.bar', 'id': 777},
                         {'model': 'foo.other', 'id': 99},
+                        {'model': 'foo.lines', 'id': 81},
+                        {'model': 'foo.many', 'id': 82},
+                        {'model': 'foo.misc', 'id': 83},
                         {'model': 'ir.default', 'id': 50},
                         {'model': 'ir.model.data', 'id': 17}]
 
@@ -537,9 +540,10 @@ class TestModel(TestCase):
 
         FooBar.create({'spam': 42})
         FooBar.create({'spam': record42})
-        FooBar.create({'spam': recordlist42})
+        FooBar.create({'spam': recordlist42[1:2]})
         FooBar._execute('create', {'spam': 42})
         FooBar.create({})
+        self.assertRaises(ValueError, FooBar.create, {'spam': recordlist42})
         # Odoo >= 12
         FooBar.create([{'spam': record42}])
         FooBar.create([{'spam': record100}, {'spam': record42}])
@@ -547,7 +551,7 @@ class TestModel(TestCase):
             OBJ('foo.bar', 'fields_get'),
             OBJ('foo.bar', 'create', {'spam': 42}),
             OBJ('foo.bar', 'create', {'spam': 42}),
-            OBJ('foo.bar', 'create', {'spam': [4, 2]}),
+            OBJ('foo.bar', 'create', {'spam': 2}),
             OBJ('foo.bar', 'create', {'spam': 42}),
             OBJ('foo.bar', 'create', {}),
             OBJ('foo.bar', 'create', [{'spam': 42}]),
@@ -557,29 +561,38 @@ class TestModel(TestCase):
 
     def test_create_relation(self):
         FooBar = self.env['foo.bar']
+        FooLines = self.env['foo.lines']
 
         record42 = FooBar.browse(42)
         recordlist42 = FooBar.browse([4, 2])
         rec_null = FooBar.browse(False)
 
         # one2many
-        FooBar.create({'line_ids': rec_null})
+        lines42 = FooLines.browse([4, 2])
+        line_null = FooLines.browse(False)
+        FooBar.create({'line_ids': line_null})
         FooBar.create({'line_ids': []})
         FooBar.create({'line_ids': [123, 234]})
         FooBar.create({'line_ids': [(6, 0, [76])]})
-        FooBar.create({'line_ids': recordlist42})
+        FooBar.create({'line_ids': lines42})
+        self.assertRaises(TypeError, FooBar.create, {'line_ids': rec_null})
+        self.assertRaises(TypeError, FooBar.create, {'line_ids': recordlist42})
 
         # many2many
+        many42 = self.env['foo.many'].browse([4, 2])
         FooBar.create({'many_ids': None})
         FooBar.create({'many_ids': []})
         FooBar.create({'many_ids': [123, 234]})
         FooBar.create({'many_ids': [(6, 0, [76])]})
-        FooBar.create({'many_ids': recordlist42})
+        FooBar.create({'many_ids': many42})
+        self.assertRaises(TypeError, FooBar.create, {'many_ids': recordlist42})
 
         # many2one
+        misc42 = self.env['foo.misc'].browse(42)
         FooBar.create({'misc_id': False})
         FooBar.create({'misc_id': 123})
-        FooBar.create({'misc_id': record42})
+        FooBar.create({'misc_id': misc42})
+        self.assertRaises(TypeError, FooBar.create, {'misc_id': record42})
 
         self.assertCalls(
             OBJ('foo.bar', 'fields_get'),
@@ -695,21 +708,23 @@ class TestRecord(TestCase):
         rec.write({})
         rec.write({'spam': 42})
         rec.write({'spam': rec})
-        rec.write({'spam': records})
+        rec.write({'spam': records[:1]})
         records.write({})
         records.write({'spam': 42})
         records.write({'spam': rec})
-        records.write({'spam': records})
+        records.write({'spam': records[1:2]})
+        self.assertRaises(ValueError, rec.write, {'spam': records})
+        self.assertRaises(ValueError, records.write, {'spam': records})
         self.assertCalls(
             OBJ('foo.bar', 'write', [42], {}),
             OBJ('foo.bar', 'fields_get'),
             OBJ('foo.bar', 'write', [42], {'spam': 42}),
             OBJ('foo.bar', 'write', [42], {'spam': 42}),
-            OBJ('foo.bar', 'write', [42], {'spam': [13, 17]}),
+            OBJ('foo.bar', 'write', [42], {'spam': 13}),
             OBJ('foo.bar', 'write', [13, 17], {}),
             OBJ('foo.bar', 'write', [13, 17], {'spam': 42}),
             OBJ('foo.bar', 'write', [13, 17], {'spam': 42}),
-            OBJ('foo.bar', 'write', [13, 17], {'spam': [13, 17]}),
+            OBJ('foo.bar', 'write', [13, 17], {'spam': 17}),
         )
         self.assertOutput('')
 
@@ -719,42 +734,51 @@ class TestRecord(TestCase):
         rec_null = self.env['foo.bar'].browse(False)
 
         # one2many
+        lines = self.env['foo.lines'].browse([13, 17])
         rec.write({'line_ids': False})
         rec.write({'line_ids': []})
         rec.write({'line_ids': [123, 234]})
         rec.write({'line_ids': [(6, 0, [76])]})
-        rec.write({'line_ids': records})
+        rec.write({'line_ids': lines})
+        self.assertRaises(TypeError, rec.write, {'line_ids': records})
 
         # many2many
+        many_recs = self.env['foo.many'].browse([13, 17])
         rec.write({'many_ids': None})
         rec.write({'many_ids': []})
         rec.write({'many_ids': [123, 234]})
         rec.write({'many_ids': [(6, 0, [76])]})
-        rec.write({'many_ids': records})
+        rec.write({'many_ids': many_recs})
+        self.assertRaises(TypeError, rec.write, {'many_ids': records})
 
         # many2one
+        misc_rec = self.env['foo.misc'].browse(42)
         rec.write({'misc_id': False})
         rec.write({'misc_id': 123})
-        rec.write({'misc_id': rec})
+        rec.write({'misc_id': misc_rec})
+        self.assertRaises(TypeError, rec.write, {'misc_id': rec})
 
         # one2many
         records.write({'line_ids': None})
         records.write({'line_ids': []})
         records.write({'line_ids': [123, 234]})
         records.write({'line_ids': [(6, 0, [76])]})
-        records.write({'line_ids': records})
+        records.write({'line_ids': lines})
 
         # many2many
         records.write({'many_ids': 0})
         records.write({'many_ids': []})
         records.write({'many_ids': [123, 234]})
         records.write({'many_ids': [(6, 0, [76])]})
-        records.write({'many_ids': records})
+        records.write({'many_ids': many_recs})
 
         # many2one
-        records.write({'misc_id': rec_null})
+        misc_null = self.env['foo.misc'].browse(False)
+        records.write({'misc_id': misc_null})
         records.write({'misc_id': 123})
-        records.write({'misc_id': rec})
+        records.write({'misc_id': misc_rec})
+        self.assertRaises(TypeError, records.write, {'misc_id': rec_null})
+        self.assertRaises(TypeError, records.write, {'misc_id': rec})
 
         self.assertCalls(
             OBJ('foo.bar', 'fields_get'),
@@ -811,8 +835,9 @@ class TestRecord(TestCase):
 
         rec.copy({'spam': 42})
         rec.copy({'spam': rec})
-        rec.copy({'spam': records})
+        rec.copy({'spam': records[1:2]})
         rec.copy({})
+        self.assertRaises(ValueError, rec.copy, {'spam': records})
         # Odoo >= 18
         records.copy({'spam': rec})
         self.assertCalls(
@@ -820,7 +845,7 @@ class TestRecord(TestCase):
             OBJ('foo.bar', 'fields_get'),
             OBJ('foo.bar', 'copy', 42, {'spam': 42}),
             OBJ('foo.bar', 'copy', 42, {'spam': 42}),
-            OBJ('foo.bar', 'copy', 42, {'spam': [13, 17]}),
+            OBJ('foo.bar', 'copy', 42, {'spam': 17}),
             OBJ('foo.bar', 'copy', 42, {}),
             OBJ('foo.bar', 'copy', [13, 17], {'spam': 42}),
         )
