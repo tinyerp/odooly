@@ -218,14 +218,6 @@ def literal_eval(expression, _octal_digits=frozenset('01234567')):
     return value
 
 
-def is_list_of_dict(iterator):
-    """Return True if the first non-false item is a dict."""
-    for item in iterator:
-        if item:
-            return isinstance(item, dict)
-    return False
-
-
 def format_params(params, hide=('passw', 'pwd')):
     secret = {key: ... for key in params if any(sub in key for sub in hide)}
     return [f'{key}={v!r}' if v != ... else f'{key}=*'
@@ -396,21 +388,6 @@ def searchargs(params, kwargs=None):
         if any(args):
             params += args
     return params
-
-
-def readfmt(arg):
-    if '}' in arg:
-        fields = [re.match(r'\w+', tup[1]).group(0)
-                  for tup in Formatter().parse(arg) if tup[1]]
-        formatter = arg.format_map
-    elif '%(' in arg:
-        fields = re.findall(r'(?<!%)%\((\w+)\)', arg)
-        formatter = arg.__mod__
-    else:
-        # transform: "zip city" --> ("zip", "city")
-        fields = arg.split()
-        formatter = (lambda d: d[fields[0]]) if len(fields) == 1 else None
-    return fields, formatter
 
 
 def parse_http_response(method, result, regex):
@@ -1773,14 +1750,59 @@ class Model(BaseModel):
         The optional keyword arguments `offset`, `limit` and `order` are
         used to restrict the search.
         """
-        fmt = None
-        if len(params) > 1 and isinstance(params[1], str):
-            fields, fmt = readfmt(params[1])
+        arg = params[1] if len(params) > 1 else None
+        fields, fmt = self._parse_format(arg, browse=False)
+        if arg is not None:
             params = (params[0], fields) + params[2:]
         res = self._execute('read', *params, **kwargs)
-        if not fmt or not res:
-            return res
-        return [(d and fmt(d)) for d in res] if isinstance(res, list) else fmt(res)
+        return fmt(res) if isinstance(res, list) else fmt([res])[0]
+
+    def _parse_format(self, arg, browse=True):
+        if not isinstance(arg, str):
+            fields, formatter = arg, None
+        elif '}' in arg:
+            fields = [re.match(r'\w+', tup[1]).group(0)
+                      for tup in Formatter().parse(arg) if tup[1]]
+            formatter = arg.format_map
+        elif '%(' in arg:
+            fields, formatter = re.findall(r'(?<!%)%\((\w+)\)', arg), arg.__mod__
+        else:  # transform: "zip city" --> ["zip", "city"]
+            fields = arg.split()
+            formatter = (lambda d: d[fields[0]]) if len(fields) == 1 else None
+
+        lst_format = lambda values: [(val and formatter(val)) for val in values]
+        if browse:
+            if not formatter:
+                formatter = self._browse_values
+            elif fields == arg.split():
+                fspec = self.field(fields[0])
+                if 'relation' in fspec:
+                    rel_model = self.env._get(fspec['relation'], False)
+                    if fspec['type'] == 'many2one':
+                        m_browse = partial(RecordList, rel_model)
+                    else:
+
+                        def m_browse(values):
+                            if not values:
+                                return RecordList(rel_model, ())
+                            return [RecordList(rel_model, val or ()) for val in values]
+
+                    def lst_format(values):
+                        return m_browse([(val and formatter(val)) for val in values])
+
+                elif fspec['type'] == 'reference':
+
+                    def formatter(dic):
+                        value = dic[fields[0]]
+                        if not value:
+                            return value
+                        (res_model, res_id) = value.split(',')
+                        rel_model = self.env._get(res_model, False)
+                        return Record(rel_model, int(res_id))
+        elif not formatter:
+            lst_format = lambda values: values
+
+        return fields, lst_format
 
     def _browse_values(self, values):
         """Wrap the values of a Record.
@@ -1834,12 +1856,8 @@ class Model(BaseModel):
         search_domain = [('model', '=', self._name)]
         if ids is not None:
             search_domain.append(('res_id', 'in', ids))
-        existing = self.env['ir.model.data'].read(search_domain,
-                                                  ['module', 'name', 'res_id'])
-        res = {}
-        for rec in existing:
-            res[f"{rec['module']}.{rec['name']}"] = self.get(rec['res_id'])
-        return res
+        existing = self.env['ir.model.data'].read(search_domain, 'module name res_id')
+        return {f"{rec['module']}.{rec['name']}": self.get(rec['res_id']) for rec in existing}
 
     def __getattr__(self, attr):
         if attr == '_fields':
@@ -2157,32 +2175,16 @@ class RecordList(BaseRecord):
         The argument `fields` accepts different kinds of values.
         See :meth:`Model.read` for details.
         """
-        if self.id:
+        fields, fmt = self._model._parse_format(fields)
+
+        if fields == ['id']:
+            values = [{'id': res_id} for res_id in self.ids]
+        elif self.id:
             values = self._model.read(self.id, fields, order=True)
-            if is_list_of_dict(values):
-                browse_values = self._model._browse_values
-                return [v and browse_values(v) for v in values]
         else:
             values = []
 
-        if isinstance(fields, str):
-            field = self._model._fields.get(fields)
-            if field:
-                if 'relation' in field:
-                    rel_model = self.env._get(field['relation'], False)
-                    if not values or field['type'] == 'many2one':
-                        return RecordList(rel_model, values)
-                    return [RecordList(rel_model, v) for v in values]
-                if field['type'] == 'reference':
-                    records = []
-                    for value in values:
-                        if value:
-                            (res_model, res_id) = value.split(',')
-                            rel_model = self.env._get(res_model, False)
-                            value = Record(rel_model, int(res_id))
-                        records.append(value)
-                    return records
-        return values
+        return fmt(values)
 
     def copy(self, default=None):
         """Copy records and return :class:`RecordList`.

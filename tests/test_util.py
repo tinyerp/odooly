@@ -1,6 +1,7 @@
+from functools import partial
 from unittest import TestCase
 
-from odooly import issearchdomain, searchargs, readfmt
+from odooly import issearchdomain, searchargs, Model
 
 
 class TestUtils(TestCase):
@@ -131,6 +132,9 @@ class TestUtils(TestCase):
 
 
     def test_readfmt(self):
+        dummy = object.__new__(Model)
+        readfmt = partial(dummy._parse_format, browse=False)
+
         # Helper for 'read' methods
         (fields, fmt) = readfmt('a %(color)s elephant enters %(location)r.\n\n%(firstname)s has left')
         self.assertEqual(fields, ['color', 'location', 'firstname'])

@@ -11,6 +11,8 @@ Changelog
 
 * Remove undocumented :meth:`Env._web`.
 
+* Refactor code for ``read`` field formatter.
+
 
 2.4.7 (2025-11-07)
 ~~~~~~~~~~~~~~~~~~
