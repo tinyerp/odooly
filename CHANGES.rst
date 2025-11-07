@@ -2,6 +2,12 @@ Changelog
 ---------
 
 
+2.5.x (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* Remove undocumented :meth:`Env._web`.
+
+
 2.4.7 (2025-11-07)
 ~~~~~~~~~~~~~~~~~~
 
