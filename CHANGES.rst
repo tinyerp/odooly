@@ -13,6 +13,9 @@ Changelog
 
 * Refactor code for ``read`` field formatter.
 
+* Refactor :class:`Record` and :class:`RecordList` constructors:
+  get rid of ``__new__`` and simplify.
+
 
 2.4.7 (2025-11-07)
 ~~~~~~~~~~~~~~~~~~
