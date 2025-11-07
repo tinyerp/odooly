@@ -5,6 +5,10 @@ Changelog
 2.5.x (unreleased)
 ~~~~~~~~~~~~~~~~~~
 
+* Simplify signature of :meth:`Model.search`: arguments ``order``,
+  ``limit`` and ``offset`` become keyword-only, and undocumented
+  argument ``reverse`` is abandoned.
+
 * Remove undocumented :meth:`Env._web`.
 
 
