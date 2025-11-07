@@ -187,7 +187,11 @@ class TestModel(TestCase):
         self.assertIsInstance(FooBar.search([searchterm]), odooly.RecordList)
         FooBar.search([searchterm], limit=2)
         FooBar.search([searchterm], offset=80, limit=99)
+        FooBar.search([searchterm], offset=80, limit=99)[100:400:3]
         FooBar.search([searchterm], order='name ASC')
+        FooBar.search([searchterm], order='name ASC')[:3]
+        FooBar.search([searchterm], order='name ASC')[40:]
+        FooBar.search([searchterm], order='name ASC')[40:99]
         FooBar.search(['name = mushroom', 'state != draft'])
         FooBar.search([('name', 'like', 'Morice')])
         FooBar.search([])
@@ -199,15 +203,14 @@ class TestModel(TestCase):
 
         FooBar.search([searchterm], limit=2).ids
         FooBar.search([searchterm], offset=80, limit=99).id
-        FooBar.search([searchterm], order='name ASC')[:3]
         FooBar.search(['name = mushroom', 'state != draft']) or 42
         FooBar.search([('name', 'like', 'Morice')]).ids
         FooBar._execute('search', [('name like Morice')])[0]
         FooBar.search([]).ids
+
         self.assertCalls(
             OBJ('foo.bar', 'search', domain, 0, 2, None),
             OBJ('foo.bar', 'search', domain, 80, 99, None),
-            OBJ('foo.bar', 'search', domain, 0, None, 'name ASC'),
             OBJ('foo.bar', 'search', domain2),
             OBJ('foo.bar', 'search', domain),
             OBJ('foo.bar', 'search', domain),
@@ -274,6 +277,25 @@ class TestModel(TestCase):
         self.assertRaises(ValueError, FooBar.search_count, ['name Morice'])
 
         self.assertCalls()
+        self.assertOutput('')
+
+    def test_search_read(self):
+        FooBar = self.env['foo.bar']
+        searchterm = 'name like Morice'
+        domain = [('name', 'like', 'Morice')]
+
+        FooBar.search([searchterm], order='name ASC')[:3].name
+
+        expected_calls = [
+            OBJ('foo.bar', 'fields_get'),
+            OBJ('foo.bar', 'search_read', domain, ['name'], order='name ASC', limit=3),
+        ]
+        if float(self.server_version) < 8.0:
+            expected_calls[1:2] = [
+                OBJ('foo.bar', 'search', domain, 0, 3, 'name ASC'),
+                OBJ('foo.bar', 'read', [1001, 1002], ['name']),
+            ]
+        self.assertCalls(*expected_calls)
         self.assertOutput('')
 
     def test_read(self):

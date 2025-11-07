@@ -2158,6 +2158,26 @@ class RecordList(BaseRecord):
             for key in 'id', 'ids', '_idnames':
                 self.__dict__.pop(key, None)
 
+    def __getitem__(self, key):
+        if 'id' in self.__dict__ or (getattr(key, 'start', -1) or 0) < 0:
+            return super().__getitem__(key)
+        is_stop_positive = key.stop is not None and key.stop >= 0
+        search_args = {**self._search_args}
+        new_offset, new_stop = key.start or 0, search_args.get('limit', None)
+        if is_stop_positive:
+            new_stop = key.stop if new_stop is None else min(new_stop, key.stop)
+        if new_stop is not None:
+            search_args['limit'] = limit = new_stop - new_offset
+            if limit <= 0:
+                return RecordList(self._model, [])
+        if new_offset:
+            search_args['offset'] = (search_args.get('offset') or 0) + new_offset
+        result = RecordList(self._model, None, search=search_args)
+        if (is_stop_positive or key.stop is None) and key.step in (1, None):
+            return result
+        key = slice(None, limit if is_stop_positive else key.stop, key.step)
+        return super(RecordList, result).__getitem__(key)
+
     def with_env(self, env):
         if 'id' in self.__dict__:
             return super().with_env(env)
