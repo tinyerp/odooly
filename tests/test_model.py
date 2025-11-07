@@ -1,6 +1,5 @@
 from functools import partial
-from unittest.mock import call, sentinel, ANY
-from urllib.request import urljoin
+from unittest.mock import sentinel, ANY
 
 import odooly
 from ._common import XmlRpcTestCase, OBJ
@@ -120,6 +119,7 @@ class TestCase(XmlRpcTestCase):
         self.service.object.execute_kw.side_effect = self.obj_exec
         # preload 'foo.bar'
         self.env['foo.bar']
+        self.http_request.reset_mock()
         self.service.reset_mock()
 
 
@@ -1605,23 +1605,6 @@ class TestRecord18(TestRecord):
 class TestModel19(TestModel):
     server_version = '19.0'
 
-    def _patch_service(self):
-        self.auth_http = self._patch_http_request()
-        return super()._patch_service()
-
-    def test_auth_http(self):
-        headers = {
-            'Authorization': 'Bearer passwd',
-            'Content-Type': 'application/json',
-            'X-Odoo-Database': 'database',
-        }
-        test_url = urljoin(self.server, '/json/2/res.users/context_get')
-        self.assertEqual(self.auth_http.mock_calls, [call(test_url, json={}, headers=headers)])
-
 
 class TestRecord19(TestRecord):
     server_version = '19.0'
-
-    def _patch_service(self):
-        self.auth_http = self._patch_http_request()
-        return super()._patch_service()

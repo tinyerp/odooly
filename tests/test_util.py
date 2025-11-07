@@ -130,7 +130,6 @@ class TestUtils(TestCase):
         self.assertRaises(ValueError, searchargs, (['some_id child_off'],))
         self.assertRaises(ValueError, searchargs, (['someth like3'],))
 
-
     def test_readfmt(self):
         dummy = object.__new__(Model)
         readfmt = partial(dummy._parse_format, browse=False)

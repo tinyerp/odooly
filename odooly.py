@@ -2415,11 +2415,8 @@ def _interact(global_vars, use_pprint=True, usage=USAGE):
         print(msg.strip())
     sys.excepthook = excepthook
 
-    class Usage:
-        def __call__(self):
-            print(usage)
-        __repr__ = lambda s: usage
-    builtins.usage = Usage()
+    builtins.usage = type('Usage', (), {'__call__': lambda s: print(usage),
+                                        '__repr__': lambda s: usage})()
 
     try:
         import readline as rl
