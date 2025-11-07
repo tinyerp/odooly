@@ -1154,7 +1154,7 @@ class Env:
         key_vals = {'name': f'Created by Odooly {__version__}'}
         wiz = self["res.users.apikeys.description"].create(key_vals)
         res = wiz.make_key()
-        self.user.refresh()
+        self.user._invalidate_cache()
         assert res['res_model'] == "res.users.apikeys.show"
         return self.set_api_key(res['context']['default_key'])
 
@@ -1967,7 +1967,7 @@ class BaseRecord(BaseModel):
     def _fields(self):
         return self._model._fields
 
-    def refresh(self):
+    def _invalidate_cache(self):
         pass
 
     def ensure_one(self):
@@ -2109,17 +2109,15 @@ class BaseRecord(BaseModel):
         if not self.id:
             return True
         values = self._model._unbrowse_values(values)
-        rv = self._execute('write', self.ids, values)
-        self.refresh()
-        return rv
+        self._invalidate_cache()
+        return self._execute('write', self.ids, values)
 
     def unlink(self):
         """Delete the record(s) from the database."""
         if not self.id:
             return True
-        rv = self._execute('unlink', self.ids)
-        self.refresh()
-        return rv
+        self._invalidate_cache()
+        return self._execute('unlink', self.ids)
 
 
 class RecordList(BaseRecord):
@@ -2244,6 +2242,9 @@ class Record(BaseRecord):
 
     def refresh(self):
         """Force refreshing the record's data."""
+        self._invalidate_cache()
+
+    def _invalidate_cache(self):
         self._cached_keys.discard('id')
         for key in self._cached_keys:
             delattr(self, key)
@@ -2283,7 +2284,7 @@ class Record(BaseRecord):
     def _send(self, signal):
         """Trigger workflow `signal` for this :class:`Record`."""
         assert self.env.client.version_info < 11.0, 'Not supported'
-        self.refresh()
+        self._invalidate_cache()
         return self.env.exec_workflow(self._name, signal, self.id)
 
     @property
@@ -2318,7 +2319,7 @@ class Record(BaseRecord):
         def wrapper(self, *params, **kwargs):
             """Wrapper for client.execute({!r}, {!r}, {:d}, *params, **kwargs)."""
             res = self._execute(attr, [self.id], *params, **kwargs)
-            self.refresh()
+            self._invalidate_cache()
             if isinstance(res, list) and len(res) == 1:
                 return res[0]
             return res

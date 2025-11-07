@@ -16,6 +16,9 @@ Changelog
 * Refactor :class:`Record` and :class:`RecordList` constructors:
   get rid of ``__new__`` and simplify.
 
+* Add private method :meth:`Record._invalidate_cache` to implement
+  :meth:`Record.refresh`.
+
 
 2.4.7 (2025-11-07)
 ~~~~~~~~~~~~~~~~~~
