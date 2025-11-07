@@ -2276,10 +2276,10 @@ class Record(BaseRecord):
         See :meth:`Model.read` for details.
         """
         rv = self._model.read(self.id, fields)
-        if isinstance(rv, dict):
-            return self._update(rv)
         if rv is not None and isinstance(fields, str) and fields in self._model._keys:
             return self._update({fields: rv})[fields]
+        if isinstance(rv, dict):
+            return self._update(rv)
         return rv
 
     def copy(self, default=None):

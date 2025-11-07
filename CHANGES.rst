@@ -18,6 +18,8 @@ Changelog
 
 * Improve type-checking for ``write`` methods.
 
+* Handle ``fields.Serialized`` fields without error.
+
 
 2.4.6 (2025-10-31)
 ~~~~~~~~~~~~~~~~~~
