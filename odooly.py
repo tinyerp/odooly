@@ -744,7 +744,7 @@ class Env:
         if isinstance(user, Record):
             user = user.login
         env.uid = uid
-        env.user = env._get('res.users', False).browse(uid)
+        env.user = Record(env._get('res.users', False), uid)
         env.context = dict(context)
         env.session_info = session
         if user:
@@ -819,7 +819,7 @@ class Env:
             [('module', '=', module), ('name', '=', name)], 'model res_id')
         if data:
             assert len(data) == 1
-            return self[data[0]['model']].browse(data[0]['res_id'])
+            return Record(self[data[0]['model']], data[0]['res_id'])
 
     @property
     def lang(self):
@@ -1669,7 +1669,9 @@ class Model(BaseModel):
         If it is a single integer, the return value is a :class:`Record`.
         Otherwise, the return value is a :class:`RecordList`.
         """
-        return BaseRecord(self, ids)
+        if isinstance(ids, int) or (len(ids) == 2 and isinstance(ids[1], str)):
+            return Record(self, ids)
+        return RecordList(self, ids)
 
     def search(self, domain, **kwargs):
         """Search for records in the `domain`."""
@@ -1722,7 +1724,7 @@ class Model(BaseModel):
         else:  # Odoo >= 12
             values = [self._unbrowse_values(vals) for vals in values]
         new_ids = self._execute('create', values)
-        return Record(self, new_ids)
+        return self.browse(new_ids)
 
     def read(self, *params, **kwargs):
         """Wrapper for ``client.execute(model, 'read', [...], ('a', 'b'))``.
@@ -1824,7 +1826,7 @@ class Model(BaseModel):
             else:
                 continue
             rel_model = self.env._get(res_model, False)
-            values[key] = BaseRecord(rel_model, value)
+            values[key] = rel_model.browse(value)
         return values
 
     def _unbrowse_values(self, values):
@@ -1879,53 +1881,18 @@ class Model(BaseModel):
 
 class BaseRecord(BaseModel):
 
-    def __new__(cls, res_model, arg):
-        if isinstance(arg, int):
-            inst = object.__new__(Record)
-            name = None
-            idnames = [arg]
-            ids = [arg]
-        elif len(arg) == 2 and isinstance(arg[1], str):
-            inst = object.__new__(Record)
-            (arg, name) = arg
-            idnames = [(arg, name)]
-            ids = [arg]
-        else:
-            inst = object.__new__(RecordList)
-            idnames = arg or ()
-            ids = list(idnames)
-            for index, id_ in enumerate(arg):
-                if isinstance(id_, (list, tuple)):
-                    ids[index] = id_ = id_[0]
-                assert isinstance(id_, int), repr(id_)
-            arg = ids
-        attrs = {
-            'id': arg,
-            'ids': ids,
-            'env': res_model.env,
-            '_name': res_model._name,
-            '_model': res_model,
-            '_idnames': idnames,
-            '_execute': res_model._execute,
-        }
-        if isinstance(inst, Record):
-            attrs['_cached_keys'] = set()
-            if name is not None:
-                attrs['_Record__name'] = attrs['display_name'] = name
-        # Bypass the __setattr__ method
-        inst.__dict__.update(attrs)
-        return inst
+    def __init__(self, res_model, arg):
+        attrs = {'_name': res_model._name, '_model': res_model,
+                 'env': res_model.env, '_execute': res_model._execute}
+        # Bypass __setattr__ method
+        self.__dict__.update(attrs)
 
     def __repr__(self):
-        if len(self.ids) > 16:
-            ids = f'length={len(self.ids)}'
-        else:
-            ids = self.id
+        ids = f'length={len(self.ids)}' if len(self.ids) > 16 else self.id
         return f"<{self.__class__.__name__} '{self._name},{ids}'>"
 
     def __dir__(self):
-        attrs = set(self.__dict__) | set(self._model._keys)
-        return sorted(attrs)
+        return sorted(set(self.__dict__) | set(self._model._keys))
 
     def __bool__(self):
         return bool(self.ids)
@@ -1935,13 +1902,10 @@ class BaseRecord(BaseModel):
 
     def __getitem__(self, key):
         idname = self._idnames[key]
-        if idname is False and not isinstance(key, slice):
-            return False
-        return BaseRecord(self._model, idname)
+        return self._model.browse(idname) if idname is not False else False
 
     def __iter__(self):
-        for idname in self._idnames:
-            yield BaseRecord(self._model, idname)
+        yield from (Record(self._model, idname) for idname in self._idnames)
 
     def __contains__(self, item):
         if isinstance(item, BaseRecord):
@@ -1956,7 +1920,7 @@ class BaseRecord(BaseModel):
         other_ids = set(other.ids)
         ids = [idn for (id_, idn) in zip(self.ids, self._idnames)
                if id_ not in other_ids]
-        return BaseRecord(self._model, ids)
+        return RecordList(self._model, ids)
 
     def __and__(self, other):
         self._check_model(other, '&')
@@ -1964,7 +1928,7 @@ class BaseRecord(BaseModel):
         self_set = self.union()
         ids = [idn for (id_, idn) in zip(self_set.ids, self_set._idnames)
                if id_ in other_ids]
-        return BaseRecord(self._model, ids)
+        return RecordList(self._model, ids)
 
     def __or__(self, other):
         return self.union(other)
@@ -2029,7 +1993,7 @@ class BaseRecord(BaseModel):
         ids = self.ids and self._execute(method, arg, context={'active_test': False})
         if ids and not isinstance(self.id, list):
             ids = ids[0]
-        return BaseRecord(self._model, ids)
+        return self._model.browse(ids)
 
     def get_metadata(self):
         """Read the metadata of the record(s)
@@ -2058,7 +2022,7 @@ class BaseRecord(BaseModel):
     def concat(self, *args):
         """Return the concatenation of all records."""
         ids = self._concat_ids(args)
-        return BaseRecord(self._model, ids)
+        return RecordList(self._model, ids)
 
     def union(self, *args):
         """Return the union of all records.
@@ -2074,7 +2038,7 @@ class BaseRecord(BaseModel):
                 if id_ not in seen and not seen.add(id_) and id_:
                     uniqids.append((id_, name) if name else id_)
             ids = uniqids
-        return BaseRecord(self._model, ids)
+        return RecordList(self._model, ids)
 
     @classmethod
     def _union(cls, args):
@@ -2118,7 +2082,7 @@ class BaseRecord(BaseModel):
             return self & self._model.search([('id', 'in', self.ids)] + func)
         else:
             ids = self[:]._filter(func.split('.')) if func else self._idnames
-        return BaseRecord(self._model, ids)
+        return RecordList(self._model, ids)
 
     def sorted(self, key=None, reverse=False):
         """Return the records sorted by ``key``."""
@@ -2134,7 +2098,7 @@ class BaseRecord(BaseModel):
             ids = [idn for (__, idn) in vals]
         else:
             ids = [rec._idnames[0] for rec in sorted(recs, key=key)]
-        return BaseRecord(self._model, ids[::-1] if reverse else ids)
+        return RecordList(self._model, ids[::-1] if reverse else ids)
 
     def write(self, values):
         """Write the `values` in the record(s).
@@ -2169,6 +2133,16 @@ class RecordList(BaseRecord):
     to assign a single value to all the selected records.
     """
 
+    def __init__(self, res_model, arg):
+        super().__init__(res_model, arg)
+        idnames = arg or ()
+        ids = list(idnames)
+        for index, id_ in enumerate(arg):
+            if isinstance(id_, (list, tuple)):
+                ids[index] = id_ = id_[0]
+            assert isinstance(id_, int), repr(id_)
+        self.__dict__.update({'id': ids, 'ids': ids, '_idnames': idnames})
+
     def read(self, fields=None):
         """Read the `fields` of the :class:`RecordList`.
 
@@ -2194,8 +2168,7 @@ class RecordList(BaseRecord):
 
         Supported since Odoo 18.
         """
-        if default:
-            default = self._model._unbrowse_values(default)
+        default = default and self._model._unbrowse_values(default)
         new_ids = self._execute('copy', self.ids, default)
         return RecordList(self._model, new_ids)
 
@@ -2244,6 +2217,17 @@ class Record(BaseRecord):
     The Record's cache is invalidated if any attribute is changed.
     """
 
+    def __init__(self, res_model, arg):
+        super().__init__(res_model, arg)
+        if isinstance(arg, int):
+            name, idnames = None, [arg]
+        else:
+            idnames = [(arg, name)] = [arg]
+        attrs = {'id': arg, 'ids': [arg], '_idnames': idnames, '_cached_keys': set()}
+        if name is not None:
+            attrs['_Record__name'] = attrs['display_name'] = name
+        self.__dict__.update(attrs)
+
     def __str__(self):
         return self.__name if self.id else 'False'
 
@@ -2290,8 +2274,7 @@ class Record(BaseRecord):
         The optional argument `default` is a mapping which overrides some
         values of the new record.
         """
-        if default:
-            default = self._model._unbrowse_values(default)
+        default = default and self._model._unbrowse_values(default)
         new_id = self._execute('copy', self.id, default)
         if isinstance(new_id, list):
             [new_id] = new_id or [False]
