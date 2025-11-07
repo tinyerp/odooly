@@ -86,7 +86,7 @@ class TestCase(XmlRpcTestCase):
             elif model == 'res.users':
                 keys += ('login', 'name', 'password')  # etc ...
             else:
-                keys += ('name', 'message', 'spam', 'birthdate', 'city')
+                keys += ('name', 'message', 'spam', 'first_name', 'birthdate', 'city')
             fields = dict.fromkeys(keys, {'type': sentinel.FIELD_TYPE})
             fields['misc_id'] = {'type': 'many2one', 'relation': 'foo.misc'}
             fields['line_ids'] = {'type': 'one2many', 'relation': 'foo.lines'}
@@ -179,8 +179,10 @@ class TestModel(TestCase):
 
     def test_search(self):
         FooBar = self.env['foo.bar']
-
         searchterm = 'name like Morice'
+        domain = [('name', 'like', 'Morice')]
+        domain2 = [('name', '=', 'mushroom'), ('state', '!=', 'draft')]
+
         self.assertIsInstance(FooBar.search([searchterm]), odooly.RecordList)
         FooBar.search([searchterm], limit=2)
         FooBar.search([searchterm], offset=80, limit=99)
@@ -189,8 +191,6 @@ class TestModel(TestCase):
         FooBar.search([('name', 'like', 'Morice')])
         FooBar._execute('search', [('name like Morice')])
         FooBar.search([])
-        domain = [('name', 'like', 'Morice')]
-        domain2 = [('name', '=', 'mushroom'), ('state', '!=', 'draft')]
         self.assertCalls(
             OBJ('foo.bar', 'search', domain),
             OBJ('foo.bar', 'search', domain, 0, 2, None),
@@ -201,15 +201,18 @@ class TestModel(TestCase):
             OBJ('foo.bar', 'search', domain),
             OBJ('foo.bar', 'search', []),
         )
-        self.assertOutput('')
 
         # Not supported
-        FooBar.search('name like Morice')
-        self.assertCalls(OBJ('foo.bar', 'search', 'name like Morice'))
+        FooBar.search(searchterm)
+        FooBar.search([searchterm], limit=2, fields=['birthdate', 'city'])
+        FooBar.search([searchterm], missingkey=42)
 
-        FooBar.search(['name like Morice'], missingkey=42)
-        self.assertCalls(OBJ('foo.bar', 'search', domain, missingkey=42))
-        self.assertOutput('')
+        self.assertCalls(
+            OBJ('foo.bar', 'search', searchterm),
+            # Invalid keyword arguments are passed to the API
+            OBJ('foo.bar', 'search', domain, 0, 2, None, fields=['birthdate', 'city']),
+            OBJ('foo.bar', 'search', domain, missingkey=42),
+        )
 
         self.assertRaises(TypeError, FooBar.search)
         self.assertRaises(ValueError, FooBar.search, ['abc'])
@@ -239,15 +242,6 @@ class TestModel(TestCase):
             OBJ('foo.bar', 'search_count', []),
             OBJ('foo.bar', 'search_count', []),
         )
-        self.assertOutput('')
-
-        # Invalid keyword arguments are passed to the API
-        FooBar.search([searchterm], limit=2, fields=['birthdate', 'city'])
-        FooBar.search([searchterm], missingkey=42)
-        self.assertCalls(
-            OBJ('foo.bar', 'search', domain, 0, 2, None, fields=['birthdate', 'city']),
-            OBJ('foo.bar', 'search', domain, missingkey=42))
-        self.assertOutput('')
 
         # Not supported
         FooBar.search_count(searchterm)
@@ -1194,12 +1188,12 @@ class TestRecord(TestCase):
     def test_mapped(self):
         m = self.env['foo.bar']
         self.service.object.execute_kw.side_effect = [
-            [{'id': k, 'fld1': 'val%s' % k} for k in [4, 17, 7, 42, 112, 13]],
             {'fld1': {'type': 'char'}, 'display_name': {'type': 'char'}, 'foo_categ_id': {'relation': 'foo.categ', 'type': 'many2one'}},
+            [{'id': k, 'fld1': 'val%s' % k} for k in [4, 17, 7, 42, 112, 13]],
             [{'id': k, 'foo_categ_id': [k * 10, 'Categ C%04d' % k]} for k in [4, 17, 7, 42, 112, 13]],
             [{'id': k, 'foo_categ_id': [k * 10, 'Categ C%04d' % k]} for k in [4, 17, 7, 42, 112, 13]],
-            [{'id': k * 10, 'fld2': 'f2_%04d' % k} for k in [4, 17, 7, 42, 112, 13]],
             {'fld2': {'type': 'char'}},
+            [{'id': k * 10, 'fld2': 'f2_%04d' % k} for k in [4, 17, 7, 42, 112, 13]],
             self._return_display_name(42, 'Record 42'),
             self._return_display_name(4, 'Record 4'),
             self._return_display_name(42, 'Record 42'),
@@ -1239,12 +1233,12 @@ class TestRecord(TestCase):
         self.assertRaises(TypeError, records1.mapped)
 
         self.assertCalls(
-            OBJ('foo.bar', 'read', ids1_sorted, ['fld1']),
             OBJ('foo.bar', 'fields_get'),
+            OBJ('foo.bar', 'read', ids1_sorted, ['fld1']),
             OBJ('foo.bar', 'read', ids1_sorted, ['foo_categ_id']),
             OBJ('foo.bar', 'read', ids1_sorted, ['foo_categ_id']),
-            OBJ('foo.categ', 'read', [k * 10 for k in ids1_sorted], ['fld2']),
             OBJ('foo.categ', 'fields_get'),
+            OBJ('foo.categ', 'read', [k * 10 for k in ids1_sorted], ['fld2']),
             self._call_display_name('foo.bar', 42),
             self._call_display_name('foo.bar', 4),
             self._call_display_name('foo.bar', 42),
@@ -1272,7 +1266,8 @@ class TestRecord(TestCase):
         self.service.object.execute_kw.side_effect = [
             {'child_ids': {'relation': 'foo.bar', 'type': 'one2many'},
              'category_ids': {'relation': 'foo.bar', 'type': 'many2many'},
-             'parent_id': {'relation': 'foo.bar', 'type': 'many2one'}}
+             'parent_id': {'relation': 'foo.bar', 'type': 'many2one'},
+             'name': {'type': 'char'}}
         ]
 
         records0 = m.browse()
@@ -1290,21 +1285,21 @@ class TestRecord(TestCase):
         m = self.env['foo.bar']
         items = [[k, 'Item %d' % k] for k in range(1, 9)]
         self.service.object.execute_kw.side_effect = [
-            [{'id': k, 'flag1': not (k % 3)} for k in [4, 17, 7, 42, 112, 13]],
             {'flag1': {'type': 'boolean'},
              'foo_child_ids': {'relation': 'foo.child', 'type': 'one2many'},
              'foo_categ_id': {'relation': 'foo.categ', 'type': 'many2one'}},
+            [{'id': k, 'flag1': not (k % 3)} for k in [4, 17, 7, 42, 112, 13]],
 
             [{'id': k, 'foo_categ_id': [k * 10, 'Categ C%04d' % k]} for k in [4, 17, 7, 42, 112, 13]],
 
             [{'id': k, 'foo_categ_id': [k * 10, 'Categ C%04d' % k]} for k in [4, 17, 7, 42, 112, 13]],
+            {'flag2': {'type': 'char'}, 'flag3': {'type': 'boolean'}},
             [{'id': k * 10, 'flag2': bool(k % 2)} for k in [4, 17, 7, 42, 112, 13]],
-            {'flag2': {'type': 'char'}},
 
             [{'id': k, 'foo_child_ids': {}} for k in [4, 7, 112, 13]] +
             [{'id': 42, 'foo_child_ids': items[0:6]}, {'id': 17, 'foo_child_ids': items[6:8]}],
+            {'flag3': {'type': 'boolean'}, 'flag4': {'type': 'char'}},
             [{'id': k, 'flag3': (k < 3)} for k in range(1, 9)],
-            {'flag3': {'type': 'boolean'}},
 
             [{'id': k, 'foo_child_ids': {}} for k in [4, 7, 112, 13]] +
             [{'id': 42, 'foo_child_ids': items[0:6]}, {'id': 17, 'foo_child_ids': items[6:8]}],
@@ -1346,17 +1341,17 @@ class TestRecord(TestCase):
         self.assertRaises(TypeError, records1.filtered)
 
         self.assertCalls(
-            OBJ('foo.bar', 'read', ids1_sorted, ['flag1']),
             OBJ('foo.bar', 'fields_get'),
+            OBJ('foo.bar', 'read', ids1_sorted, ['flag1']),
             OBJ('foo.bar', 'read', ids1_sorted, ['foo_categ_id']),
 
             OBJ('foo.bar', 'read', ids1_sorted, ['foo_categ_id']),
-            OBJ('foo.categ', 'read', [k * 10 for k in ids1_sorted], ['flag2']),
             OBJ('foo.categ', 'fields_get'),
+            OBJ('foo.categ', 'read', [k * 10 for k in ids1_sorted], ['flag2']),
 
             OBJ('foo.bar', 'read', ids1_sorted, ['foo_child_ids']),
-            OBJ('foo.child', 'read', [1, 2, 3, 4, 5, 6, 7, 8], ['flag3']),
             OBJ('foo.child', 'fields_get'),
+            OBJ('foo.child', 'read', [1, 2, 3, 4, 5, 6, 7, 8], ['flag3']),
 
             OBJ('foo.bar', 'read', ids1_sorted, ['foo_child_ids']),
             OBJ('foo.child', 'read', [1, 2, 3, 4, 5, 6, 7, 8], ['flag4']),
@@ -1380,8 +1375,8 @@ class TestRecord(TestCase):
         self.service.object.execute_kw.side_effect = [
             [42, 4, 7, 17, 112],
             [42, 4, 7, 17, 112],
-            [{'id': k, 'fld1': 'val%s' % k} for k in [4, 17, 7, 42, 112, 13]],
             {'fld1': {'type': 'char'}, 'display_name': {'type': 'char'}},
+            [{'id': k, 'fld1': 'val%s' % k} for k in [4, 17, 7, 42, 112, 13]],
             [{'id': k, 'fld1': 'val%s' % k} for k in [4, 17, 7, 42, 112, 13]],
             self._return_display_name(4, 'Record 4'),
             self._return_display_name(4, 'Record 4'),
@@ -1410,12 +1405,11 @@ class TestRecord(TestCase):
         self.assertCalls(
             OBJ('foo.bar', 'search', [('id', 'in', ids1)]),
             OBJ('foo.bar', 'search', [('id', 'in', ids1)]),
-            OBJ('foo.bar', 'read', ids1_sorted, ['fld1']),
             OBJ('foo.bar', 'fields_get'),
             OBJ('foo.bar', 'read', ids1_sorted, ['fld1']),
+            OBJ('foo.bar', 'read', ids1_sorted, ['fld1']),
             self._call_display_name('foo.bar', 4),
             self._call_display_name('foo.bar', 4),
-            OBJ('foo.bar', 'read', ids1_sorted, ['fld1.fld2']),
         )
 
         records2 = m.browse([42, 42])
