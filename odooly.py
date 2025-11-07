@@ -1694,11 +1694,10 @@ class Model(BaseModel):
         """
         return BaseRecord(self, ids)
 
-    def search(self, domain, *params, **kwargs):
+    def search(self, domain, **kwargs):
         """Search for records in the `domain`."""
-        reverse = kwargs.pop('reverse', False)
-        ids = self._execute('search', domain, *params, **kwargs)
-        return RecordList(self, ids[::-1] if reverse else ids)
+        ids = self._execute('search', domain, **kwargs)
+        return RecordList(self, ids)
 
     def search_count(self, domain=None):
         """Count the records in the `domain`."""
@@ -2110,16 +2109,14 @@ class BaseRecord(BaseModel):
             return recs
         if key is None:
             idnames = dict(zip(recs.ids, recs._idnames))
-            recs = self._model.search([('id', 'in', recs.ids)],
-                                      reverse=reverse)
+            recs = self._model.search([('id', 'in', recs.ids)])
             ids = [idnames[id_] for id_ in recs.ids]
         elif isinstance(key, str):
-            vals = sorted(zip(recs.read(key), recs._idnames), reverse=reverse)
+            vals = sorted(zip(recs.read(key), recs._idnames))
             ids = [idn for (__, idn) in vals]
         else:
-            ids = [rec._idnames[0]
-                   for rec in sorted(recs, key=key, reverse=reverse)]
-        return BaseRecord(self._model, ids)
+            ids = [rec._idnames[0] for rec in sorted(recs, key=key)]
+        return BaseRecord(self._model, ids[::-1] if reverse else ids)
 
     def write(self, values):
         """Write the `values` in the record(s).
