@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-2.5.x (unreleased)
+2.4.7 (2025-11-07)
 ~~~~~~~~~~~~~~~~~~
 
 * Interactive: add possibility to change verbosity. E.g.:
