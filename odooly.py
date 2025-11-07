@@ -660,7 +660,6 @@ class Env:
         if db_name:
             env._model_names = env._cache_get('model_names', dict)
             env._models = {}
-        env._web = client.web
         return env
 
     def __contains__(self, name):
