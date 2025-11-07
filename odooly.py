@@ -998,7 +998,11 @@ class Env:
             fld_transient = 'transient' if 'transient' in ir_model._keys else 'osv_memory'
             domain = [('abstract', '=', False)] if 'abstract' in ir_model._keys else []  # Odoo 19
             try:
-                models = ir_model.search_read(domain, ('model', fld_transient))
+                if self.client.version_info < 8.0:
+                    recs = ir_model.search(domain)
+                    models = ir_model.read(recs.ids, ('model', fld_transient))
+                else:
+                    models = ir_model.search_read(domain, ('model', fld_transient))
             except ServerError:
                 # Only Odoo 15 prevents non-admin user to retrieve models
                 models = ir_model.get_available_models() if self.client.version_info >= 16.0 else {}
