@@ -757,10 +757,6 @@ class TestClientApi19(TestClientApi):
     test_exec_workflow = test_wizard = _skip_test
     test_report = test_render_report = test_report_get = _skip_test
 
-    def _patch_service(self):
-        self.auth_http = self._patch_http_request()
-        return super()._patch_service()
-
     def test_obsolete_methods(self):
         self.assertRaises(AttributeError, getattr, self.env, 'exec_workflow')
         self.assertRaises(AttributeError, getattr, self.env, 'render_report')
