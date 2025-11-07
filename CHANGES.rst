@@ -14,6 +14,11 @@ Changelog
   are read or methods are called.  It will use `search_read` API method
   when it's adequate.
 
+* New: extracting a part of a lazy :class:`RecordList` will not call
+  API method, for simple use cases like
+  ``env['account.move'].search([])[10:90]``.  It will set
+  ``offset`` and ``limit`` on the prepared search instead.
+
 * Remove undocumented :meth:`Env._web`.
 
 * Refactor code for ``read`` field formatter.
