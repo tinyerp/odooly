@@ -9,6 +9,11 @@ Changelog
   ``limit`` and ``offset`` become keyword-only, and undocumented
   argument ``reverse`` is abandoned.
 
+* New: :meth:`Model.search` returns a :class:`RecordList` which is
+  lazily evaluated. API method is called only when needed: if attributes
+  are read or methods are called.  It will use `search_read` API method
+  when it's adequate.
+
 * Remove undocumented :meth:`Env._web`.
 
 * Refactor code for ``read`` field formatter.

@@ -974,11 +974,7 @@ class Env:
             fld_transient = 'transient' if 'transient' in ir_model._keys else 'osv_memory'
             domain = [('abstract', '=', False)] if 'abstract' in ir_model._keys else []  # Odoo 19
             try:
-                if self.client.version_info < 8.0:
-                    recs = ir_model.search(domain)
-                    models = ir_model.read(recs.ids, ('model', fld_transient))
-                else:
-                    models = ir_model.search_read(domain, ('model', fld_transient))
+                models = ir_model.search_read(domain, ('model', fld_transient))
             except ServerError:
                 # Only Odoo 15 prevents non-admin user to retrieve models
                 models = ir_model.get_available_models() if self.client.version_info >= 16.0 else {}
@@ -1578,8 +1574,6 @@ class Client:
 
 class BaseModel:
 
-    ids = ()
-
     def sudo(self, user=None):
         """Attach to the provided user, or Superuser."""
         return self.with_env(self.env.sudo(user=user))
@@ -1675,12 +1669,21 @@ class Model(BaseModel):
 
     def search(self, domain, **kwargs):
         """Search for records in the `domain`."""
-        ids = self._execute('search', domain, **kwargs)
-        return RecordList(self, ids)
+        return RecordList._prepared(self, domain, kwargs)
 
     def search_count(self, domain=None):
         """Count the records in the `domain`."""
         return self._execute('search_count', domain or [])
+
+    def search_read(self, domain=None, fields=None, **kwargs):
+        """Combine search and read."""
+        fields, fmt = self._parse_format(fields, browse=False)
+        if self.env.client.version_info < 8.0:
+            ids = self._execute('search', domain or [], **kwargs)
+            res = self._execute('read', ids, fields)
+        else:
+            res = self._execute('search_read', domain or [], fields, **kwargs)
+        return fmt(res)
 
     def get(self, domain, *args, **kwargs):
         """Return a single :class:`Record`.
@@ -1888,7 +1891,7 @@ class BaseRecord(BaseModel):
         self.__dict__.update(attrs)
 
     def __repr__(self):
-        ids = f'length={len(self.ids)}' if len(self.ids) > 16 else self.id
+        ids = f'length={len(self.ids)}' if len(self.ids) > 6 else self.id
         return f"<{self.__class__.__name__} '{self._name},{ids}'>"
 
     def __dir__(self):
@@ -2131,15 +2134,34 @@ class RecordList(BaseRecord):
     to assign a single value to all the selected records.
     """
 
-    def __init__(self, res_model, arg):
+    def __init__(self, res_model, arg, search=None):
         super().__init__(res_model, arg)
-        idnames = arg or ()
-        ids = list(idnames)
-        for index, id_ in enumerate(arg):
-            if isinstance(id_, (list, tuple)):
-                ids[index] = id_ = id_[0]
-            assert isinstance(id_, int), repr(id_)
-        self.__dict__.update({'id': ids, 'ids': ids, '_idnames': idnames})
+        if search is None:
+            idnames = arg or ()
+            ids = list(idnames)
+            for index, id_ in enumerate(arg):
+                if isinstance(id_, (list, tuple)):
+                    ids[index] = id_ = id_[0]
+                assert isinstance(id_, int), repr(id_)
+            self.__dict__.update({'id': ids, 'ids': ids, '_idnames': idnames, '_search_args': None})
+        else:
+            self.__dict__['_search_args'] = search
+
+    @classmethod
+    def _prepared(cls, res_model, domain, params):
+        [domain] = searchargs((domain,))
+        return cls(res_model, None, search={'domain': domain, **params})
+
+    def refresh(self):
+        """Reset :class:`RecordList` content."""
+        if self._search_args:
+            for key in 'id', 'ids', '_idnames':
+                self.__dict__.pop(key, None)
+
+    def with_env(self, env):
+        if 'id' in self.__dict__:
+            return super().with_env(env)
+        return RecordList(env[self._name], None, {**self._search_args})
 
     def read(self, fields=None):
         """Read the `fields` of the :class:`RecordList`.
@@ -2151,10 +2173,16 @@ class RecordList(BaseRecord):
 
         if fields == ['id']:
             values = [{'id': res_id} for res_id in self.ids]
-        elif self.id:
-            values = self._model.read(self.id, fields, order=True)
+        elif 'id' not in self.__dict__:
+            params = {**self._search_args}
+            domain = params.pop('domain')
+            values = self._model.search_read(domain, fields, **params)
+            ids = idnames = [val['id'] for val in values]
+            if values and 'display_name' in values[0]:
+                idnames = [(val['id'], val['display_name']) for val in values]
+            self.__dict__.update({'id': ids, 'ids': ids, '_idnames': idnames})
         else:
-            values = []
+            values = self._model.read(self.id, fields, order=True) if self.id else []
 
         return fmt(values)
 
@@ -2183,6 +2211,11 @@ class RecordList(BaseRecord):
         return [xml_ids.get(res_id, False) for res_id in self.id]
 
     def __getattr__(self, attr):
+        if attr in ('id', 'ids', '_idnames'):
+            params = {**self._search_args}
+            ids = self._execute('search', params.pop('domain'), **params)
+            self.__dict__.update({'id': ids, 'ids': ids, '_idnames': ids})
+            return self.__dict__[attr]
         if attr in self._model._keys:
             return self.read(attr)
         if attr.startswith('_'):

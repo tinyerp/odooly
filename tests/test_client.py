@@ -348,7 +348,7 @@ class TestSampleSession(XmlRpcTestCase):
 
     def test_module_upgrade(self):
         self.service.object.execute_kw.side_effect = [
-            (42, 0), [42], [], ANY, [42],
+            (42, 0), [], [42], ANY, [42],
             [{'id': 42, 'state': ANY, 'name': ANY}], ANY]
 
         result = self.env.upgrade('dummy')
@@ -356,8 +356,8 @@ class TestSampleSession(XmlRpcTestCase):
 
         self.assertCalls(
             imm('update_list'),
-            imm('search', [('name', 'in', ('dummy',))]),
             imm('search', [('state', 'not in', STABLE)]),
+            imm('search', [('name', 'in', ('dummy',))]),
             imm('button_upgrade', [42]),
             imm('search', [('state', 'not in', STABLE)]),
             imm('read', [42], ['name', 'state']),
@@ -581,7 +581,7 @@ class TestClientApi(XmlRpcTestCase):
 
     def _module_upgrade(self, button='upgrade'):
         execute_return = [
-            [7, 0], [42], [], {'name': 'Upgrade'},
+            [7, 0], [], [42], {'name': 'Upgrade'},
             [{'id': 4, 'state': ANY, 'name': ANY},
              {'id': 5, 'state': ANY, 'name': ANY},
              {'id': 42, 'state': ANY, 'name': ANY}], ANY]
@@ -589,16 +589,17 @@ class TestClientApi(XmlRpcTestCase):
 
         expected_calls = [
             imm('update_list'),
-            imm('search', [('name', 'in', ('dummy', 'spam'))]),
             imm('search_read', [('state', 'not in', STABLE)], ['name', 'state']),
+            imm('search', [('name', 'in', ('dummy', 'spam'))]),
             imm('button_' + button, [42]),
             imm('search_read', [('state', 'not in', STABLE)], ['name', 'state']),
             bmu('upgrade_module', []),
         ]
         if float(self.server_version) < 8.0:
             execute_return[4:4] = [[4, 42, 5]]
-            expected_calls[2:5] = [
+            expected_calls[1:5] = [
                 imm('search', [('state', 'not in', STABLE)]),
+                imm('search', [('name', 'in', ('dummy', 'spam'))]),
                 imm('button_' + button, [42]),
                 imm('search', [('state', 'not in', STABLE)]),
                 imm('read', [4, 42, 5], ['name', 'state']),
@@ -632,7 +633,7 @@ class TestClientApi(XmlRpcTestCase):
 
         self.service.object.execute_kw.side_effect = [[0, 0], []]
         self.assertIsNone(action())
-        self.assertCalls(expected_calls[0], expected_calls[2])
+        self.assertCalls(*expected_calls[:2])
         self.assertOutput('0 module(s) updated\n')
 
     def test_module_upgrade(self):

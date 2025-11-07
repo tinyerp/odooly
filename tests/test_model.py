@@ -183,16 +183,28 @@ class TestModel(TestCase):
         domain = [('name', 'like', 'Morice')]
         domain2 = [('name', '=', 'mushroom'), ('state', '!=', 'draft')]
 
+        # Search itself does not execute API calls
         self.assertIsInstance(FooBar.search([searchterm]), odooly.RecordList)
         FooBar.search([searchterm], limit=2)
         FooBar.search([searchterm], offset=80, limit=99)
         FooBar.search([searchterm], order='name ASC')
         FooBar.search(['name = mushroom', 'state != draft'])
         FooBar.search([('name', 'like', 'Morice')])
-        FooBar._execute('search', [('name like Morice')])
         FooBar.search([])
+        self.assertCalls()
+
+        # Low-level search will execute API call immediately
+        FooBar._execute('search', [searchterm])
+        self.assertCalls(OBJ('foo.bar', 'search', domain))
+
+        FooBar.search([searchterm], limit=2).ids
+        FooBar.search([searchterm], offset=80, limit=99).id
+        FooBar.search([searchterm], order='name ASC')[:3]
+        FooBar.search(['name = mushroom', 'state != draft']) or 42
+        FooBar.search([('name', 'like', 'Morice')]).ids
+        FooBar._execute('search', [('name like Morice')])[0]
+        FooBar.search([]).ids
         self.assertCalls(
-            OBJ('foo.bar', 'search', domain),
             OBJ('foo.bar', 'search', domain, 0, 2, None),
             OBJ('foo.bar', 'search', domain, 80, 99, None),
             OBJ('foo.bar', 'search', domain, 0, None, 'name ASC'),
@@ -206,7 +218,11 @@ class TestModel(TestCase):
         FooBar.search(searchterm)
         FooBar.search([searchterm], limit=2, fields=['birthdate', 'city'])
         FooBar.search([searchterm], missingkey=42)
+        self.assertCalls()
 
+        FooBar.search(searchterm).ids
+        FooBar.search([searchterm], limit=2, fields=['birthdate', 'city']).ids
+        FooBar.search([searchterm], missingkey=42).ids
         self.assertCalls(
             OBJ('foo.bar', 'search', searchterm),
             # Invalid keyword arguments are passed to the API
