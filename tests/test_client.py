@@ -365,6 +365,25 @@ class TestSampleSession(XmlRpcTestCase):
         )
         self.assertOutput(ANY)
 
+    def test_client_verbose(self):
+        client = self.client
+
+        self.assertIsNone(client.verbose)
+
+        client.verbose = 1
+        self.assertEqual(client.verbose, 79)
+
+        client.verbose = 3
+        self.assertEqual(client.verbose, 9999)
+
+        client.verbose = 140
+        self.assertEqual(client.verbose, 140)
+        self.assertEqual(client._printer.cols, 140)
+
+        client.verbose = 0
+        self.assertIsNone(client.verbose)
+        self.assertIsNone(client._printer.cols)
+
 
 class TestClientApi(XmlRpcTestCase):
     """Test the Client API."""

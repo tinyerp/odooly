@@ -29,6 +29,8 @@ Changelog
 * Add private method :meth:`Record._invalidate_cache` to implement
   :meth:`Record.refresh`.
 
+* Property :attr:`Client.verbose` to enable/disable logging.
+
 
 2.4.7 (2025-11-07)
 ~~~~~~~~~~~~~~~~~~

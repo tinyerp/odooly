@@ -414,15 +414,13 @@ class ServerError(Exception):
 
 
 class Printer:
-    def __init__(self, cols):
-        self.cols = MAXCOL[min(3, cols) - 1] if (cols or 9) < 9 else cols or None
+    cols = None
 
     def _print_(self, message, _prefix):
-        cols = max(36, self.cols)
         xch = str(message)
-        if len(xch) > cols:
+        if len(xch) > self.cols:
             suffix = f"... L={len(xch)}"
-            xch = xch[:cols - len(suffix)] + suffix
+            xch = xch[:self.cols - len(suffix)] + suffix
         print(f"{_prefix} {xch}")
 
     print_sent = functools.partialmethod(_print_, _prefix='-->')
@@ -1174,19 +1172,29 @@ class Client:
     def __init__(self, server, db=None, user=None, password=None,
                  api_key=None, transport=None, verbose=False):
         self._http = HTTPSession()
+        self._printer = Printer()
         self._session_uid = None
-        self._set_services(server, db, transport, verbose)
+        self.verbose = verbose
+        self._set_services(server, db, transport)
         self.env = Env(self)
         if user:  # Try to login
             self.login(user, password=password, api_key=api_key, database=db)
 
-    def _set_services(self, server, db, transport, cols):
+    @property
+    def verbose(self):
+        return self._printer.cols
+
+    @verbose.setter
+    def verbose(self, cols):
+        cols = MAXCOL[min(3, cols) - 1] if (cols or 9) < 9 else cols
+        self._printer.cols = cols and max(36, cols) or None
+
+    def _set_services(self, server, db, transport):
         if isinstance(server, list):
             appname = Path(__file__).name.rstrip('co')
             server = start_odoo_services(server, appname=appname)
         elif isinstance(server, str) and server[-1:] == '/':
             server = server.rstrip('/')
-        self._printer = Printer(cols)
         self._server = server
         self._connections = []
 
@@ -1329,7 +1337,7 @@ class Client:
             password = None
         try:
             client = Env._cache[Env, db, server].client
-            client._printer.__init__(verbose)
+            client.verbose = verbose
             client.login(user or conf_user, password=password, api_key=api_key)
         except KeyError:
             client = cls(server, db, user or conf_user, password=password, api_key=api_key, verbose=verbose)
@@ -1469,11 +1477,11 @@ class Client:
         """Connect to another environment and replace the globals()."""
         assert self._is_interactive(), 'Not available'
         if env_name:
-            self.from_config(env_name, user=user, verbose=self._printer.cols)
+            self.from_config(env_name, user=user, verbose=self.verbose)
         elif server:
             if not user and self.env.uid:
                 user = self.env.user.login
-            self.__class__(server, user=user, verbose=self._printer.cols)
+            self.__class__(server, user=user, verbose=self.verbose)
         else:
             assert not user, "Use client.login(...) instead"
             self._globals['client'] = self.env.client

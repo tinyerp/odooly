@@ -117,7 +117,7 @@ This is a sample session::
 
    It's also possible to set verbosity from the interactive prompt::
 
-       >>> client._printer.cols = 180
+       >>> client.verbose = 180  # Width in columns
 
 .. note::
 
