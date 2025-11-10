@@ -1,7 +1,7 @@
 from functools import partial
 from unittest import TestCase
 
-from odooly import issearchdomain, searchargs, Model
+from odooly import issearchdomain, searchargs, Model, Client, Printer
 
 
 class TestUtils(TestCase):
@@ -141,3 +141,32 @@ class TestUtils(TestCase):
 
         (fields, fmt) = readfmt('a {color} elephant enters {location[1]}.\n\n{firstname!r} has left')
         self.assertEqual(fields, ['color', 'location', 'firstname'])
+
+    def test_printer(self):
+        # Verbosity None or 0   --> disable logging
+        # Verbosity 1 to 8      --> mapped 1 -> 79 / 2 -> 179 / 3+ -> 9999
+        # Verbosity >= 36       --> width to print in columns
+        client = object.__new__(Client)
+        client._printer = Printer()
+        client.verbose = 2
+        self.assertEqual(client._printer.cols, 179)
+        self.assertEqual(client.verbose, 179)
+        client.verbose = 3
+        self.assertEqual(client._printer.cols, 9999)
+        client.verbose = 250
+        self.assertEqual(client._printer.cols, 250)
+        client.verbose = None
+        self.assertIsNone(client._printer.cols)
+        client.verbose = 64
+        self.assertEqual(client._printer.cols, 64)
+        self.assertEqual(client.verbose, 64)
+        client.verbose = True
+        self.assertEqual(client._printer.cols, 79)
+        client.verbose = 8
+        self.assertEqual(client._printer.cols, 9999)
+        self.assertEqual(client.verbose, 9999)
+        client.verbose = 0
+        self.assertIsNone(client._printer.cols)
+
+        self.assertRaises(TypeError, setattr, client, 'verbose', 'a')
+        self.assertRaises(IndexError, setattr, client, 'verbose', -4)
