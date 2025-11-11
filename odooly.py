@@ -396,7 +396,7 @@ def searchargs(params, kwargs=None):
     return params
 
 
-def parse_http_response(method, result, regex):
+def extract_http_response(method, result, regex):
     if method == 'HEAD':
         return result.url
     found = re.search(regex or r'odoo._*session_info_* = (.*);', result)
@@ -552,8 +552,7 @@ class Json2:
 
     def doc(self, model):
         """Documentation of the `model`."""
-        res = self._request(f'{self._doc_endpoint}/{model}.json')
-        return json.loads(res)
+        return self._request(f'{self._doc_endpoint}/{model}.json')
 
     def _prepare_params(self, model, method, args, kwargs):
         if not args:
@@ -1265,12 +1264,12 @@ class Client:
         url = urljoin(self._server, path)
         if not self._printer:
             res = self._http.request(url, data=data, headers=headers, method=verb)
-            return res, parse_http_response(verb, res, regex)
+            return res, extract_http_response(verb, res, regex)
         snt = ' '.join(format_params(data or {}))
         with self._printer as log:
             log.print_sent(f"{verb} {path} {snt}".rstrip())
             res = self._http.request(url, data=data, headers=headers, method=verb)
-            parsed = parse_http_response(verb, res, regex)
+            parsed = extract_http_response(verb, res, regex)
             log.print_recv(parsed)
         return res, parsed
 

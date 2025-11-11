@@ -82,7 +82,8 @@ def main():
         raise SystemExit("")
 
     print(f"Connect to Odoo {version} ...")
-    global_vars = odooly.Client._set_interactive({'__doc__': __doc__})
+    global_vars = odooly.Client._set_interactive()
+    global_vars['__doc__'] = __doc__
     odooly.Client.from_config(version, user=opts.user, verbose=opts.verbose)
     odooly._interact(global_vars)
 
