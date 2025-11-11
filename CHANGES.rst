@@ -2,6 +2,13 @@ Changelog
 ---------
 
 
+2.5.x (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* Json2: performance improvement.  Parameters of standard public
+  methods are predefined.
+
+
 2.5.1 (2025-11-11)
 ~~~~~~~~~~~~~~~~~~
 
