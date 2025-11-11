@@ -124,7 +124,6 @@ class XmlRpcTestCase(OdooTestCase):
         svcs.db.server_version.return_value = self.server_version
         svcs.db.list.return_value = [self.database]
         svcs.common.login.return_value = self.uid
-        # env['res.users'].context_get()
         svcs.object.execute_kw.return_value = self.user_context
         return svcs
 

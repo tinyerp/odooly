@@ -11,6 +11,8 @@ class _TestInteract(OdooTestCase):
 
     def setUp(self):
         super().setUp()
+        # Reset defaults before each run
+        odooly.Client._set_interactive.__func__.__defaults__ = ({},)
         # Hide readline module
         mock.patch.dict('sys.modules', {'readline': None}).start()
         mock.patch('odooly.Client._globals', None).start()

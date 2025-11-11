@@ -788,7 +788,7 @@ class Env:
         if user is not None:
             (uid, password, session) = self._check_user_password(user, password, api_key)
             if context is None:
-                context = session['user_context']
+                context = session.get('user_context') or {}
         elif context is not None:
             (uid, user, session) = (self.uid, self.user, self.session_info)
         else:
@@ -1404,7 +1404,7 @@ class Client:
             # 5. Submit TOTP
             params = {'csrf_token': csrf, 'totp_token': token, 'remember': 1}
             rv, session_info = self._request_parse('/web/login/totp', data=params)
-        return session_info
+        return session_info if session_info.get('username') == kw['login'] else {'uid': None}
 
     def _authenticate_system(self):
         __, session_info = self._request_parse('/web/become')
@@ -1466,12 +1466,12 @@ class Client:
         if not self._is_interactive():
             return self._login(user, password=password, database=database, api_key=api_key)
         try:
-            self._login(user, password=password, database=database, api_key=api_key)
+            register = self._login(user, password=password, database=database, api_key=api_key)
         except Error as exc:
             print(exc)
-        else:
-            # Register the new globals()
-            self.connect()
+            register = 'client' not in self._globals
+        # Register the globals()
+        register and self.connect()
 
     def connect(self, env_name=None, *, server=None, user=None):
         """Connect to another environment and replace the globals()."""
@@ -2512,8 +2512,6 @@ def main(interact=_interact):
         writer.writerows(data or ())
 
     if client._is_interactive():
-        if not client.env.uid:
-            client.connect()
         return interact(global_vars) if interact else global_vars
 
 
