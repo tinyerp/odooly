@@ -31,6 +31,8 @@ Changelog
 
 * Property :attr:`Client.verbose` to enable/disable logging.
 
+* Support ``odooly https://demo.odoo.com`` for simplicity.
+
 
 2.4.7 (2025-11-07)
 ~~~~~~~~~~~~~~~~~~
