@@ -143,10 +143,13 @@ class HTTPSession:
         def request(self, url, *, method='POST', data=None, json=None, headers=None, **kw):
             resp = self._session.request(method, url, data=data, json=json, headers=headers, **kw)
             resp.raise_for_status()
-            return resp if method == 'HEAD' else resp.text if json is None else resp.json()
+            return resp if method == 'HEAD' else self._parse_response(resp)
+
+        def _parse_response(self, resp):
+            return resp.json() if 'json' in resp.headers['content-type'] else resp.text
 
         def _parse_error(self, error):
-            return error.response.status_code, error.response.json()
+            return error.response.status_code, self._parse_response(error.response)
 
     else:  # urllib.request
         def __init__(self):
@@ -163,10 +166,13 @@ class HTTPSession:
                 url, data = f'{url}?{urlencode(data)}', None
             request = Request(url, data=data, headers=headers, method=method)
             with self._session.open(request) as resp:
-                return resp if method == 'HEAD' else resp.read().decode() if json is None else _json.load(resp)
+                return resp if method == 'HEAD' else self._parse_response(resp)
+
+        def _parse_response(self, resp):
+            return json.load(resp) if 'json' in resp.headers['content-type'] else resp.read().decode()
 
         def _parse_error(self, error):
-            return error.code, json.load(error)
+            return error.code, self._parse_response(error)
 
 
 def _memoize(inst, attr, value, doc_values=None):
@@ -848,11 +854,11 @@ class Env:
         return value
 
     def _is_identitycheck(self, result):
-        return hasattr(result, 'items') and result.get('res_model') == 'res.users.identitycheck'
+        return hasattr(result, 'get') and result.get('res_model') == 'res.users.identitycheck'
 
     def _identitycheck(self, result):
         assert self.client.version_info >= 14.0
-        idcheck = self[result['res_model']].get(result['res_id'])
+        idcheck = self._get(result['res_model'], transient=True).get(result['res_id'])
         password = self._cache_get('auth')[self.user.login][1]
         result = None
         while not result:
@@ -948,11 +954,11 @@ class Env:
         except Exception:
             return False
 
-    def _models_get(self, name, check=False):
+    def _models_get(self, name, check, transient):
         if name not in self._model_names:
             if check:
                 raise KeyError(name)
-            self._model_names[name] = False
+            self._model_names[name] = transient
         try:
             return self._models[name]
         except KeyError:
@@ -981,18 +987,19 @@ class Env:
         return sorted(mod for mod, is_transient in self._model_names.items()
                       if name in mod and transient == is_transient)
 
-    def _get(self, name, check=True):
+    def _get(self, name, check=True, transient=False):
         """Return a :class:`Model` instance.
 
         The argument `name` is the name of the model.  If the optional
         argument `check` is :const:`False`, no validity check is done.
         """
+        check = check and not transient and self._access_models is not False
         try:
-            return self._models_get(name, check and self._access_models is not False)
+            return self._models_get(name, check, transient=transient)
         except KeyError:
             model_names = self.models(name)
         if name in self._model_names or not self._access_models:
-            return self._models_get(name, self._access_models)
+            return self._models_get(name, self._access_models, transient=transient)
         if model_names and self._access_models:
             errmsg = 'Model not found.  These models exist:'
         else:
@@ -1146,8 +1153,8 @@ class Env:
         """
         assert self.client.version_info >= 14.0, 'Not supported'
         key_vals = {'name': f'Created by Odooly {__version__}'}
-        wiz = self["res.users.apikeys.description"].create(key_vals)
-        res = wiz.make_key()
+        wiz_model = self._get("res.users.apikeys.description", transient=True)
+        res = wiz_model.create(key_vals).make_key()
         self.user._invalidate_cache()
         assert res['res_model'] == "res.users.apikeys.show"
         return self.set_api_key(res['context']['default_key'])
