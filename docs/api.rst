@@ -236,10 +236,6 @@ Please refer to `the Odoo documentation`_ for details.
 
    Added in Odoo 19.
 
-.. attribute:: Env._web
-
-   Expose the ``/web`` API and its endpoints.
-
 .. method:: Env.exec_workflow(obj, signal, obj_id)
 
    Wrapper around ``object.exec_workflow`` RPC method.
