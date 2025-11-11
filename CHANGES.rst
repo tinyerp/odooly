@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-2.5.x (unreleased)
+2.5.0 (2025-11-11)
 ~~~~~~~~~~~~~~~~~~
 
 * Simplify signature of :meth:`Model.search`: arguments ``order``,
