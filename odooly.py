@@ -524,6 +524,7 @@ class Service:
     def __getattr__(self, name):
         if name not in self._methods:
             raise AttributeError(f"'Service' object has no attribute {name!r}")
+
         def sanitize(args):
             if self._endpoint != 'db' and len(args) > 2:
                 args = list(args)
@@ -613,7 +614,12 @@ class Json2:
             return self._http.request(url, method=method, json=params, headers=self._headers)
         except OSError as exc:
             status_code, result = self._http._parse_error(exc)
-            if status_code == 422:  # UnprocessableEntity
+            if status_code in (401, 403, 404, 422):
+                # Unauthorized, Forbidden, NotFound, UnprocessableEntity
+                if isinstance(result, str):
+                    lines = re.findall('>(.+)<', result)
+                    result = {'name': exc.__class__.__name__, 'debug': None,
+                              'arguments': (f'{lines[0]} - {lines[-1]}',)}
                 raise ServerError({'code': status_code, 'data': result})
             raise
 

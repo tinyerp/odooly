@@ -8,6 +8,8 @@ Changelog
 * Json2: performance improvement.  Parameters of standard public
   methods are predefined.
 
+* Json2: improve error handling, catch HTTP status 401, 403 and 404.
+
 
 2.5.1 (2025-11-11)
 ~~~~~~~~~~~~~~~~~~
