@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-2.5.x (unreleased)
+2.5.2 (2026-01-06)
 ~~~~~~~~~~~~~~~~~~
 
 * Json2: performance improvement.  Parameters of standard public
