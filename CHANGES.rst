@@ -10,6 +10,8 @@ Changelog
 
 * Json2: improve error handling, catch HTTP status 401, 403 and 404.
 
+* Json2: set ``Accept: application/json`` HTTP header.
+
 
 2.5.1 (2025-11-11)
 ~~~~~~~~~~~~~~~~~~

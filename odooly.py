@@ -149,7 +149,7 @@ class HTTPSession:
     if requests:  # requests.Session
         def __init__(self):
             self._session = requests.Session()
-            self._session.headers.update({'User-Agent': USER_AGENT})
+            self._session.headers.update({'User-Agent': USER_AGENT, 'Accept': 'application/json'})
 
         def request(self, url, *, method='POST', data=None, json=None, headers=None, **kw):
             resp = self._session.request(method, url, data=data, json=json, headers=headers, **kw)
@@ -165,7 +165,7 @@ class HTTPSession:
     else:  # urllib.request
         def __init__(self):
             self._session = build_opener(HTTPCookieProcessor(), HTTPSHandler(context=http_context))
-            self._session.addheaders = [('User-Agent', USER_AGENT)]
+            self._session.addheaders = [('User-Agent', USER_AGENT), ('Accept', 'application/json')]
 
         def request(self, url, *, method='POST', data=None, json=None, headers=None, _json=json, **kw):
             headers = dict(headers or ())
