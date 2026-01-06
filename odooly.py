@@ -695,7 +695,7 @@ class Env:
         if self.client._object and not self.db_name:
             raise Error('Error: Not connected')
         assert isinstance(user, str) and user
-        if user == SYSTEM_USER:
+        if user == SYSTEM_USER and self.uid and not password:
             info = self.client._authenticate_system()
             return info['uid'], password, info
         # Read from cache

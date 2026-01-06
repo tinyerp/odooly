@@ -12,6 +12,10 @@ Changelog
 
 * Json2: set ``Accept: application/json`` HTTP header.
 
+* Fix login with ``__system__`` user.  Note: it is not supported, and
+  disabled during Odoo installation, for safety reason.
+  Use :meth:`Env.sudo` or :meth:`Model.sudo` instead.
+
 
 2.5.1 (2025-11-11)
 ~~~~~~~~~~~~~~~~~~
