@@ -29,7 +29,7 @@ try:
 except ImportError:
     requests = None
 
-__version__ = '2.5.2'
+__version__ = '2.5.3.dev0'
 __all__ = ['Client', 'Env', 'HTTPSession', 'WebAPI', 'Service', 'Json2',
            'Printer', 'Error', 'ServerError',
            'BaseModel', 'Model', 'BaseRecord', 'Record', 'RecordList',
@@ -89,7 +89,7 @@ _web_methods = {
     'webclient': ['version_info'],
 }
 
-# Published object methods
+# RPC methods, removed in Odoo 20
 _rpc_methods = {
     'common': ['about', 'login', 'authenticate', 'version'],
     'db': ['create_database', 'duplicate_database', 'db_exist', 'drop', 'dump',
@@ -142,8 +142,6 @@ if os.getenv('ODOOLY_SSL_UNVERIFIED'):
 if not requests:
     from urllib.request import HTTPCookieProcessor, HTTPSHandler, Request, build_opener
 
-Ids, Id1 = type('ids', (list,), {'__slots__': ()}), type('id1', (int,), {'__slots__': ()})
-
 
 class HTTPSession:
     if requests:  # requests.Session
@@ -184,6 +182,9 @@ class HTTPSession:
 
         def _parse_error(self, error):
             return error.code, self._parse_response(error)
+
+
+Ids, Id1 = type('ids', (list,), {'__slots__': ()}), type('id1', (int,), {'__slots__': ()})
 
 
 def _memoize(inst, attr, value, doc_values=None):
@@ -583,7 +584,7 @@ class Json2:
     def _prepare_params(self, model, method, args, kwargs):
         if not args:
             return {**kwargs}
-        if len(args) == 1 and isinstance(args[0], (Ids, Id1)):
+        if len(args) == 1 and args[0].__class__ in (Ids, Id1):
             return {'ids': args[0], **kwargs}
         arg_names = self._list_params_names(model, method)
         params = dict(zip(arg_names, args))
@@ -1997,7 +1998,7 @@ class BaseRecord(BaseModel):
         return set(self.ids).issuperset(other.ids)
 
     def __int__(self):
-        return self.ensure_one().id
+        return int(self.ensure_one().id)
 
     @property
     def _keys(self):
@@ -2043,7 +2044,7 @@ class BaseRecord(BaseModel):
         if self.env.client.version_info < 8.0:
             rv = self._execute('perm_read', self.ids)
             return rv[0] if (rv and self.id != self.ids) else (rv or None)
-        return self._execute('get_metadata', Ids(self.ids))
+        return self._execute('get_metadata', self.ids)
 
     def with_env(self, env):
         return env[self._name].browse(self.id)
@@ -2150,14 +2151,14 @@ class BaseRecord(BaseModel):
             return True
         values = self._model._unbrowse_values(values)
         self._invalidate_cache()
-        return self._execute('write', Ids(self.ids), values)
+        return self._execute('write', self.ids, values)
 
     def unlink(self):
         """Delete the record(s) from the database."""
         if not self.id:
             return True
         self._invalidate_cache()
-        return self._execute('unlink', Ids(self.ids))
+        return self._execute('unlink', self.ids)
 
 
 class RecordList(BaseRecord):
@@ -2175,7 +2176,7 @@ class RecordList(BaseRecord):
         super().__init__(res_model, arg)
         if search is None:
             idnames = arg or ()
-            ids = list(idnames)
+            ids = Ids(idnames)
             for index, id_ in enumerate(arg):
                 if isinstance(id_, (list, tuple)):
                     ids[index] = id_ = id_[0]
@@ -2237,9 +2238,9 @@ class RecordList(BaseRecord):
             ids = idnames = [val['id'] for val in values]
             if values and 'display_name' in values[0]:
                 idnames = [(val['id'], val['display_name']) for val in values]
-            self.__dict__.update({'id': ids, 'ids': ids, '_idnames': idnames})
+            self.__dict__.update({'id': Ids(ids), 'ids': Ids(ids), '_idnames': idnames})
         else:
-            values = self._model.read(Ids(self.ids), fields, order=True) if self.ids else []
+            values = self._model.read(self.ids, fields, order=True) if self.ids else []
 
         return fmt(values)
 
@@ -2252,7 +2253,7 @@ class RecordList(BaseRecord):
         Supported since Odoo 18.
         """
         default = default and self._model._unbrowse_values(default)
-        new_ids = self._execute('copy', Ids(self.ids), default)
+        new_ids = self._execute('copy', self.ids, default)
         return RecordList(self._model, new_ids)
 
     @property
@@ -2264,14 +2265,14 @@ class RecordList(BaseRecord):
         only one of them is returned (randomly).
         """
         xml_ids = {r.id: xml_id for (xml_id, r) in
-                   self._model._get_external_ids(Ids(self.ids)).items()}
+                   self._model._get_external_ids(self.ids).items()}
         return [xml_ids.get(res_id, False) for res_id in self.id]
 
     def __getattr__(self, attr):
         if attr in ('id', 'ids', '_idnames'):
             params = {**self._search_args}
             ids = self._execute('search', params.pop('domain'), **params)
-            self.__dict__.update({'id': ids, 'ids': ids, '_idnames': ids})
+            self.__dict__.update({'id': Ids(ids), 'ids': Ids(ids), '_idnames': ids})
             return self.__dict__[attr]
         if attr in self._model._keys:
             return self.read(attr)
@@ -2281,7 +2282,7 @@ class RecordList(BaseRecord):
 
         def wrapper(self, *params, **kwargs):
             """Wrapper for client.execute({!r}, {!r}, [...], *params, **kwargs)."""
-            return self._execute(attr, Ids(self.ids), *params, **kwargs)
+            return self._execute(attr, self.ids, *params, **kwargs)
         return _memoize(self, attr, wrapper, (self._name, attr))
 
     def __setattr__(self, attr, value):
@@ -2311,7 +2312,7 @@ class Record(BaseRecord):
             name, idnames = None, [arg]
         else:
             idnames = [(arg, name)] = [arg]
-        attrs = {'id': arg, 'ids': [arg], '_idnames': idnames, '_cached_keys': set()}
+        attrs = {'id': Id1(arg), 'ids': Ids([arg]), '_idnames': idnames, '_cached_keys': set()}
         if name is not None:
             attrs['_Record__name'] = attrs['display_name'] = name
         self.__dict__.update(attrs)
@@ -2327,7 +2328,7 @@ class Record(BaseRecord):
                 name = self.display_name
         except Exception:
             name = f'{self._name},{self.id}'
-        self.__dict__['_idnames'] = [(self.id, str(name))]
+        self.__dict__['_idnames'] = [(int(self.id), str(name))]
         return _memoize(self, '_Record__name', str(name))
 
     def refresh(self):
@@ -2352,7 +2353,7 @@ class Record(BaseRecord):
         The argument `fields` accepts different kinds of values.
         See :meth:`Model.read` for details.
         """
-        rv = self._model.read(Id1(self.id), fields)
+        rv = self._model.read(self.id, fields)
         if rv is not None and isinstance(fields, str) and fields in self._model._keys:
             return self._update({fields: rv})[fields]
         if isinstance(rv, dict):
@@ -2366,7 +2367,7 @@ class Record(BaseRecord):
         values of the new record.
         """
         default = default and self._model._unbrowse_values(default)
-        new_id = self._execute('copy', Id1(self.id), default)
+        new_id = self._execute('copy', self.id, default)
         if isinstance(new_id, list):
             [new_id] = new_id or [False]
         return Record(self._model, new_id)
@@ -2385,7 +2386,7 @@ class Record(BaseRecord):
         with default value False if there's none.  If multiple IDs
         exist, only one of them is returned (randomly).
         """
-        xml_ids = self._model._get_external_ids(Ids(self.ids))
+        xml_ids = self._model._get_external_ids(self.ids)
         return list(xml_ids)[0] if xml_ids else False
 
     def _set_external_id(self, xml_id):
@@ -2408,7 +2409,7 @@ class Record(BaseRecord):
 
         def wrapper(self, *params, **kwargs):
             """Wrapper for client.execute({!r}, {!r}, {:d}, *params, **kwargs)."""
-            res = self._execute(attr, Ids(self.ids), *params, **kwargs)
+            res = self._execute(attr, self.ids, *params, **kwargs)
             self._invalidate_cache()
             if isinstance(res, list) and len(res) == 1:
                 return res[0]
