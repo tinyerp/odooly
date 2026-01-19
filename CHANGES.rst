@@ -2,6 +2,12 @@ Changelog
 ---------
 
 
+2.5.x (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* Json2: internal refactoring, to detect `"ids"` argument.
+
+
 2.5.2 (2026-01-06)
 ~~~~~~~~~~~~~~~~~~
 
