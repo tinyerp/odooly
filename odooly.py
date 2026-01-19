@@ -1032,7 +1032,7 @@ class Env:
             model_names = self.models(name)
         if name in self._model_names or not self._access_models:
             return self._models_get(name, self._access_models, transient=transient)
-        if model_names and self._access_models:
+        if model_names:
             errmsg = 'Model not found.  These models exist:'
         else:
             errmsg = f'Model not found: {name}'
