@@ -12,6 +12,8 @@ Changelog
 
 * Json2: fix arguments of :meth:`Record.copy`.
 
+* Support Python 3.15.
+
 
 2.5.2 (2026-01-06)
 ~~~~~~~~~~~~~~~~~~
