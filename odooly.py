@@ -21,7 +21,7 @@ from getpass import getpass
 from pathlib import Path
 from string import Formatter
 from threading import current_thread
-from urllib.parse import urlencode, urljoin
+from urllib.parse import urlencode, urljoin, urlsplit
 from xmlrpc.client import Fault, MININT, MAXINT, ServerProxy
 
 try:
@@ -140,7 +140,8 @@ if os.getenv('ODOOLY_SSL_UNVERIFIED'):
     requests = None
 
 if not requests:
-    from urllib.request import HTTPCookieProcessor, HTTPSHandler, Request, build_opener
+    from urllib.request import (HTTPBasicAuthHandler, HTTPCookieProcessor,
+                                HTTPSHandler, Request, build_opener)
 
 Ids, Id1 = type('ids', (list,), {'__slots__': ()}), type('id1', (int,), {'__slots__': ()})
 
@@ -161,6 +162,9 @@ class HTTPSession:
 
         def _parse_error(self, error):
             return error.response.status_code, self._parse_response(error.response)
+
+        def set_auth(self, uri, username, password):
+            self._session.auth = (username, password)
 
     else:  # urllib.request
         def __init__(self):
@@ -184,6 +188,11 @@ class HTTPSession:
 
         def _parse_error(self, error):
             return error.code, self._parse_response(error)
+
+        def set_auth(self, uri, username, password):
+            auth = HTTPBasicAuthHandler()
+            auth.add_password(None, uri, username, password)
+            self._session.add_handler(auth)
 
 
 def _memoize(inst, attr, value, doc_values=None):
@@ -1222,8 +1231,15 @@ class Client:
         if isinstance(server, list):
             appname = Path(__file__).name.rstrip('co')
             server = start_odoo_services(server, appname=appname)
-        elif isinstance(server, str) and server[-1:] == '/':
-            server = server.rstrip('/')
+        elif isinstance(server, str):
+            server_tup = urlsplit(server)
+            authority = server_tup.netloc
+            if "@" in authority and '/xmlrpc' not in server_tup.path:
+                [username, password] = server_tup._userinfo
+                server = server_tup._replace(netloc=authority.rsplit("@", 1)[1]).geturl()
+                self._http.set_auth(server, username, password)
+            if server[-1:] == '/':
+                server = server.rstrip('/')
         self._server = server
         self._connections = []
 
