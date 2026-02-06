@@ -5,6 +5,12 @@ Changelog
 2.5.x (unreleased)
 ~~~~~~~~~~~~~~~~~~
 
+* Odoo 19 and beyond: add documentation when using Web API
+  or Json2 API.  Stored on :attr:`Model._doc` attribute.
+
+* Odoo 19 and beyond: list methods and arguments with
+  :meth:`Model._methods` or :meth:`RecordList._methods`.
+
 * Support HTTP Basic Authentication in URL, for example
   ``odooly https://user:password@host.example.net/``.
 
