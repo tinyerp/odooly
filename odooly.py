@@ -120,7 +120,7 @@ _cause_message = ("\nThe above exception was the direct cause "
 _pending_state = ('state', 'not in',
                   ['uninstallable', 'uninstalled', 'installed'])
 _base_method_params = {
-    'copy': ['ids', 'defaults'],
+    'copy': ['ids', 'default'],
     'create': ['vals_list'],
     'read': ['ids', 'fields', 'load'],
     'search': ['domain', 'offset', 'limit', 'order'],
