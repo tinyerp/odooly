@@ -35,7 +35,7 @@ Key features:
 - simplified syntax for search ``domain``
 - entire API accessible on the ``Client.env`` environment
 - can be imported and used as a library: ``from odooly import Client``
-- supports Python 3.6 and more recent
+- supports Python 3.8 and more recent
 
 
 

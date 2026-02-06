@@ -29,7 +29,7 @@ try:
 except ImportError:
     requests = None
 
-__version__ = '2.5.5'
+__version__ = '2.5.6.dev0'
 __all__ = ['Client', 'Env', 'HTTPSession', 'WebAPI', 'Service', 'Json2',
            'Printer', 'Error', 'ServerError',
            'BaseModel', 'Model', 'BaseRecord', 'Record', 'RecordList',
@@ -226,20 +226,10 @@ def _memoize(inst, attr, value, doc_values=None):
     return value
 
 
-_ast_node_attrs = []
-for (cls, attr) in [('Constant', 'value'),      # Python >= 3.7
-                    ('NameConstant', 'value'),  # Python >= 3.4 (singletons)
-                    ('Str', 's'),               # Python <= 3.7
-                    ('Num', 'n')]:              # Python <= 3.7
-    if hasattr(_ast, cls):
-        _ast_node_attrs.append((getattr(_ast, cls), attr))
-
-
 # Simplified ast.literal_eval which does not parse operators
 def _convert(node):
-    for (ast_class, node_attr) in _ast_node_attrs:
-        if isinstance(node, ast_class):
-            return getattr(node, node_attr)
+    if isinstance(node, _ast.Constant):
+        return node.value
     if isinstance(node, _ast.Tuple):
         return tuple(map(_convert, node.elts))
     if isinstance(node, _ast.List):

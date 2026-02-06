@@ -17,6 +17,8 @@ Changelog
 
 * Improve error display.
 
+* Drop support for Python 3.6 and 3.7.
+
 
 2.5.4 (2026-02-09)
 ~~~~~~~~~~~~~~~~~~
