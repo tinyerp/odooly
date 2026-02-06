@@ -7,6 +7,8 @@ Changelog
 
 * Json2: internal refactoring, to detect `"ids"` argument.
 
+* Json2: fix arguments of :meth:`Record.copy`.
+
 
 2.5.2 (2026-01-06)
 ~~~~~~~~~~~~~~~~~~
