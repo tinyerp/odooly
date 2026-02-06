@@ -5,7 +5,10 @@ Changelog
 2.5.x (unreleased)
 ~~~~~~~~~~~~~~~~~~
 
-* Json2: internal refactoring, to detect `"ids"` argument.
+* Support HTTP Basic Authentication in URL, for example
+  ``odooly https://user:password@host.example.net/``.
+
+* Json2: internal refactoring, to detect ``"ids"`` argument.
 
 * Json2: fix arguments of :meth:`Record.copy`.
 

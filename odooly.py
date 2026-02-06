@@ -140,8 +140,8 @@ if os.getenv('ODOOLY_SSL_UNVERIFIED'):
     requests = None
 
 if not requests:
-    from urllib.request import (HTTPBasicAuthHandler, HTTPCookieProcessor,
-                                HTTPSHandler, Request, build_opener)
+    from urllib.request import (HTTPBasicAuthHandler, HTTPCookieProcessor, HTTPSHandler,
+                                Request, build_opener)
 
 
 class HTTPSession:
@@ -149,6 +149,9 @@ class HTTPSession:
         def __init__(self):
             self._session = requests.Session()
             self._session.headers.update({'User-Agent': USER_AGENT, 'Accept': 'application/json'})
+
+        def set_auth(self, uri, username, password):
+            self._session.auth = (username, password)
 
         def request(self, url, *, method='POST', data=None, json=None, headers=None, **kw):
             resp = self._session.request(method, url, data=data, json=json, headers=headers, **kw)
@@ -161,13 +164,15 @@ class HTTPSession:
         def _parse_error(self, error):
             return error.response.status_code, self._parse_response(error.response)
 
-        def set_auth(self, uri, username, password):
-            self._session.auth = (username, password)
-
     else:  # urllib.request
         def __init__(self):
             self._session = build_opener(HTTPCookieProcessor(), HTTPSHandler(context=http_context))
             self._session.addheaders = [('User-Agent', USER_AGENT), ('Accept', 'application/json')]
+
+        def set_auth(self, uri, username, password):
+            auth = HTTPBasicAuthHandler()
+            auth.add_password(None, uri, username, password)
+            self._session.add_handler(auth)
 
         def request(self, url, *, method='POST', data=None, json=None, headers=None, _json=json, **kw):
             headers = dict(headers or ())
@@ -186,11 +191,6 @@ class HTTPSession:
 
         def _parse_error(self, error):
             return error.code, self._parse_response(error)
-
-        def set_auth(self, uri, username, password):
-            auth = HTTPBasicAuthHandler()
-            auth.add_password(None, uri, username, password)
-            self._session.add_handler(auth)
 
 
 Ids, Id1 = type('ids', (list,), {'__slots__': ()}), type('id1', (int,), {'__slots__': ()})
@@ -1233,14 +1233,14 @@ class Client:
             appname = Path(__file__).name.rstrip('co')
             server = start_odoo_services(server, appname=appname)
         elif isinstance(server, str):
-            server_tup = urlsplit(server)
-            authority = server_tup.netloc
-            if "@" in authority and '/xmlrpc' not in server_tup.path:
-                [username, password] = server_tup._userinfo
-                server = server_tup._replace(netloc=authority.rsplit("@", 1)[1]).geturl()
+            rsvr = urlsplit(server)
+            if "@" in rsvr.netloc and '/xmlrpc' not in rsvr.path:
+                [username, password] = rsvr._userinfo
+                rsvr = rsvr._replace(netloc=rsvr.netloc.rsplit("@", 1)[1])
                 self._http.set_auth(server, username, password)
-            if server[-1:] == '/':
-                server = server.rstrip('/')
+            if rsvr.path[-1:] == '/':
+                rsvr = rsvr._replace(path=rsvr.path.rstrip('/'))
+            server = rsvr.geturl()
         self._server = server
         self._connections = []
 
