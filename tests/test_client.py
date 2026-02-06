@@ -106,7 +106,7 @@ class TestService(XmlRpcTestCase):
         if self.protocol == 'jsonrpc':
             return_values = [{'result': rv} for rv in return_values]
         if server_version >= 19.0:
-            return_values += [{'uid': 1}]
+            return_values += [{'uid': 1}, odooly.ServerError]
         self.service.side_effect = return_values
         client = odooly.Client(server, 'newdb', 'usr', 'pss')
 
@@ -148,7 +148,10 @@ class TestService(XmlRpcTestCase):
                 jsonrpc_call(self, 'object', 'execute_kw', ('newdb', 1, 'pss', 'res.users', 'context_get', ())),
             ]
             if server_version >= 19.0:
-                expected_calls += [call(f"{self.server}/json/2/res.users/context_get", json={}, headers=ANY)]
+                expected_calls += [
+                    call(f'{self.server}/json/2/res.users/context_get', json={}, headers=ANY),
+                    call(f'{self.server}/doc-bearer/res.device.json', method='GET', json=None, headers=ANY),
+                ]
 
         self.assertCalls(*expected_calls)
         self.assertOutput('')
@@ -174,7 +177,7 @@ class TestService(XmlRpcTestCase):
         self.test_service_openerp_client(server_version=18.0)
 
         if self.protocol == 'xmlrpc':
-            mock.patch('odooly.HTTPSession.request', side_effect=OSError).start()
+            mock.patch('odooly.HTTPSession.request', side_effect=odooly.ServerError).start()
 
         self.test_service_openerp_client(server_version=19.0)
         self.test_service_openerp_client(server_version=20.0)
@@ -301,7 +304,7 @@ class TestCreateClient(XmlRpcTestCase):
         # Without mock
         self.service.stop()
 
-        self.assertRaises(EnvironmentError, odooly.Client, 'http://dsadas/jsonrpc/1')
+        self.assertRaises(odooly.ServerError, odooly.Client, 'http://dsadas/jsonrpc/1')
         self.assertOutput('')
 
 
