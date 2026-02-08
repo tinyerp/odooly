@@ -174,6 +174,7 @@ class TestInteract19(_TestInteract):
         ('/web/database/list', {}),
         ('/web/session/authenticate', {'db': database, 'login': user, 'password': password}),
         ('/json/2/res.users/context_get', {}),
+        call(f'{server}doc/res.device.json', method='GET'),
     )
 
     def test_main(self):
@@ -187,10 +188,12 @@ class TestInteract19(_TestInteract):
             {'result': self._resp_version_info()},
             [],
             {'result': {'uid': 17,  'user_context': self.user_context}},
+            odooly.ServerError,
             {'uid': self.uid, **self.user_context},
             #
             {'result': {'uid': 51,  'user_context': self.user_context}},
-            OSError,
+            odooly.ServerError,
+            odooly.ServerError,
             {'result': {'uid': 51,  'user_context': self.user_context}},
         ]
 
@@ -209,6 +212,7 @@ class TestInteract19(_TestInteract):
         expected_calls = self.startup_calls + (
             ('/web/session/authenticate', {'db': 'database', 'login': 'gaspard', 'password': 'password'}),
             ('/json/2/res.users/context_get', {}),
+            call(f'{self.server}doc/res.device.json', method='GET'),
             ('/web/session/authenticate', {'db': 'database', 'login': 'gaspard', 'password': 'password'}),
         )
         self.assertRequests(*expected_calls)

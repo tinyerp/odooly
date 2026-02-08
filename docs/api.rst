@@ -343,6 +343,8 @@ Example: ``client.env['res.company']`` returns a :class:`Model`.
 
    .. automethod:: _get_external_ids
 
+   .. automethod:: _methods([name])
+
 ..
    search count read ...
    write copy unlink
@@ -391,6 +393,10 @@ Example: ``client.env['res.company']`` returns a :class:`Model`.
 
       Same as :meth:`Record.get_metadata` method.
 
+   .. method:: _methods([name])
+
+      Same as :meth:`Model._methods` method.
+
    .. attribute:: _external_id
 
       Retrieve the External IDs of the :class:`RecordList`.
@@ -398,6 +404,14 @@ Example: ``client.env['res.company']`` returns a :class:`Model`.
       Return the list of fully qualified External IDs of
       the :class:`RecordList`, with default value False if there's none.
       If multiple IDs exist for a record, only one of them is returned.
+
+   .. attribute:: _keys
+
+      Return list of field names.
+
+   .. attribute:: _fields
+
+      Return a dictionary of the fields.
 
 .. autoclass:: Record(model, id)
    :members: read, write, copy, unlink, _send, _external_id, refresh
@@ -417,6 +431,18 @@ Example: ``client.env['res.company']`` returns a :class:`Model`.
        * ``write_date``: date of the last change to the record
        * ``xmlid``: External ID to use to refer to this record (if there is one),
          in format ``module.name``.
+
+   .. method:: _methods([name])
+
+      Same as :meth:`Model._methods` method.
+
+   .. attribute:: _keys
+
+      Return list of field names.
+
+   .. attribute:: _fields
+
+      Return a dictionary of the fields.
 
 
 Utilities
