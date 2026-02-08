@@ -119,15 +119,20 @@ _cause_message = ("\nThe above exception was the direct cause "
                   "of the following exception:\n\n")
 _pending_state = ('state', 'not in',
                   ['uninstallable', 'uninstalled', 'installed'])
-_base_method_params = {
-    'copy': ['ids', 'default'],
-    'create': ['vals_list'],
-    'read': ['ids', 'fields', 'load'],
-    'search': ['domain', 'offset', 'limit', 'order'],
-    'search_count': ['domain', 'limit'],
-    'search_read': ['domain', 'fields', 'offset', 'limit', 'order'],
-    'write': ['ids', 'vals'],
-}
+_base_method_params = [
+    ('action_archive', ['ids']),
+    ('action_unarchive', ['ids']),
+    ('copy', ['ids', 'default']),
+    ('create', ['vals_list']),
+    ('get_external_id', ['ids']),
+    ('get_metadata', ['ids']),
+    ('read', ['ids', 'fields', 'load']),
+    ('search', ['domain', 'offset', 'limit', 'order']),
+    ('search_count', ['domain', 'limit']),
+    ('search_read', ['domain', 'fields', 'offset', 'limit', 'order']),
+    ('unlink', ['ids']),
+    ('write', ['ids', 'vals']),
+]
 http_context = None
 
 if os.getenv('ODOOLY_SSL_UNVERIFIED'):
@@ -153,7 +158,7 @@ class HTTPSession:
         def set_auth(self, uri, username, password):
             self._session.auth = (username, password)
 
-        def request(self, url, *, method='POST', data=None, json=None, headers=None, **kw):
+        def _request(self, url, method, data, json, headers, **kw):
             resp = self._session.request(method, url, data=data, json=json, headers=headers, **kw)
             resp.raise_for_status()
             return resp if method == 'HEAD' else self._parse_response(resp)
@@ -174,7 +179,7 @@ class HTTPSession:
             auth.add_password(None, uri, username, password)
             self._session.add_handler(auth)
 
-        def request(self, url, *, method='POST', data=None, json=None, headers=None, _json=json, **kw):
+        def _request(self, url, method, data, json, headers, _json=json, **kw):
             headers = dict(headers or ())
             if json is not None:
                 headers.setdefault('Content-Type', 'application/json')
@@ -191,6 +196,20 @@ class HTTPSession:
 
         def _parse_error(self, error):
             return error.code, self._parse_response(error)
+
+    def request(self, url, *, method='POST', data=None, json=None, headers=None):
+        try:
+            return self._request(url, method=method, data=data, json=json, headers=headers)
+        except OSError as exc:
+            status_code, result = self._parse_error(exc)
+            if status_code in (401, 403, 404, 422):
+                # Unauthorized, Forbidden, NotFound, UnprocessableEntity
+                if isinstance(result, str):
+                    lines = re.findall(r'>([^>\n]+)<', result)
+                    result = {'name': exc.__class__.__name__, 'debug': None,
+                              'arguments': (f'{lines[0]} - {lines[-1]}',)}
+                raise ServerError({'code': status_code, 'data': result})
+            raise
 
 
 Ids, Id1 = type('ids', (list,), {'__slots__': ()}), type('id1', (int,), {'__slots__': ()})
@@ -472,7 +491,7 @@ class WebAPI:
     The connected endpoints are exposed on the Client instance.
     Argument `client` is the connected Client.
     Argument `endpoint` is the name of the service
-    (examples: ``"database"``, ``"session"``).
+    (examples: ``"web/database"``, ``"web/session"``).
     Argument `methods` is the list of methods which should be
     exposed on this endpoint.  Use ``dir(...)`` on the
     instance to list them.
@@ -482,7 +501,7 @@ class WebAPI:
     def __init__(self, client, endpoint, methods):
         self._dispatch = client._proxy_web(endpoint)
         self._server = urljoin(client._server, '/')
-        self._endpoint = f'/web/{endpoint}' if endpoint else '/web'
+        self._endpoint = f'/{endpoint}'
         self._methods = methods
         self._printer = client._printer
 
@@ -494,16 +513,21 @@ class WebAPI:
 
     def __getattr__(self, name):
         def wrapper(self, _func=None, **params):
-            method = f'{name}/{_func}' if _func else name
-            if not self._printer:
-                return self._dispatch(method, params)
-            snt = ' '.join(format_params(params))
-            with self._printer as log:
-                log.print_sent(f"POST {self._endpoint}/{method} {snt}")
-                res = self._dispatch(method, params)
-                log.print_recv(repr(res))
-            return res
+            return self._request(f'{name}/{_func}' if _func else name, params)
         return _memoize(self, name, wrapper)
+
+    def _request(self, path, params=None):
+        if not self._printer:
+            return self._dispatch(path, params)
+        if self._endpoint == '/doc':
+            snt = [f'GET /doc/{path}.json']
+        else:
+            snt = [f'POST {self._endpoint}/{path}'] + [f'{key}={v!r}' for (key, v) in params.items()]
+        with self._printer as log:
+            log.print_sent(' '.join(snt))
+            res = self._dispatch(path, params)
+            log.print_recv(repr(res))
+        return res
 
 
 class Service:
@@ -569,33 +593,30 @@ class Json2:
             'Content-Type': 'application/json',
             'X-Odoo-Database': database or '',
         }
-        self._method_params = {'base': _base_method_params}
+        self._method_params = {'base': dict(_base_method_params)}
         self._printer = client._printer
 
     def doc(self, model):
         """Documentation of the `model`."""
-        return self._request(f'{self._doc_endpoint}/{model}.json')
+        model_doc = self._request(f'{self._doc_endpoint}/{model}.json')
+        if model not in self._method_params:
+            method_params = Model._parse_doc_methods(model_doc)
+            self._method_params[model] = dict(method_params)
+        return model_doc
 
-    def _list_params_names(self, model, method):
-        try:
-            return (self._method_params['base'].get(method) or
-                    self._method_params[model][method])
-        except KeyError:
-            methods = self.doc(model).get('methods') or {}
-        self._method_params[model] = dict_methods = {}
-        for key, vals in methods.items():
-            arg_names = list(vals['parameters'])
-            if 'model' not in vals.get('api', ()):
-                arg_names.insert(0, 'ids')
-            dict_methods[key] = arg_names
-        return dict_methods.setdefault(method, ())
+    def _methods(self, model):
+        if model not in self._method_params:
+            self.doc(model)
+        return self._method_params[model]
 
     def _prepare_params(self, model, method, args, kwargs):
         if not args:
             return {**kwargs}
         if len(args) == 1 and args[0].__class__ in (Ids, Id1):
             return {'ids': args[0], **kwargs}
-        arg_names = self._list_params_names(model, method)
+        arg_names = self._method_params['base'].get(method)
+        if not arg_names:
+            arg_names = self._methods(model).setdefault(method, ())
         params = dict(zip(arg_names, args))
         params.update(kwargs)
         if len(args) > len(arg_names) and self._printer:
@@ -614,33 +635,19 @@ class Json2:
         url = urljoin(self._server, f'{self._endpoint}/res.users/context_get')
         try:
             context = self._http.request(url, json={}, headers=self._headers)
-        except OSError:
+        except ServerError:
             return False
         return self if (not uid or uid == context['uid']) else False
 
-    def _http_req(self, path, params, method):
-        url = urljoin(self._server, path)
-        try:
-            return self._http.request(url, method=method, json=params, headers=self._headers)
-        except OSError as exc:
-            status_code, result = self._http._parse_error(exc)
-            if status_code in (401, 403, 404, 422):
-                # Unauthorized, Forbidden, NotFound, UnprocessableEntity
-                if isinstance(result, str):
-                    lines = re.findall('>(.+)<', result)
-                    result = {'name': exc.__class__.__name__, 'debug': None,
-                              'arguments': (f'{lines[0]} - {lines[-1]}',)}
-                raise ServerError({'code': status_code, 'data': result})
-            raise
-
     def _request(self, path, params=None):
+        url = urljoin(self._server, path)
         verb = 'GET' if params is None else 'POST'
         if not self._printer:
-            return self._http_req(path, params, method=verb)
+            return self._http.request(url, method=verb, json=params, headers=self._headers)
         snt = ' '.join(f'{key}={v!r}' for (key, v) in (params or {}).items())
         with self._printer as log:
             log.print_sent(f"{verb} {path} {snt}".rstrip())
-            res = self._http_req(path, params, method=verb)
+            res = self._http.request(url, method=verb, json=params, headers=self._headers)
             log.print_recv(repr(res))
         return res
 
@@ -657,7 +664,7 @@ class Env:
         >>> env["some.model"]
     """
 
-    name = uid = user = session_info = _api_key = _json2 = _access_models = None
+    name = uid = user = session_info = _api_key = _doc = _json2 = _access_models = None
     _cache = {}
 
     def __new__(cls, client, db_name=()):
@@ -752,6 +759,11 @@ class Env:
             return partial(method, self.db_name, self.uid, api_key)
         if self.client.web and self.client.version_info >= 19.0:
             self._json2 = Json2(self.client, self.db_name, api_key)._check(self.uid)
+            self._doc = (self._json2 or self.client.web).doc
+            try:
+                self._doc('res.device')
+            except ServerError:
+                self._doc = None
         if self.client._object:  # RPC endpoint if available
             self._execute = env_auth(self.client._object.execute)
             self._execute_kw = env_auth(self.client._object.execute_kw)
@@ -791,7 +803,7 @@ class Env:
         if uid != self.uid or (api_key and api_key != self._api_key):
             env.set_api_key(api_key or password, bool(api_key))
         else:  # Copy methods
-            env._execute_kw = self._execute_kw
+            env._execute_kw, env._doc = self._execute_kw, self._doc
             env._api_key, env._json2 = self._api_key, self._json2
             for key in ('_execute', 'exec_workflow', '_access_models',
                         'report', 'report_get', 'render_report',
@@ -851,7 +863,7 @@ class Env:
     def ref(self, xml_id):
         """Return the record for the given ``xml_id`` external ID."""
         (module, name) = xml_id.split('.')
-        data = self['ir.model.data'].read(
+        data = self._get('ir.model.data', False).read(
             [('module', '=', module), ('name', '=', name)], 'model res_id')
         if data:
             assert len(data) == 1
@@ -1264,11 +1276,11 @@ class Client:
         assert not transport or self._proxy is self._proxy_xmlrpc, 'Not supported'
 
         if isinstance(server, str):
+            self.web = WebAPI(self, 'web', ())
+            self.web.doc = WebAPI(self, 'doc', ())._request  # Odoo 19
 
             def get_web_api(name):
-                methods = list(_web_methods.get(name) or [])
-                return WebAPI(self, name, methods)
-            self.web = get_web_api(None)
+                return WebAPI(self, f'web/{name}', _web_methods[name][:])
             self.database = get_web_api('database')
             self.web_dataset = get_web_api('dataset')
             self.web_session = get_web_api('session')
@@ -1339,10 +1351,17 @@ class Client:
         return dispatch_jsonrpc
 
     def _proxy_web(self, name):
-        def dispatch_web(method, params):
-            if name == 'database' and method != 'list':
-                return self._http.request(urljoin(self._server, f"web/{name or ''}/{method}"), data=params)
-            return self._post_jsonrpc(f"web/{name or ''}/{method}", params=params)
+        if name == 'doc':
+            def dispatch_web(model, params):
+                return self._http.request(urljoin(self._server, f"doc/{model}.json"), method='GET')
+        elif name == 'web/database':
+            def dispatch_web(method, params):
+                if method != 'list':
+                    return self._http.request(urljoin(self._server, f"{name}/{method}"), data=params)
+                return self._post_jsonrpc(f"{name}/{method}", params=params)
+        else:
+            def dispatch_web(method, params):
+                return self._post_jsonrpc(f"{name}/{method}", params=params)
         return dispatch_web
 
     def save(self, environment=None, skip=False):
@@ -1701,6 +1720,29 @@ class Model(BaseModel):
         """Return the field properties for field `name`."""
         return self._fields[name]
 
+    @staticmethod
+    def _parse_doc_methods(doc_dict):
+        methods = doc_dict.get('methods') or {}
+        result = []
+        for key, vals in methods.items():
+            arg_names = list(vals['parameters'])
+            if 'model' not in vals.get('api', ()):
+                arg_names.insert(0, 'ids')
+            result.append((key, arg_names))
+        return result
+
+    def _methods(self, name=''):
+        """List methods and arguments.
+
+        Argument `name` is a pattern to filter the methods returned.
+        If omitted, all methods are returned.
+        """
+        try:
+            method_params = self._parse_doc_methods(self._doc)
+        except Exception:
+            method_params = _base_method_params
+        return {key: args for (key, args) in method_params if name in key}
+
     def access(self, mode="read"):
         """Check if the user has access to this model.
 
@@ -1915,18 +1957,20 @@ class Model(BaseModel):
         search_domain = [('model', '=', self._name)]
         if ids is not None:
             search_domain.append(('res_id', 'in', ids))
-        existing = self.env['ir.model.data'].read(search_domain, 'module name res_id')
+        existing = self.env._get('ir.model.data', False).read(search_domain, 'module name res_id')
         return {f"{rec['module']}.{rec['name']}": self.get(rec['res_id']) for rec in existing}
 
     def __getattr__(self, attr):
         if attr == '_fields':
             vals = self.env._cache_get((attr, self._name))
             if vals is None:
-                vals = self._execute('fields_get')
+                vals = self._doc['fields'] if self.__dict__.get('_doc') else self._execute('fields_get')
                 self.env._cache_set((attr, self._name), vals)
             return _memoize(self, attr, vals)
         if attr == '_keys':
             return _memoize(self, attr, sorted(self._fields))
+        if attr == '_doc':
+            return _memoize(self, attr, self.env._doc(self._name) if self.env._doc else None)
         if attr.startswith('_'):
             raise AttributeError(f"'Model' object has no attribute {attr!r}")
 
@@ -2023,6 +2067,9 @@ class BaseRecord(BaseModel):
     @property
     def _fields(self):
         return self._model._fields
+
+    def _methods(self, name=''):
+        return self._model._methods(name)
 
     def _invalidate_cache(self):
         pass
@@ -2410,10 +2457,10 @@ class Record(BaseRecord):
         (mod, name) = xml_id.split('.')
         domain = ['|', '&', ('module', '=', mod), ('name', '=', name),
                   '&', ('model', '=', self._name), ('res_id', '=', self.id)]
-        if self.env['ir.model.data'].search(domain):
+        if self.env._get('ir.model.data', False).search(domain):
             raise ValueError(f'ID {xml_id!r} collides with another entry')
         values = {'model': self._name, 'res_id': self.id, 'module': mod, 'name': name}
-        self.env['ir.model.data'].create(values)
+        self.env._get('ir.model.data', False).create(values)
 
     def __getattr__(self, attr):
         if attr in self._model._keys:

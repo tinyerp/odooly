@@ -1,5 +1,4 @@
-from io import BytesIO
-from urllib.request import HTTPError, urljoin
+from urllib.request import urljoin
 from unittest import mock, TestCase
 from unittest.mock import ANY, call, sentinel
 
@@ -49,8 +48,7 @@ class OdooTestCase(TestCase):
             if url.endswith("/web/session/authenticate"):
                 result = {'uid': uid or self.uid, 'user_context': context or self.user_context}
             else:
-                with HTTPError(url, 404, 'Not Found', headers, BytesIO()) as not_found:
-                    raise not_found
+                raise odooly.ServerError()
             return {'result': result}
         return mock.patch('odooly.HTTPSession.request', side_effect=func).start()
 
