@@ -755,8 +755,7 @@ class Env:
             self._execute_kw = env_auth(self.client._object.execute_kw)
         else:  # Otherwise, use JSON-2 or WebAPI
             self._execute_kw = self._json2 or self._call_kw
-        if store:
-            self._api_key = api_key
+        self._api_key = api_key if store else None
 
         if self.client._report:   # Odoo < 11
             self.exec_workflow = env_auth(self.client._object.exec_workflow)
