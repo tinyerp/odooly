@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-2.5.x (unreleased)
+2.5.3 (2026-02-09)
 ~~~~~~~~~~~~~~~~~~
 
 * Odoo 19 and beyond: add documentation when using Web API
@@ -12,7 +12,7 @@ Changelog
   :meth:`Model._methods` or :meth:`RecordList._methods`.
 
 * Support HTTP Basic Authentication in URL, for example
-  ``odooly https://user:password@host.example.net/``.
+  ``odooly https://user:password@odoo.example.net/``.
 
 * Json2: internal refactoring, to detect ``"ids"`` argument.
 
