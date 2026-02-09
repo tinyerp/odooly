@@ -7,6 +7,8 @@ Changelog
 
 * Fix :meth:`Env.refresh` to preserve base methods.
 
+* Hide password when ``verbose`` is enabled.
+
 
 2.5.4 (2026-02-09)
 ~~~~~~~~~~~~~~~~~~

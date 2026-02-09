@@ -463,10 +463,8 @@ class Printer:
     cols = None
 
     def _print_(self, message, _prefix):
-        xch = str(message)
-        if len(xch) > self.cols:
-            suffix = f"... L={len(xch)}"
-            xch = xch[:self.cols - len(suffix)] + suffix
+        suffix = f"... L={len(message)}" if len(message) > self.cols else ""
+        xch = message[:self.cols - len(suffix)] + suffix
         print(f"{_prefix} {xch}")
 
     print_sent = functools.partialmethod(_print_, _prefix='-->')
@@ -522,7 +520,7 @@ class WebAPI:
         if self._endpoint == '/doc':
             snt = [f'GET /doc/{path}.json']
         else:
-            snt = [f'POST {self._endpoint}/{path}'] + [f'{key}={v!r}' for (key, v) in params.items()]
+            snt = [f'POST {self._endpoint}/{path}'] + format_params(params)
         with self._printer as log:
             log.print_sent(' '.join(snt))
             res = self._dispatch(path, params)
@@ -644,9 +642,8 @@ class Json2:
         verb = 'GET' if params is None else 'POST'
         if not self._printer:
             return self._http.request(url, method=verb, json=params, headers=self._headers)
-        snt = ' '.join(f'{key}={v!r}' for (key, v) in (params or {}).items())
         with self._printer as log:
-            log.print_sent(f"{verb} {path} {snt}".rstrip())
+            log.print_sent(' '.join([verb, path] + format_params(params or {})))
             res = self._http.request(url, method=verb, json=params, headers=self._headers)
             log.print_recv(repr(res))
         return res
@@ -1318,12 +1315,11 @@ class Client:
         if not self._printer:
             res = self._http.request(url, data=data, headers=headers, method=verb)
             return res, extract_http_response(verb, res, regex)
-        snt = ' '.join(format_params(data or {}))
         with self._printer as log:
-            log.print_sent(f"{verb} {path} {snt}".rstrip())
+            log.print_sent(' '.join([verb, path] + format_params(data or {})))
             res = self._http.request(url, data=data, headers=headers, method=verb)
             parsed = extract_http_response(verb, res, regex)
-            log.print_recv(parsed)
+            log.print_recv(str(parsed))
         return res, parsed
 
     def _post_jsonrpc(self, endpoint='', params=None):
