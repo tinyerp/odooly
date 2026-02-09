@@ -29,7 +29,7 @@ try:
 except ImportError:
     requests = None
 
-__version__ = '2.5.3'
+__version__ = '2.5.4'
 __all__ = ['Client', 'Env', 'HTTPSession', 'WebAPI', 'Service', 'Json2',
            'Printer', 'Error', 'ServerError',
            'BaseModel', 'Model', 'BaseRecord', 'Record', 'RecordList',
@@ -675,6 +675,7 @@ class Env:
         if not db_name or client.env.db_name:
             env = object.__new__(cls)
             env.client, env.db_name, env.context = client, db_name, {}
+            env._class_ids = (list, int) if client._proxy == client._proxy_xmlrpc else (Ids, Id1)
         else:
             env, env.db_name = client.env, db_name
         if db_name:
@@ -1273,7 +1274,7 @@ class Client:
             self._server = server
             self._proxy = self.db = self.common = None
             self._object = self._report = self._wizard = None
-        assert not transport or self._proxy is self._proxy_xmlrpc, 'Not supported'
+        assert not transport or self._proxy == self._proxy_xmlrpc, 'Not supported'
 
         if isinstance(server, str):
             self.web = WebAPI(self, 'web', ())
@@ -2238,7 +2239,7 @@ class RecordList(BaseRecord):
     def __init__(self, res_model, arg, search=None):
         super().__init__(res_model, arg)
         if search is None:
-            idnames = arg or ()
+            Ids, idnames = self.env._class_ids[0], arg or ()
             ids = Ids(idnames)
             for index, id_ in enumerate(arg):
                 if isinstance(id_, (list, tuple)):
@@ -2301,6 +2302,7 @@ class RecordList(BaseRecord):
             ids = idnames = [val['id'] for val in values]
             if values and 'display_name' in values[0]:
                 idnames = [(val['id'], val['display_name']) for val in values]
+            Ids, __ = self.env._class_ids
             self.__dict__.update({'id': Ids(ids), 'ids': Ids(ids), '_idnames': idnames})
         else:
             values = self._model.read(self.ids, fields, order=True) if self.ids else []
@@ -2335,6 +2337,7 @@ class RecordList(BaseRecord):
         if attr in ('id', 'ids', '_idnames'):
             params = {**self._search_args}
             ids = self._execute('search', params.pop('domain'), **params)
+            Ids, __ = self.env._class_ids
             self.__dict__.update({'id': Ids(ids), 'ids': Ids(ids), '_idnames': ids})
             return self.__dict__[attr]
         if attr in self._model._keys:
@@ -2375,6 +2378,7 @@ class Record(BaseRecord):
             name, idnames = None, [arg]
         else:
             idnames = [(arg, name)] = [arg]
+        Ids, Id1 = self.env._class_ids
         attrs = {'id': Id1(arg), 'ids': Ids([arg]), '_idnames': idnames, '_cached_keys': set()}
         if name is not None:
             attrs['_Record__name'] = attrs['display_name'] = name
