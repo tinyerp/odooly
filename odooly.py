@@ -166,8 +166,9 @@ class HTTPSession:
         def _parse_response(self, resp):
             return resp.json() if 'json' in resp.headers['content-type'] else resp.text
 
-        def _parse_error(self, error):
-            return error.response.status_code, self._parse_response(error.response)
+        def _parse_error(self, err):
+            resp = err.response
+            return (resp.status_code, self._parse_response(resp)) if resp is not None else (0, 0)
 
     else:  # urllib.request
         def __init__(self):
@@ -194,8 +195,8 @@ class HTTPSession:
         def _parse_response(self, resp):
             return json.load(resp) if 'json' in resp.headers['content-type'] else resp.read().decode()
 
-        def _parse_error(self, error):
-            return error.code, self._parse_response(error)
+        def _parse_error(self, err):
+            return (err.code, self._parse_response(err)) if hasattr(err, 'code') else (0, 0)
 
     def request(self, url, *, method='POST', data=None, json=None, headers=None):
         try:
@@ -286,9 +287,8 @@ def format_exception(exc_type, exc, tb, limit=None, chain=True,
         values = [f"{exc_type.__name__}: {exc}\n"]
     elif issubclass(exc_type, ServerError):     # JSON-RPC or Web API
         server_error = exc.args[0]['data']
-        print_tb = not server_error.get('name', '').startswith('odoo.')
-    elif (issubclass(exc_type, Fault) and       # XML-RPC
-          isinstance(exc.faultCode, str)):
+        print_tb = not server_error.get('name', '').startswith(('odoo.', 'werkzeug.'))
+    elif issubclass(exc_type, Fault) and isinstance(exc.faultCode, str):  # XML-RPC
         (message, tb) = (exc.faultCode, exc.faultString)
         exc_name = exc_type.__name__
         print_tb = not message.startswith('warning --')

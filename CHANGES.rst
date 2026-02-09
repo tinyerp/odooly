@@ -9,6 +9,8 @@ Changelog
 
 * Hide password when ``verbose`` is enabled.
 
+* Improve error display.
+
 
 2.5.4 (2026-02-09)
 ~~~~~~~~~~~~~~~~~~
