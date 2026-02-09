@@ -884,7 +884,7 @@ class Env:
         self._model_names = self._cache_set('model_names', {})
         self._models = {}
         if self._json2:
-            self._json2._method_params = {}
+            self._json2._method_params = {'base': dict(_base_method_params)}
 
     def _cache_get(self, key, func=None):
         try:

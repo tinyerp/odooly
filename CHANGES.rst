@@ -2,6 +2,12 @@ Changelog
 ---------
 
 
+2.5.x (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* Fix :meth:`Env.refresh` to preserve base methods.
+
+
 2.5.4 (2026-02-09)
 ~~~~~~~~~~~~~~~~~~
 
@@ -273,7 +279,7 @@ Changelog
 * New functions to create/destroy a session:
   :meth:`Env.session_authenticate` and :meth:`Env.session_destroy`.
 
-* Drop support for Python 3.5
+* Drop support for Python 3.5.
 
 
 2.2.1 (2025-09-24)
@@ -371,7 +377,7 @@ Changelog
 * Store the cursor :attr:`Env.cr` on the :class:`Env` instance
   in local mode.
 
-* Drop support for Python 3.2 and 3.3
+* Drop support for Python 3.2 and 3.3.
 
 
 2.1.1 (2019-01-02)
