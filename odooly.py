@@ -162,7 +162,8 @@ class HTTPSession:
             return resp.raise_for_status() or resp
 
         def _parse_response(self, resp):
-            return resp.json() if 'json' in resp.headers['content-type'] else resp.text
+            is_json = 'json' in resp.headers.get('content-type', '')
+            return resp.json() if is_json else resp.text
 
         def _parse_error(self, err):
             resp = err.response
@@ -190,7 +191,8 @@ class HTTPSession:
             return self._session.open(Request(url, data=data, headers=headers, method=method))
 
         def _parse_response(self, resp):
-            return json.load(resp) if 'json' in resp.headers['content-type'] else resp.read().decode()
+            is_json = 'json' in resp.headers.get('content-type', '')
+            return json.load(resp) if is_json else resp.read().decode()
 
         def _parse_error(self, err):
             return (err.code, self._parse_response(err)) if hasattr(err, 'code') else (0, 0)
@@ -201,10 +203,10 @@ class HTTPSession:
                 return resp if method == 'HEAD' else self._parse_response(resp)
         except OSError as exc:
             status_code, result = self._parse_error(exc)
-            if status_code in (401, 403, 404, 422):
+            if result and status_code in (401, 403, 404, 422):
                 # Unauthorized, Forbidden, NotFound, UnprocessableEntity
                 if isinstance(result, str):
-                    lines = re.findall(r'>([^>\n]+)<', result)
+                    lines = re.findall(r'>([^>\n]+)<', result) or (status_code, result)
                     result = {'name': exc.__class__.__name__, 'debug': None,
                               'arguments': (f'{lines[0]} - {lines[-1]}',)}
                 raise ServerError({'code': status_code, 'data': result})
