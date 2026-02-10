@@ -145,8 +145,7 @@ if os.getenv('ODOOLY_SSL_UNVERIFIED'):
     requests = None
 
 if not requests:
-    from urllib.request import (HTTPBasicAuthHandler, HTTPCookieProcessor, HTTPSHandler,
-                                Request, build_opener)
+    from urllib.request import HTTPCookieProcessor, HTTPSHandler, Request, build_opener
 
 
 class HTTPSession:
@@ -160,8 +159,7 @@ class HTTPSession:
 
         def _request(self, url, method, data, json, headers, **kw):
             resp = self._session.request(method, url, data=data, json=json, headers=headers, **kw)
-            resp.raise_for_status()
-            return resp if method == 'HEAD' else self._parse_response(resp)
+            return resp.raise_for_status() or resp
 
         def _parse_response(self, resp):
             return resp.json() if 'json' in resp.headers['content-type'] else resp.text
@@ -176,6 +174,7 @@ class HTTPSession:
             self._session.addheaders = [('User-Agent', USER_AGENT), ('Accept', 'application/json')]
 
         def set_auth(self, uri, username, password):
+            from urllib.request import HTTPBasicAuthHandler
             auth = HTTPBasicAuthHandler()
             auth.add_password(None, uri, username, password)
             self._session.add_handler(auth)
@@ -188,9 +187,7 @@ class HTTPSession:
                 data = (urlencode(data) if json is None else _json.dumps(json)).encode()
             elif data is not None:
                 url, data = f'{url}?{urlencode(data)}', None
-            request = Request(url, data=data, headers=headers, method=method)
-            with self._session.open(request) as resp:
-                return resp if method == 'HEAD' else self._parse_response(resp)
+            return self._session.open(Request(url, data=data, headers=headers, method=method))
 
         def _parse_response(self, resp):
             return json.load(resp) if 'json' in resp.headers['content-type'] else resp.read().decode()
@@ -200,7 +197,8 @@ class HTTPSession:
 
     def request(self, url, *, method='POST', data=None, json=None, headers=None):
         try:
-            return self._request(url, method=method, data=data, json=json, headers=headers)
+            with self._request(url, method=method, data=data, json=json, headers=headers) as resp:
+                return resp if method == 'HEAD' else self._parse_response(resp)
         except OSError as exc:
             status_code, result = self._parse_error(exc)
             if status_code in (401, 403, 404, 422):
@@ -334,7 +332,7 @@ def read_config(section=None):
     Without argument, it returns the list of configured environments.
     """
     p = ConfigParser()
-    with Path(Client._config_file).open() as f:
+    with Client._config_file.open() as f:
         p.read_file(f)
     if section is None:
         return p.sections()
@@ -559,16 +557,14 @@ class Service:
 
         def sanitize(args):
             if self._endpoint != 'db' and len(args) > 2:
-                args = list(args)
-                args[2] = '*'
-            return args
+                args = args[:2] + ('*',) + args[3:]
+            return ', '.join(repr(arg) for arg in args)
 
         def wrapper(self, *args):
             if not self._printer:
                 return self._dispatch(name, args)
-            snt = ', '.join(repr(arg) for arg in sanitize(args))
             with self._printer as log:
-                log.print_sent(f"{self._endpoint}.{name}({snt})")
+                log.print_sent(f"{self._endpoint}.{name}({sanitize(args)})")
                 res = self._dispatch(name, args)
                 log.print_recv(repr(res))
             return res
