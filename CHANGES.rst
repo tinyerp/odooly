@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-2.5.x (unreleased)
+2.5.5 (2026-02-10)
 ~~~~~~~~~~~~~~~~~~
 
 * Fix :meth:`Env.refresh` to preserve base methods.
