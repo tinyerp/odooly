@@ -2245,7 +2245,7 @@ class RecordList(BaseRecord):
                 assert isinstance(id_, int), repr(id_)
             self.__dict__.update({'id': ids, 'ids': ids, '_idnames': idnames, '_search_args': None})
         else:
-            self.__dict__['_search_args'] = search
+            self.__dict__['_search_args'] = {'model': res_model, **search}
 
     @classmethod
     def _prepared(cls, res_model, domain, params):
@@ -2259,6 +2259,8 @@ class RecordList(BaseRecord):
                 self.__dict__.pop(key, None)
 
     def __getitem__(self, key):
+        if 'id' not in self.__dict__ and isinstance(key, int) and key >= 0:
+            self, key = self[key:key+1], 0
         if 'id' in self.__dict__ or (getattr(key, 'start', -1) or 0) < 0:
             return super().__getitem__(key)
         is_stop_positive = key.stop is not None and key.stop >= 0
@@ -2295,8 +2297,7 @@ class RecordList(BaseRecord):
             values = [{'id': res_id} for res_id in self.ids]
         elif 'id' not in self.__dict__:
             params = {**self._search_args}
-            domain = params.pop('domain')
-            values = self._model.search_read(domain, fields, **params)
+            values = params.pop('model').search_read(params.pop('domain'), fields, **params)
             ids = idnames = [val['id'] for val in values]
             if values and 'display_name' in values[0]:
                 idnames = [(val['id'], val['display_name']) for val in values]
@@ -2334,7 +2335,7 @@ class RecordList(BaseRecord):
     def __getattr__(self, attr):
         if attr in ('id', 'ids', '_idnames'):
             params = {**self._search_args}
-            ids = self._execute('search', params.pop('domain'), **params)
+            ids = params.pop('model')._execute('search', params.pop('domain'), **params)
             Ids, __ = self.env._class_ids
             self.__dict__.update({'id': Ids(ids), 'ids': Ids(ids), '_idnames': ids})
             return self.__dict__[attr]

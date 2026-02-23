@@ -15,6 +15,11 @@ Changelog
 
 * In case of :meth:`Client.connect` error, list known configurations.
 
+* Improve performance of :meth:`Client.search` when a single record
+  is retrieved.
+
+* Preserve context for lazy :class:`RecordList` evaluation.
+
 
 2.5.5 (2026-02-10)
 ~~~~~~~~~~~~~~~~~~
