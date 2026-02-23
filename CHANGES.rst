@@ -2,6 +2,12 @@ Changelog
 ---------
 
 
+2.6.x (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* Drop support for Python 3.6 and 3.7.
+
+
 2.5.8 (2026-03-11)
 ~~~~~~~~~~~~~~~~~~
 
