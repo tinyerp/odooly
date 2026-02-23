@@ -1379,7 +1379,13 @@ class Client:
         """
         assert environment
         if environment not in cls._saved_config:
-            cls._saved_config[environment] = read_config(environment)
+            try:
+                cls._saved_config[environment] = read_config(environment)
+            except Exception:
+                envs = list(cls._saved_config)
+                if cls._config_file.exists():
+                    envs += [env for env in read_config() if env not in cls._saved_config]
+                raise Error("No such environment.\nAvailable: " + ", ".join(envs))
         return cls._saved_config[environment]
 
     @classmethod

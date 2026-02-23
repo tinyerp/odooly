@@ -13,6 +13,8 @@ Changelog
 
 * Clear API key when re-authenticating with password.
 
+* In case of :meth:`Client.connect` error, list known configurations.
+
 
 2.5.5 (2026-02-10)
 ~~~~~~~~~~~~~~~~~~
