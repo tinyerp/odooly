@@ -9,6 +9,8 @@ Changelog
 
 * Fix module upgrade.
 
+* Fix ``Env`` caching when switching between databases.
+
 * Clear API key when re-authenticating with password.
 
 

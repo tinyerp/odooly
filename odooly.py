@@ -1175,7 +1175,6 @@ class Env:
 
     def session_destroy(self):
         """Terminate current Webclient session."""
-        self.session_info = None
         self.client._session_uid = None
         try:
             return self.client.web_session.destroy()
