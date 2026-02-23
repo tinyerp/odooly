@@ -352,7 +352,7 @@ class TestSampleSession(XmlRpcTestCase):
     def test_module_upgrade(self):
         self.service.object.execute_kw.side_effect = [
             (42, 0), [], [42], ANY, [42],
-            [{'id': 42, 'state': ANY, 'name': ANY}], ANY]
+            [{'id': 42, 'state': ANY, 'name': ANY}], ANY, ANY]
 
         result = self.env.upgrade('dummy')
         self.assertIsNone(result)
@@ -653,9 +653,12 @@ class TestClientApi(XmlRpcTestCase):
         self.assertCalls(*expected_calls)
         self.assertIn('to process', self.stdout.popvalue())
 
-        self.service.object.execute_kw.side_effect = [[0, 0], []]
+        self.service.object.execute_kw.side_effect = [[0, 0], [], []]
         self.assertIsNone(action())
-        self.assertCalls(*expected_calls[:2])
+        self.assertCalls(
+            *expected_calls[:2],
+            imm('search', [('name', 'in', ())]),
+        )
         self.assertOutput('0 module(s) updated\n')
 
     def test_module_upgrade(self):
@@ -669,10 +672,11 @@ class TestClientApi(XmlRpcTestCase):
             {'id': 5, 'state': 'to remove', 'name': ANY},
             {'id': 42, 'state': 'to install', 'name': ANY},
         ]
-        execute_return = [[7, 0], states, None, None]
+        execute_return = [[7, 0], states, [], None, None]
         expected_calls = [
             imm('update_list'),
             imm('search_read', [('state', 'not in', STABLE)], ['name', 'state']),
+            imm('search', [('name', 'in', ())]),
         ]
         if float(self.server_version) < 8.0:
             execute_return[1:1] = [[4, 42, 5]]
@@ -699,9 +703,12 @@ class TestClientApi(XmlRpcTestCase):
             "0 module(s) selected\n3 module(s) to process:"
             "\n  to upgrade\t<ANY>\n  to remove\t<ANY>\n  to install\t<ANY>\n")
 
-        self.service.object.execute_kw.side_effect = [[0, 0], []]
+        self.service.object.execute_kw.side_effect = [[0, 0], [], []]
         self.assertIsNone(self.env.upgrade_cancel())
-        self.assertCalls(*expected_calls[:2])
+        self.assertCalls(
+            *expected_calls[:2],
+            imm('search', [('name', 'in', ())]),
+        )
         self.assertOutput('0 module(s) updated\n')
 
     def test_sudo(self):

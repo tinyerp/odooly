@@ -7,6 +7,8 @@ Changelog
 
 * Fix error handling.
 
+* Fix module upgrade.
+
 
 2.5.5 (2026-02-10)
 ~~~~~~~~~~~~~~~~~~

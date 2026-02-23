@@ -1081,7 +1081,7 @@ class Env:
         if added:
             print(f'{added} module(s) added to the list')
         # Find modules
-        sel = modules and ir_module.search([('name', 'in', modules)])
+        sel = ir_module.search([('name', 'in', modules)])
         mods = ir_module.read([_pending_state], 'name state')
         if sel:
             # Safety check
