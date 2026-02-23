@@ -9,6 +9,8 @@ Changelog
 
 * Fix module upgrade.
 
+* Clear API key when re-authenticating with password.
+
 
 2.5.5 (2026-02-10)
 ~~~~~~~~~~~~~~~~~~
