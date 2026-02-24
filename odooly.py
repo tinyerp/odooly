@@ -89,18 +89,18 @@ _web_methods = {
     'webclient': ['version_info'],
 }
 
-# RPC methods, removed in Odoo 20
+# RPC methods
 _rpc_methods = {
-    'common': ['about', 'login', 'authenticate', 'version'],
+    'common': ['login', 'authenticate', 'version'],
+    'object': ['execute', 'execute_kw'],
+    # Removed Odoo 20
     'db': ['create_database', 'duplicate_database', 'db_exist', 'drop', 'dump',
            'restore', 'rename', 'list', 'list_lang', 'list_countries',
            'change_admin_password', 'server_version', 'migrate_databases'],
-    'object': ['execute', 'execute_kw'],
 }
 # New Odoo 7:       (db) duplicate_database
 # New Odoo 9:       (db) list_countries
-# No-op:            (common) set_loglevel
-# Removed Odoo 19:  (common) version, replaced by GET /web/version
+# Removed Odoo 20:  (common) about, set_loglevel
 
 _obsolete_rpc_methods = {
     'common': [
@@ -1284,9 +1284,9 @@ class Client:
 
         # Request server version
         if self._proxy is None:
-            self.server_version = self.web_webclient.version_info()["server_version"]
+            self.server_version = self.web_webclient.version_info()['server_version']
         else:
-            self.server_version = Service(self, 'db', ['server_version']).server_version()
+            self.server_version = Service(self, 'common', ['version']).version()['server_version']
         major_minor = re.search(r'\d+\.?\d*', self.server_version).group()
         self.version_info = float_version = float(major_minor)
         assert float_version > 6.0, f'Not supported: {float_version}'
@@ -1299,7 +1299,7 @@ class Client:
                 if float_version < 11.0:
                     methods += _obsolete_rpc_methods.get(name) or ()
                 return Service(self, name, methods)
-            self.db = get_service('db')
+            self.db = get_service('db') if float_version < 19.1 else None
             self.common = get_service('common')
             self._object = get_service('object')
             self._report = get_service('report') if float_version < 11.0 else None

@@ -119,7 +119,7 @@ class XmlRpcTestCase(OdooTestCase):
         for svc_name in 'db common object wizard report'.split():
             svcs.attach_mock(mock.Mock(name=svc_name), svc_name)
         # Default values
-        svcs.db.server_version.return_value = self.server_version
+        svcs.common.version.return_value = {'server_version': self.server_version}
         svcs.db.list.return_value = [self.database]
         svcs.common.login.return_value = self.uid
         svcs.object.execute_kw.return_value = self.user_context

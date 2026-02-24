@@ -2,6 +2,12 @@ Changelog
 ---------
 
 
+2.5.x (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* Support Odoo saas-19.1. RPC service ``Client.db`` is removed.
+
+
 2.5.6 (2026-02-26)
 ~~~~~~~~~~~~~~~~~~
 
