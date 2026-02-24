@@ -36,8 +36,8 @@ class TestInteractXmlRpc(XmlRpcTestCase, _TestInteract):
     server_version = '6.1'
     server = f"{OdooTestCase.server}/xmlrpc"
     startup_calls = (
-        call(ANY, 'db', ANY),
-        'db.server_version',
+        call(ANY, 'common', ANY),
+        'common.version',
         call(ANY, 'db', ANY),
         call(ANY, 'common', ANY),
         call(ANY, 'object', ANY),

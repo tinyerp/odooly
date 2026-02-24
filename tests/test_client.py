@@ -102,16 +102,17 @@ class TestService(XmlRpcTestCase):
         odooly.Env._cache.clear()
 
         server = f"{self.server}/{self.protocol}"
-        return_values = [str(server_version), ['newdb'], 1, {}]
+        return_values = [{'server_version': str(server_version)}, ['newdb'], 1, {}]
         if self.protocol == 'jsonrpc':
             return_values = [{'result': rv} for rv in return_values]
+        elif server_version >= 20.0:  # XML-RPC
+            del return_values[1]
         if server_version >= 19.0:
             return_values += [{'uid': 1}, odooly.ServerError]
         self.service.side_effect = return_values
         client = odooly.Client(server, 'newdb', 'usr', 'pss')
 
         self.service.return_value = ANY
-        self.assertIsInstance(client.db, odooly.Service)
         self.assertIsInstance(client.common, odooly.Service)
         self.assertIsInstance(client._object, odooly.Service)
         if server_version >= 11.0:
@@ -124,8 +125,12 @@ class TestService(XmlRpcTestCase):
             self.assertIsInstance(client._report, odooly.Service)
             self.assertIsInstance(client._wizard, odooly.Service)
 
-        self.assertIn('/%s|db' % self.protocol, str(client.db.create_database))
-        self.assertIn('/%s|db' % self.protocol, str(client.db.db_exist))
+        if server_version >= 20.0:
+            self.assertIsNone(client.db)
+        else:
+            self.assertIsInstance(client.db, odooly.Service)
+            self.assertIn('/%s|db' % self.protocol, str(client.db.create_database))
+            self.assertIn('/%s|db' % self.protocol, str(client.db.db_exist))
         if server_version >= 11.0:
             self.assertRaises(AttributeError, getattr, client.db, 'create')
             self.assertRaises(AttributeError, getattr, client.db, 'get_progress')
@@ -135,18 +140,25 @@ class TestService(XmlRpcTestCase):
 
         if self.protocol == 'xmlrpc':
             expected_calls = [
-                call('server_version', ()),
+                call('version', ()),
                 call('list', ()),
                 call('login', ('newdb', 'usr', 'pss')),
                 call('execute_kw', ('newdb', 1, 'pss', 'res.users', 'context_get', ()))
             ]
+            if server_version >= 20.0:
+                del expected_calls[1]
         else:
             expected_calls = [
-                jsonrpc_call(self, 'db', 'server_version', ()),
+                jsonrpc_call(self, 'common', 'version', ()),
                 jsonrpc_call(self, 'db', 'list', ()),
                 jsonrpc_call(self, 'common', 'login', ('newdb', 'usr', 'pss')),
                 jsonrpc_call(self, 'object', 'execute_kw', ('newdb', 1, 'pss', 'res.users', 'context_get', ())),
             ]
+            if server_version >= 20.0:
+                expected_calls[1] = (
+                    call(f'{self.server}/web/database/list',
+                         json={'jsonrpc': '2.0', 'method': 'call', 'params': {}, 'id': ANY})
+                    )
             if server_version >= 19.0:
                 expected_calls += [
                     call(f'{self.server}/json/2/res.users/context_get', json={}, headers=ANY),
@@ -196,8 +208,8 @@ class TestCreateClient(XmlRpcTestCase):
     server_version = '6.1'
     server = f'{XmlRpcTestCase.server}/xmlrpc'
     startup_calls = (
-        call(ANY, 'db', ANY),
-        'db.server_version',
+        call(ANY, 'common', ANY),
+        'common.version',
         call(ANY, 'db', ANY),
         call(ANY, 'common', ANY),
         call(ANY, 'object', ANY),
