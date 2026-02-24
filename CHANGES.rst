@@ -15,6 +15,8 @@ Changelog
 
 * In case of :meth:`Client.connect` error, list known configurations.
 
+* Optional argument ``database`` for :meth:`Client.connect`.
+
 * Improve performance of :meth:`Client.search` when a single record
   is retrieved.
 

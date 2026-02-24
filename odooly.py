@@ -1537,7 +1537,7 @@ class Client:
         # Register the globals()
         register and self.connect()
 
-    def connect(self, env_name=None, *, server=None, user=None):
+    def connect(self, env_name=None, *, server=None, database=None, user=None):
         """Connect to another environment and replace the globals()."""
         assert self._is_interactive(), 'Not available'
         if env_name:
@@ -1545,7 +1545,7 @@ class Client:
         elif server:
             if not user and self.env.uid:
                 user = self.env.user.login
-            self.__class__(server, user=user, verbose=self.verbose)
+            self.__class__(server, db=database, user=user, verbose=self.verbose)
         else:
             assert not user, "Use client.login(...) instead"
             self._globals['client'] = self.env.client
