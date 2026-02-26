@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-2.5.x (unreleased)
+2.5.6 (2026-02-26)
 ~~~~~~~~~~~~~~~~~~
 
 * Fix error handling.
