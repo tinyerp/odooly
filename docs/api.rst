@@ -51,8 +51,8 @@ Odoo add-ons.  Please refer to :class:`Env` documentation below.
 .. note::
 
    In :ref:`interactive mode <interactive-mode>`, a method
-   :attr:`Client.connect(env=None, server=None, user=None)` exists, to connect
-   to another environment, and recreate the :func:`globals()`.
+   :attr:`Client.connect(env=None, server=None, database=None, user=None)` exists,
+   to connect to another environment, and recreate the :func:`globals()`.
 
 .. note::
 
@@ -131,7 +131,7 @@ Please refer to `the Odoo documentation`_ for more details.
 
    Expose the ``common`` :class:`Service`.
 
-   Example: :meth:`Client.common.login_message` RPC method.
+   Example: :meth:`Client.common.version` RPC method.
 
    Removed in Odoo 20.
 

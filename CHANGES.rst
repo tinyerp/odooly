@@ -17,7 +17,7 @@ Changelog
 
 * Optional argument ``database`` for :meth:`Client.connect`.
 
-* Improve performance of :meth:`Client.search` when a single record
+* Improve performance of :meth:`Model.search` when a single record
   is retrieved.
 
 * Preserve context for lazy :class:`RecordList` evaluation.
