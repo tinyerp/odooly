@@ -34,7 +34,7 @@ ACTION_CODE = """\
 sql_queries = env.context.get("__sql") or []
 result = env.cr.connection.notices
 
-if not env.su:
+if not env.is_system():
     raise UserError("Not allowed")
 
 for query in sql_queries:
@@ -78,12 +78,13 @@ def _retrieve_servers(url=RUNBOT_URL, regex=RUNBOT_REGEX, user=DEFAULT_USER):
 
 
 def get_action(env, xml_id):
-    action = env['ir.actions.server'].get(xml_id)
+    act_model = env._get('ir.actions.server', False)
+    action = act_model.get(xml_id)
     if not action:
-        action = env['ir.actions.server'].create({
+        action = act_model.create({
             'name': 'SQL Execute',
             'state': 'code',
-            'model_id': env['ir.model'].get('base.model_base').id,
+            'model_id': env['ir.model'].get('base.model_ir_logging').id,
         }).ensure_one()
         action._set_external_id(xml_id)
     return action.with_context(lang=None)
@@ -104,7 +105,7 @@ def sql_execute(env, queries):
     if sql_action.code != ACTION_CODE:
         vals["code"] = ACTION_CODE
     sql_action.write(vals)
-    sql_action.sudo().with_context(__sql=qlist).run()
+    sql_action.with_context(__sql=qlist).run()
 
     logg = env['ir.logging'].get([f"func = {vals['name']}"])
     return eval(logg.message, {"datetime": datetime}) if logg else None
