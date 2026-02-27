@@ -7,6 +7,8 @@ Changelog
 
 * Drop support for Python 3.6 and 3.7.
 
+* Remove option for CSV output.
+
 
 2.5.8 (2026-03-11)
 ~~~~~~~~~~~~~~~~~~

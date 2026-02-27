@@ -5,7 +5,6 @@ Author: Florent Xicluna
 """
 import _ast
 import atexit
-import csv
 import functools
 import json
 import optparse
@@ -2514,13 +2513,9 @@ def _interact(global_vars, use_pprint=True, usage=USAGE):
 
 
 def main(interact=_interact):
-    description = ('Inspect data on Odoo objects.  Use interactively '
-                   'or query a model (-m) and pass search terms or '
-                   'ids as positional parameters after the options.')
     parser = optparse.OptionParser(
-        usage='%prog [options] [search_term_or_id [search_term_or_id ...]]',
-        version=__version__,
-        description=description)
+        usage='%prog [options]', version=__version__,
+        description='Interact with Odoo')
     parser.add_option(
         '-l', '--list', action='store_true', dest='list_env',
         help='list sections of the configuration')
@@ -2542,15 +2537,6 @@ def main(interact=_interact):
         '--api-key', dest='api_key', default=None,
         help='API Key for JSON2 or JSON-RPC/XML-RPC')
     parser.add_option(
-        '-m', '--model',
-        help='the type of object to find')
-    parser.add_option(
-        '-f', '--fields', action='append',
-        help='restrict the output to certain fields (multiple allowed)')
-    parser.add_option(
-        '-i', '--interact', action='store_true',
-        help='use interactively; default when no model is queried')
-    parser.add_option(
         '-v', '--verbose', default=0, action='count',
         help='verbose')
 
@@ -2561,35 +2547,22 @@ def main(interact=_interact):
         print('Available settings:  ' + ' '.join(read_config()))
         return
 
-    if args.interact or not args.model:
-        global_vars = Client._set_interactive()
-        print(USAGE)
+    global_vars = Client._set_interactive()
+    print(USAGE)
 
     if args.env:
         client = Client.from_config(args.env, user=args.user, verbose=args.verbose)
     else:
         if not args.server:
             args.server = ['-c', args.config] if args.config else DEFAULT_URL
-            if domain and not args.model:
+            if domain:
                 args.server = args.server + domain if args.config else "".join(domain)
         if not args.user:
             args.user = ADMIN_USER
         client = Client(args.server, args.db, args.user, password=args.password,
                         api_key=args.api_key, verbose=args.verbose)
 
-    if args.model and client.env.uid:
-        if not issearchdomain(domain):
-            domain = [int(res_id) for res_id in domain]
-        data = client.env.execute(args.model, 'read', domain, args.fields)
-        if data and not args.fields:
-            args.fields = ['id'] + [fld for fld in data[0] if fld != 'id']
-        writer = csv.DictWriter(sys.stdout, args.fields or (), "", "ignore",
-                                quoting=csv.QUOTE_NONNUMERIC)
-        writer.writeheader()
-        writer.writerows(data or ())
-
-    if client._is_interactive():
-        return interact(global_vars) if interact else global_vars
+    return interact(global_vars) if interact else global_vars
 
 
 if __name__ == '__main__':
