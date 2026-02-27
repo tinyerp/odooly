@@ -2,7 +2,7 @@ from unittest import mock
 from unittest.mock import call, sentinel, ANY
 
 import odooly
-from ._common import XmlRpcTestCase, OBJ
+from ._common import JsonRpcTestCase, OBJ
 
 AUTH = sentinel.AUTH
 ID1, ID2 = 4001, 4002
@@ -46,13 +46,14 @@ DIC1 = IdentDict(ID1)
 DIC2 = IdentDict(ID2)
 
 
-class TestService(XmlRpcTestCase):
-    """Test the Service class."""
-    protocol = 'xmlrpc'
+class TestServiceJsonRpc(JsonRpcTestCase):
+    """Test the Service class with JSON-RPC."""
+    protocol = 'jsonrpc'
+    server_version = '14.0'
     uid = 22
 
     def _patch_service(self):
-        return mock.patch('odooly.ServerProxy._ServerProxy__request').start()
+        return mock.patch('odooly.HTTPSession.request', return_value={'result': 'JSON_RESULT'}).start()
 
     def _get_client(self):
         proxy = getattr(odooly.Client, '_proxy_%s' % self.protocol)
@@ -61,8 +62,7 @@ class TestService(XmlRpcTestCase):
         client._proxy = proxy.__get__(client, odooly.Client)
         client._server = f"{self.server}/{self.protocol}"
         client._post_jsonrpc = odooly.Client._post_jsonrpc.__get__(client, odooly.Client)
-        if self.protocol == 'jsonrpc':
-            client._http.request = self.service
+        client._http.request = self.service
         return client
 
     def test_service(self):
@@ -71,11 +71,7 @@ class TestService(XmlRpcTestCase):
 
         self.assertIn('alpha', str(svc_alpha.beta))
         self.assertRaises(AttributeError, getattr, svc_alpha, 'theta')
-        if self.protocol == 'xmlrpc':
-            self.assertIn('_ServerProxy__request', str(svc_alpha.beta(42)))
-            self.assertCalls(call('beta', (42,)), "().__str__")
-        else:
-            self.assertCalls()
+        self.assertCalls()
         self.assertOutput('')
 
     def test_service_openerp(self):
@@ -90,23 +86,17 @@ class TestService(XmlRpcTestCase):
         login = get_proxy('common').login('aaa')
         with self.assertRaises(AttributeError):
             get_proxy('common').non_existent
-        if self.protocol == 'xmlrpc':
-            self.assertIn('_ServerProxy__request', str(login))
-            self.assertCalls(call('login', ('aaa',)), 'call().__str__')
-        else:
-            self.assertCalls(jsonrpc_call(self, 'common', 'login', ('aaa',)))
-            self.assertEqual(login, 'JSON_RESULT')
+        self.assertCalls(jsonrpc_call(self, 'common', 'login', ('aaa',)))
+        self.assertEqual(login, 'JSON_RESULT')
         self.assertOutput('')
 
-    def test_service_openerp_client(self, server_version=11.0):
+    def test_service_odoo_client(self, server_version=14.0):
         odooly.Env._cache.clear()
 
         server = f"{self.server}/{self.protocol}"
         return_values = [{'server_version': str(server_version)}, ['newdb'], 1, {}]
         if self.protocol == 'jsonrpc':
             return_values = [{'result': rv} for rv in return_values]
-        elif server_version >= 20.0:  # XML-RPC
-            del return_values[1]
         if server_version >= 19.0:
             return_values += [{'uid': 1}, odooly.ServerError]
         self.service.side_effect = return_values
@@ -115,118 +105,62 @@ class TestService(XmlRpcTestCase):
         self.service.return_value = ANY
         self.assertIsInstance(client.common, odooly.Service)
         self.assertIsInstance(client._object, odooly.Service)
-        if server_version >= 11.0:
-            self.assertIs(client._report, None)
-            self.assertIs(client._wizard, None)
-        elif server_version >= 7.0:
-            self.assertIsInstance(client._report, odooly.Service)
-            self.assertIs(client._wizard, None)
-        else:
-            self.assertIsInstance(client._report, odooly.Service)
-            self.assertIsInstance(client._wizard, odooly.Service)
 
-        if server_version >= 20.0:
-            self.assertIsNone(client.db)
-        else:
-            self.assertIsInstance(client.db, odooly.Service)
-            self.assertIn('/%s|db' % self.protocol, str(client.db.create_database))
-            self.assertIn('/%s|db' % self.protocol, str(client.db.db_exist))
-        if server_version >= 11.0:
-            self.assertRaises(AttributeError, getattr, client.db, 'create')
-            self.assertRaises(AttributeError, getattr, client.db, 'get_progress')
-        else:
-            self.assertIn('/%s|db' % self.protocol, str(client.db.create))
-            self.assertIn('/%s|db' % self.protocol, str(client.db.get_progress))
+        # Removed RPC services
+        self.assertRaises(AttributeError, getattr, client, 'db')
+        self.assertRaises(AttributeError, getattr, client, '_report')
+        self.assertRaises(AttributeError, getattr, client, '_wizard')
 
-        if self.protocol == 'xmlrpc':
-            expected_calls = [
-                call('version', ()),
-                call('list', ()),
-                call('login', ('newdb', 'usr', 'pss')),
-                call('execute_kw', ('newdb', 1, 'pss', 'res.users', 'context_get', ()))
+        self.assertIsInstance(client.database, odooly.WebAPI)
+        self.assertIn('/web/database', str(client.database.create))
+        self.assertIn('/web/database', str(client.database.exist))
+
+        expected_calls = [
+            jsonrpc_call(self, 'common', 'version', ()),
+            call(f'{self.server}/web/database/list',
+                 json={'jsonrpc': '2.0', 'method': 'call', 'params': {}, 'id': ANY}),
+            jsonrpc_call(self, 'common', 'login', ('newdb', 'usr', 'pss')),
+            jsonrpc_call(self, 'object', 'execute_kw', ('newdb', 1, 'pss', 'res.users', 'context_get', ())),
+        ]
+        if server_version >= 19.0:
+            expected_calls += [
+                call(f'{self.server}/json/2/res.users/context_get', json={}, headers=ANY),
+                call(f'{self.server}/doc-bearer/res.device.json', method='GET', json=None, headers=ANY),
             ]
-            if server_version >= 20.0:
-                del expected_calls[1]
-        else:
-            expected_calls = [
-                jsonrpc_call(self, 'common', 'version', ()),
-                jsonrpc_call(self, 'db', 'list', ()),
-                jsonrpc_call(self, 'common', 'login', ('newdb', 'usr', 'pss')),
-                jsonrpc_call(self, 'object', 'execute_kw', ('newdb', 1, 'pss', 'res.users', 'context_get', ())),
-            ]
-            if server_version >= 20.0:
-                expected_calls[1] = (
-                    call(f'{self.server}/web/database/list',
-                         json={'jsonrpc': '2.0', 'method': 'call', 'params': {}, 'id': ANY})
-                    )
-            if server_version >= 19.0:
-                expected_calls += [
-                    call(f'{self.server}/json/2/res.users/context_get', json={}, headers=ANY),
-                    call(f'{self.server}/doc-bearer/res.device.json', method='GET', json=None, headers=ANY),
-                ]
 
         self.assertCalls(*expected_calls)
         self.assertOutput('')
 
-    def test_service_openerp_61_to_70(self):
-        self.test_service_openerp_client(server_version=7.0)
-        self.test_service_openerp_client(server_version=6.1)
-
-    def test_service_odoo_80_90(self):
-        self.test_service_openerp_client(server_version=9.0)
-        self.test_service_openerp_client(server_version=8.0)
-
-    def test_service_odoo_10_17(self):
-        self.test_service_openerp_client(server_version=17.0)
-        self.test_service_openerp_client(server_version=16.0)
-        self.test_service_openerp_client(server_version=15.0)
-        self.test_service_openerp_client(server_version=14.0)
-        self.test_service_openerp_client(server_version=13.0)
-        self.test_service_openerp_client(server_version=12.0)
-        self.test_service_openerp_client(server_version=10.0)
+    def test_service_odoo_15_17(self):
+        self.test_service_odoo_client(server_version=17.0)
+        self.test_service_odoo_client(server_version=16.0)
+        self.test_service_odoo_client(server_version=15.0)
 
     def test_service_odoo_18_20(self):
-        self.test_service_openerp_client(server_version=18.0)
-
-        if self.protocol == 'xmlrpc':
-            mock.patch('odooly.HTTPSession.request', side_effect=odooly.ServerError).start()
-
-        self.test_service_openerp_client(server_version=19.0)
-        self.test_service_openerp_client(server_version=20.0)
+        self.test_service_odoo_client(server_version=18.0)
+        self.test_service_odoo_client(server_version=19.0)
+        self.test_service_odoo_client(server_version=20.0)
 
 
-class TestServiceJsonRpc(TestService):
-    """Test the Service class with JSON-RPC."""
-    protocol = 'jsonrpc'
-
-    def _patch_service(self):
-        return mock.patch('odooly.HTTPSession.request', return_value={'result': 'JSON_RESULT'}).start()
-
-
-class TestCreateClient(XmlRpcTestCase):
+class TestCreateClient(JsonRpcTestCase):
     """Test the Client class."""
-    server_version = '6.1'
-    server = f'{XmlRpcTestCase.server}/xmlrpc'
+    server_version = '14.0'
+    server = f'{JsonRpcTestCase.server}/jsonrpc'
     startup_calls = (
         call(ANY, 'common', ANY),
-        'common.version',
-        call(ANY, 'db', ANY),
-        call(ANY, 'common', ANY),
         call(ANY, 'object', ANY),
-        call(ANY, 'report', ANY),
-        call(ANY, 'wizard', ANY),
-        'db.list',
+        'common.version',
+        'database.list',
     )
 
     def test_create(self):
-        self.service.db.list.return_value = ['newdb']
+        self.service.database.list.return_value = ['newdb']
         self.service.common.login.return_value = 1
 
-        url_xmlrpc = f"{self.server}"
         s_context = '{"lang": "en_US", "tz": "Europe/Zurich"}'
         key_1 = b"\0\0\0\1" + bytes.fromhex(f'{hash("{}")%2**32:08x}')
         key_2 = b"\0\0\0\1" + bytes.fromhex(f'{hash(s_context)%2**32:08x}')
-        client = odooly.Client(url_xmlrpc, 'newdb', 'usr', 'pss')
+        client = odooly.Client(self.server, 'newdb', 'usr', 'pss')
         expected_calls = self.startup_calls + (
             call.common.login('newdb', 'usr', 'pss'),
             call.object.execute_kw('newdb', 1, 'pss', 'res.users', 'context_get', ()),
@@ -235,17 +169,17 @@ class TestCreateClient(XmlRpcTestCase):
         self.assertCalls(*expected_calls)
         self.assertEqual(
             client.env._cache,
-            {(odooly.Env, 'newdb', url_xmlrpc): odooly.Env(client, 'newdb'),
-             (key_1, 'newdb', url_xmlrpc): client.env(context={}),
-             (key_2, 'newdb', url_xmlrpc): client.env,
-             ('auth', 'newdb', url_xmlrpc): {'usr': (1, 'pss')},
-             ('model_names', 'newdb', url_xmlrpc): {'res.users': False}})
+            {(odooly.Env, 'newdb', self.server): odooly.Env(client, 'newdb'),
+             (key_1, 'newdb', self.server): client.env(context={}),
+             (key_2, 'newdb', self.server): client.env,
+             ('auth', 'newdb', self.server): {'usr': (1, 'pss')},
+             ('model_names', 'newdb', self.server): {'res.users': False}})
         self.assertOutput('')
 
     def test_create_getpass(self):
         getpass = mock.patch('odooly.getpass',
                              return_value='password').start()
-        self.service.db.list.return_value = ['database']
+        self.service.database.list.return_value = ['database']
         expected_calls = self.startup_calls + (
             call.common.login('database', 'usr', 'password'),
         )
@@ -268,13 +202,12 @@ class TestCreateClient(XmlRpcTestCase):
         self.assertEqual(getpass.call_count, 1)
 
     def test_create_with_cache(self):
-        self.service.db.list.return_value = ['database']
+        self.service.database.list.return_value = ['database']
         self.assertFalse(odooly.Env._cache)
-        url_xmlrpc = f"{self.server}/xmlrpc"
         mock.patch.dict(odooly.Env._cache,
-                        {('auth', 'database', url_xmlrpc): {'usr': (1, 'password')}}).start()
+                        {('auth', 'database', self.server): {'usr': (1, 'password')}}).start()
 
-        client = odooly.Client(url_xmlrpc, 'database', 'usr')
+        client = odooly.Client(self.server, 'database', 'usr')
         self.assertIsInstance(client, odooly.Client)
         self.assertCalls(*(self.startup_calls + (
             call.object.execute_kw('database', 1, 'password', 'res.users', 'context_get', ()),
@@ -286,7 +219,7 @@ class TestCreateClient(XmlRpcTestCase):
         read_config = mock.patch('odooly.Client.get_config',
                                  return_value=env_tuple).start()
         getpass = mock.patch('odooly.getpass', return_value='password').start()
-        self.service.db.list.return_value = ['database']
+        self.service.database.list.return_value = ['database']
         expected_calls = self.startup_calls + (
             call.common.login('database', 'usr', 'password'),
         )
@@ -320,9 +253,9 @@ class TestCreateClient(XmlRpcTestCase):
         self.assertOutput('')
 
 
-class TestSampleSession(XmlRpcTestCase):
-    server_version = '6.1'
-    server = f'{XmlRpcTestCase.server}/xmlrpc'
+class TestSampleSession(JsonRpcTestCase):
+    server_version = '14.0'
+    server = f'{JsonRpcTestCase.server}/jsonrpc'
     database = 'database'
     user = 'user'
     password = 'passwd'
@@ -330,7 +263,7 @@ class TestSampleSession(XmlRpcTestCase):
 
     def test_simple(self):
         self.service.object.execute_kw.side_effect = [
-            4, {'id', 'model'}, [71], [{'model': 'ir.cron'}], sentinel.IDS, sentinel.CRON]
+            4, {'id', 'model'}, [{'id': 71, 'model': 'ir.cron'}], sentinel.CRON]
 
         res_users = self.env['res.users']
         self.assertEqual(res_users.search_count(), 4)
@@ -339,31 +272,27 @@ class TestSampleSession(XmlRpcTestCase):
         self.assertCalls(
             OBJ('res.users', 'search_count', []),
             OBJ('ir.model', 'fields_get'),
-            OBJ('ir.model', 'search', []),
-            OBJ('ir.model', 'read', [71], ('model', 'osv_memory')),
-            OBJ('ir.cron', 'search', [('active', '=', False)]),
-            OBJ('ir.cron', 'read', sentinel.IDS, ['active', 'function']),
+            OBJ('ir.model', 'search_read', [], ('model', 'transient')),
+            OBJ('ir.cron', 'search_read', [('active', '=', False)], ['active', 'function']),
         )
         self.assertOutput('')
 
     def test_list_modules(self):
         self.service.object.execute_kw.side_effect = [
-            ['delivery_a', 'delivery_b'],
-            [{'state': 'not installed', 'name': 'dummy'}]]
+            [{'id': 'delivery_a', 'state': 'not installed', 'name': 'dummy'}]]
 
         modules = self.env.modules('delivery')
         self.assertIsInstance(modules, dict)
         self.assertIn('not installed', modules)
 
         self.assertCalls(
-            imm('search', [('name', 'like', 'delivery')]),
-            imm('read', ['delivery_a', 'delivery_b'], ['name', 'state']),
+            imm('search_read', [('name', 'like', 'delivery')], ['name', 'state']),
         )
         self.assertOutput('')
 
     def test_module_upgrade(self):
         self.service.object.execute_kw.side_effect = [
-            (42, 0), [], [42], ANY, [42],
+            (42, 0), [], [42], ANY,
             [{'id': 42, 'state': ANY, 'name': ANY}], ANY, ANY]
 
         result = self.env.upgrade('dummy')
@@ -371,11 +300,10 @@ class TestSampleSession(XmlRpcTestCase):
 
         self.assertCalls(
             imm('update_list'),
-            imm('search', [('state', 'not in', STABLE)]),
+            imm('search_read', [('state', 'not in', STABLE)], ['name', 'state']),
             imm('search', [('name', 'in', ('dummy',))]),
             imm('button_upgrade', [42]),
-            imm('search', [('state', 'not in', STABLE)]),
-            imm('read', [42], ['name', 'state']),
+            imm('search_read', [('state', 'not in', STABLE)], ['name', 'state']),
             bmu('upgrade_module', []),
         )
         self.assertOutput(ANY)
@@ -400,10 +328,10 @@ class TestSampleSession(XmlRpcTestCase):
         self.assertIsNone(client._printer.cols)
 
 
-class TestClientApi(XmlRpcTestCase):
-    """Test the Client API."""
-    server_version = '6.1'
-    server = f'{XmlRpcTestCase.server}/xmlrpc'
+class TestClientApi(JsonRpcTestCase):
+    """Test the Client API for Odoo 14."""
+    server_version = '14.0'
+    server = f'{JsonRpcTestCase.server}/jsonrpc'
     database = 'database'
     user = 'user'
     password = 'passwd'
@@ -423,66 +351,66 @@ class TestClientApi(XmlRpcTestCase):
 
     def test_create_database(self):
         create_database = self.client.create_database
-        self.client.db.list.side_effect = [['db1'], ['db2'], ['db3']]
+        self.client.database.list.side_effect = [['db1'], ['db2'], ['db3']]
 
         create_database('abc', 'db1')
         create_database('xyz', 'db2', user_password='secret', lang='fr_FR')
 
         expected_calls = [
-            call.db.create_database('abc', 'db1', False, 'en_US', 'admin'),
-            call.db.list(),
+            call.database.create(master_pwd='abc', name='db1', lang='en_US', password='admin', demo=False, login='admin', country_code=None, phone=''),
+            call.database.list(),
             call.common.login('db1', 'admin', 'admin'),
             call.object.execute_kw('db1', self.uid, 'admin', 'res.users', 'context_get', ()),
-            call.db.create_database('xyz', 'db2', False, 'fr_FR', 'secret'),
-            call.db.list(),
+            call.doc._request('res.device'),
+            call.database.create(master_pwd='xyz', name='db2', lang='fr_FR', password='secret', demo=False, login='admin', country_code=None, phone=''),
+            call.database.list(),
             call.common.login('db2', 'admin', 'secret'),
             call.object.execute_kw('db2', self.uid, 'secret', 'res.users', 'context_get', ()),
-            # Odoo >= 9
-            call.db.create_database('xyz', 'db3', False, 'fr_FR', 'secret', 'other_login', 'CA'),
-            call.db.list(),
+            call.doc._request('res.device'),
+            call.database.create(master_pwd='xyz', name='db3', lang='fr_FR', password='secret', demo=False, login='other_login', country_code='CA', phone=''),
+            call.database.list(),
             call.common.login('db3', 'other_login', 'secret'),
             call.object.execute_kw('db3', self.uid, 'secret', 'res.users', 'context_get', ()),
+            call.doc._request('res.device'),
         ]
 
-        if float(self.server_version) <= 8.0:
-            self.assertRaises(
-                odooly.Error, create_database, 'xyz', 'db3',
-                user_password='secret', lang='fr_FR', login='other_login', country_code='CA',
-            )
-            self.assertRaises(odooly.Error, create_database, 'xyz', 'db3', login='other_login')
-            del expected_calls[-4:]
-        else:  # Odoo >= 9
-            create_database('xyz', 'db3', user_password='secret', lang='fr_FR', login='other_login', country_code='CA')
+        if float(self.server_version) < 19.0:
+            del expected_calls[14], expected_calls[9], expected_calls[4]
+        create_database('xyz', 'db3', user_password='secret', lang='fr_FR', login='other_login', country_code='CA')
         self.assertCalls(*expected_calls)
         self.assertOutput('')
 
     def test_clone_database(self):
         clone_database = self.client.clone_database
-        self.client.db.list.side_effect = [['database', 'db1'], ['database', 'db1', 'db2']]
+        self.client.database.list.side_effect = [['database', 'db1'], ['database', 'db1', 'db2']]
 
         clone_database('abc', 'db1')
 
         expected_calls = [
-            call.db.duplicate_database('abc', 'database', 'db1'),
-            call.db.list(),
+            call.database.duplicate(master_pwd='abc', name='database', new_name='db1'),
+            call.database.list(),
             call.object.execute_kw('db1', 4, 'passwd', 'res.users', 'context_get', ()),
-            call.db.duplicate_database('xyz', 'db1', 'db2', True),
-            call.db.list(),
+            call.doc._request('res.device'),
+            call.database.duplicate(master_pwd='xyz', name='db1', new_name='db2', neutralize_database=True),
+            call.database.list(),
             call.object.execute_kw('db2', 4, 'passwd', 'res.users', 'context_get', ()),
+            call.doc._request('res.device'),
         ]
 
         if float(self.server_version) < 16.0:
             # Error: Argument 'neutralize_database' is not supported
             self.assertRaises(odooly.Error, clone_database, 'xyz', 'db2', neutralize_database=True)
-            del expected_calls[-3:]
+            del expected_calls[-5:]
         else:
+            if float(self.server_version) < 19.0:
+                del expected_calls[7], expected_calls[3]
             clone_database('xyz', 'db2', neutralize_database=True)
         self.assertCalls(*expected_calls)
         self.assertOutput('')
 
     def test_drop_database(self):
         drop_database = self.client.drop_database
-        self.client.db.list.side_effect = [['database', 'db1', 'db2'], ['database', 'db2']]
+        self.client.database.list.side_effect = [['database', 'db1', 'db2'], ['database', 'db2']]
 
         # Failed - Database was not deleted
         self.assertRaises(odooly.Error, drop_database, 'abc', 'db2')
@@ -491,10 +419,10 @@ class TestClientApi(XmlRpcTestCase):
         drop_database('abc', 'db1')
 
         expected_calls = [
-            call.db.drop('abc', 'db2'),
-            call.db.list(),
-            call.db.drop('abc', 'db1'),
-            call.db.list(),
+            call.database.drop(master_pwd='abc', name='db2'),
+            call.database.list(),
+            call.database.drop(master_pwd='abc', name='db1'),
+            call.database.list(),
         ]
 
         self.assertCalls(*expected_calls)
@@ -520,16 +448,9 @@ class TestClientApi(XmlRpcTestCase):
     def test_model(self):
         self.service.object.execute_kw.side_effect = self.obj_exec
 
-        if float(self.server_version) < 8.0:
-            expected_calls = [
-                OBJ('ir.model', 'search', []),
-                OBJ('ir.model', 'read', [ID1, ID2], ('model', 'transient')),
-            ]
-            side_effect = [[ID2, ID1], [{'id': 13, 'model': 'foo.bar'}]]
-        else:
-            domain = [('abstract', '=', False)] if float(self.server_version) >= 19.0 else []
-            expected_calls = [OBJ('ir.model', 'search_read', domain, ('model', 'transient'))]
-            side_effect = [[{'id': 13, 'model': 'foo.bar'}]]
+        domain = [('abstract', '=', False)] if float(self.server_version) >= 19.0 else []
+        expected_calls = [OBJ('ir.model', 'search_read', domain, ('model', 'transient'))]
+        side_effect = [[{'id': 13, 'model': 'foo.bar'}]]
 
         self.assertFalse(self.env.models('foo.bar'))
         self.assertCalls(OBJ('ir.model', 'fields_get'), *expected_calls)
@@ -563,56 +484,6 @@ class TestClientApi(XmlRpcTestCase):
         )
         self.assertOutput('')
 
-    def test_exec_workflow(self):
-        exec_workflow = self.env.exec_workflow
-
-        self.assertTrue(exec_workflow('foo.bar', 'light', 42))
-
-        self.assertCalls(
-            ('object.exec_workflow', AUTH, 'foo.bar', 'light', 42),
-        )
-        self.assertOutput('')
-
-    def test_wizard(self):
-        wizard_create = self.env.wizard_create
-        wizard_execute = self.env.wizard_execute
-        self.service.wizard.create.return_value = ID1
-
-        self.assertTrue(wizard_create('foo.bar'))
-        wiz_id = wizard_create('billy')
-        self.assertTrue(wiz_id)
-        self.assertTrue(wizard_execute(wiz_id, {}, 'shake', None))
-        self.assertTrue(wizard_execute(42, {}, 'kick', None))
-
-        self.assertCalls(
-            ('wizard.create', AUTH, 'foo.bar'),
-            ('wizard.create', AUTH, 'billy'),
-            ('wizard.execute', AUTH, ID1, {}, 'shake', None),
-            ('wizard.execute', AUTH, 42, {}, 'kick', None),
-        )
-        self.assertOutput('')
-
-    def test_report(self):
-        self.assertTrue(self.env.report('foo.bar', sentinel.IDS))
-        self.assertCalls(
-            ('report.report', AUTH, 'foo.bar', sentinel.IDS),
-        )
-        self.assertOutput('')
-
-    def test_render_report(self):
-        self.assertTrue(self.env.render_report('foo.bar', sentinel.IDS))
-        self.assertCalls(
-            ('report.render_report', AUTH, 'foo.bar', sentinel.IDS),
-        )
-        self.assertOutput('')
-
-    def test_report_get(self):
-        self.assertTrue(self.env.report_get(ID1))
-        self.assertCalls(
-            ('report.report_get', AUTH, ID1),
-        )
-        self.assertOutput('')
-
     def _module_upgrade(self, button='upgrade'):
         execute_return = [
             [7, 0], [], [42], {'name': 'Upgrade'},
@@ -629,15 +500,6 @@ class TestClientApi(XmlRpcTestCase):
             imm('search_read', [('state', 'not in', STABLE)], ['name', 'state']),
             bmu('upgrade_module', []),
         ]
-        if float(self.server_version) < 8.0:
-            execute_return[4:4] = [[4, 42, 5]]
-            expected_calls[1:5] = [
-                imm('search', [('state', 'not in', STABLE)]),
-                imm('search', [('name', 'in', ('dummy', 'spam'))]),
-                imm('button_' + button, [42]),
-                imm('search', [('state', 'not in', STABLE)]),
-                imm('read', [4, 42, 5], ['name', 'state']),
-            ]
         if button == 'uninstall':
             domain = [
                 ('id', 'in', [42]),
@@ -645,19 +507,8 @@ class TestClientApi(XmlRpcTestCase):
                 ('state', '!=', 'to upgrade'),
                 ('state', '!=', 'to remove'),
             ]
-            if self.server_version == '6.1':
-                expected_calls[3:3] = [
-                    imm('search', domain),
-                    imm('fields_get'),
-                    imm('write', [42], {'state': 'to remove'}),
-                ]
-                execute_return[3:3] = [[], {'state': {'type': 'selection'}}, ANY]
-            elif self.server_version == '7.0':
-                expected_calls[3:3] = [imm('search', domain)]
-                execute_return[3:3] = [[]]
-            else:
-                expected_calls[3:3] = [imm('search_read', domain, ['name'])]
-                execute_return[3:3] = [[]]
+            expected_calls[3:3] = [imm('search_read', domain, ['name'])]
+            execute_return[3:3] = [[]]
 
         self.service.object.execute_kw.side_effect = execute_return
         result = action('dummy', 'spam', quiet=True)
@@ -690,12 +541,6 @@ class TestClientApi(XmlRpcTestCase):
             imm('search_read', [('state', 'not in', STABLE)], ['name', 'state']),
             imm('search', [('name', 'in', ())]),
         ]
-        if float(self.server_version) < 8.0:
-            execute_return[1:1] = [[4, 42, 5]]
-            expected_calls[1:2] = [
-                imm('search', [('state', 'not in', STABLE)]),
-                imm('read', [4, 42, 5], ['name', 'state']),
-            ]
         if float(self.server_version) < 19.0:
             expected_calls += [
                 imm('button_install_cancel', [42]),
@@ -734,35 +579,22 @@ class TestClientApi(XmlRpcTestCase):
         self.assertTrue(env.sudo().access('res.users', 'write'))
         self.assertFalse(env.access('res.users', 'write'))
 
-        self.assertCalls(
+        expected_calls = [
             call.common.login('database', 'guest', 'xxx'),
             ('object.execute_kw', self.database, 4, 'xxx', 'res.users', 'context_get', ()),
             #
             call.common.login('database', 'admin', 'ooo'),
             ('object.execute_kw', self.database, 1, 'ooo', 'res.users', 'context_get', ()),
+            call.doc._request('res.device'),
             ('object.execute_kw', self.database, 1, 'ooo', 'ir.model.access', 'check', ('res.users', 'write'), {'context': ctx_lang}),
             ('object.execute_kw', self.database, 4, 'passwd', 'ir.model.access', 'check', ('res.users', 'write'), {'context': ctx_lang}),
-        )
+        ]
+        if float(self.server_version) < 19.0:
+            del expected_calls[4]
+        self.assertCalls(*expected_calls)
         self.assertEqual(getpass.mock_calls,
                          [call("Password for 'guest': "), call("Password for 'admin': ")])
         self.assertOutput('')
-
-
-class TestClientApi9(TestClientApi):
-    """Test the Client API for Odoo 9."""
-    server_version = '9.0'
-    test_wizard = _skip_test
-
-    def test_obsolete_methods(self):
-        self.assertRaises(AttributeError, getattr, self.env, 'wizard_create')
-        self.assertRaises(AttributeError, getattr, self.env, 'wizard_execute')
-
-
-class TestClientApi11(TestClientApi):
-    """Test the Client API for Odoo 11."""
-    server_version = '11.0'
-    test_exec_workflow = test_wizard = _skip_test
-    test_report = test_render_report = test_report_get = _skip_test
 
     def test_obsolete_methods(self):
         self.assertRaises(AttributeError, getattr, self.env, 'exec_workflow')
@@ -771,18 +603,18 @@ class TestClientApi11(TestClientApi):
         self.assertRaises(AttributeError, getattr, self.env, 'report_get')
         self.assertRaises(AttributeError, getattr, self.env, 'wizard_create')
         self.assertRaises(AttributeError, getattr, self.env, 'wizard_execute')
+
+
+class TestClientApi17(TestClientApi):
+    """Test the Client API for Odoo 17."""
+    server_version = '17.0'
+
+
+class TestClientApi18(TestClientApi):
+    """Test the Client API for Odoo 18."""
+    server_version = '18.0'
 
 
 class TestClientApi19(TestClientApi):
     """Test the Client API for Odoo 19."""
     server_version = '19.0'
-    test_exec_workflow = test_wizard = _skip_test
-    test_report = test_render_report = test_report_get = _skip_test
-
-    def test_obsolete_methods(self):
-        self.assertRaises(AttributeError, getattr, self.env, 'exec_workflow')
-        self.assertRaises(AttributeError, getattr, self.env, 'render_report')
-        self.assertRaises(AttributeError, getattr, self.env, 'report')
-        self.assertRaises(AttributeError, getattr, self.env, 'report_get')
-        self.assertRaises(AttributeError, getattr, self.env, 'wizard_create')
-        self.assertRaises(AttributeError, getattr, self.env, 'wizard_execute')

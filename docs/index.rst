@@ -9,9 +9,9 @@ Odooly's documentation
 
 *A versatile tool for Odoo*
 
-The Odooly library communicates with any `Odoo / OpenERP server`_ using the Webclient API.
+The Odooly library communicates with any `Odoo server`_ using the Webclient API.
 If an ``api_key`` is configured, it will use the JSON-2 endpoint with Odoo 19.
-It can also connect through the `deprecated external RPC interface`_ (JSON-RPC or XML-RPC).
+It can also connect through the `deprecated external RPC interface`_ (JSON-RPC).
 
 It provides both a :ref:`fully featured low-level API <client-and-services>`,
 and an encapsulation of the methods on :ref:`Active Record objects
@@ -75,7 +75,7 @@ Contents:
 * Online documentation: https://odooly.readthedocs.io/
 * Source code and issue tracker: https://github.com/tinyerp/odooly
 
-.. _Odoo / OpenERP server: https://www.odoo.com/documentation/
+.. _Odoo server: https://www.odoo.com/documentation/
 .. _deprecated external RPC interface: https://www.odoo.com/documentation/19.0/developer/reference/external_rpc_api.html
 
 

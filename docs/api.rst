@@ -105,9 +105,8 @@ Odoo RPC Services
 
 The Odoo RPC services are exposed too. They could be used for server and
 database operations.
-The :attr:`~Client.db` and the :attr:`~Client.common` services provided
-methods which might be helpful for server administration.  Use the
-:func:`dir` function to introspect them.  The :attr:`~Client._object`
+The :attr:`~Client.common` service provided methods which might be helpful for server
+administration.  Use the :func:`dir` function to introspect them.  The :attr:`~Client._object`
 service should not be used directly.  It provides same feature as the
 :attr:`~Client.web_dataset` Webclient endpoint.  Use :class:`Env` and :class:`Model`
 instead.
@@ -117,15 +116,6 @@ Please refer to `the Odoo documentation`_ for more details.
 
    These RPC services are deprecated in Odoo 19.  They are scheduled
    for removal in Odoo 20.
-
-.. attribute:: Client.db
-
-   Expose the ``db`` :class:`Service`.
-
-   Examples: :meth:`Client.db.list` or :meth:`Client.db.server_version`
-   RPC methods.
-
-   Removed in Odoo 20.
 
 .. attribute:: Client.common
 
@@ -140,18 +130,6 @@ Please refer to `the Odoo documentation`_ for more details.
    Expose the ``object`` :class:`Service`.
 
    Removed in Odoo 20.
-
-.. attribute:: Client._report
-
-   Expose the ``report`` :class:`Service`.
-
-   Removed in Odoo 11.
-
-.. attribute:: Client._wizard
-
-   Expose the ``wizard`` :class:`Service`.
-
-   Removed in OpenERP 7.
 
 .. autoclass:: Service
    :members:
@@ -235,45 +213,6 @@ Please refer to `the Odoo documentation`_ for details.
    Expose the ``/json/2`` endpoint.
 
    Added in Odoo 19.
-
-.. method:: Env.exec_workflow(obj, signal, obj_id)
-
-   Wrapper around ``object.exec_workflow`` RPC method.
-
-   Argument `obj` is the name of the model.  The `signal` is sent to
-   the object identified by its integer ``id`` `obj_id`.
-
-   Removed in Odoo 11.
-
-.. method:: Env.report(obj, ids, datas=None)
-
-   Wrapper around ``report.report`` RPC method.
-
-   Removed in Odoo 11.
-
-.. method:: Env.render_report(obj, ids, datas=None)
-
-   Wrapper around ``report.render_report`` RPC method.
-
-   Removed in Odoo 11.
-
-.. method:: Env.report_get(report_id)
-
-   Wrapper around ``report.report_get`` RPC method.
-
-   Removed in Odoo 11.
-
-.. method:: Env.wizard_create(wiz_name, datas=None)
-
-   Wrapper around ``wizard.create`` RPC method.
-
-   Removed in OpenERP 7.
-
-.. method:: Env.wizard_execute(wiz_id, datas, action='init', context=None)
-
-   Wrapper around ``wizard.execute`` RPC method.
-
-   Removed in OpenERP 7.
 
 
 Manage addons

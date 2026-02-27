@@ -96,9 +96,9 @@ class TestUtils(TestCase):
         self.assertEqual(searchargs((['duration = 0'],)), ([('duration', '=', 0)],))
         self.assertEqual(searchargs((['price < 0.42'],)), ([('price', '<', 0.42)],))
 
-        # Overflow for integers, not for float
+        # No more limit for integers (XML-RPC is gone)
         self.assertEqual(searchargs((['phone = 41261234567'],)),
-                         ([('phone', '=', '41261234567')],))
+                         ([('phone', '=', 41261234567)],))
         self.assertEqual(searchargs((['elapsed = 67891234567.0'],)),
                          ([('elapsed', '=', 67891234567.0)],))
 

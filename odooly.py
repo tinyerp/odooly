@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-""" odooly.py -- Odoo / OpenERP client library and command line tool
+""" odooly.py -- Odoo client library and command line tool
 
 Author: Florent Xicluna
 """
@@ -21,7 +21,6 @@ from pathlib import Path
 from string import Formatter
 from threading import current_thread
 from urllib.parse import urlencode, urljoin, urlsplit
-from xmlrpc.client import Fault, MININT, MAXINT, ServerProxy
 
 try:
     import requests
@@ -71,7 +70,7 @@ Usage (some commands):
 DOMAIN_OPERATORS = frozenset('!|&')
 # Supported operators are:
 #   =, !=, >, >=, <, <=, like, ilike, in, not like, not ilike, not in,
-#   =like, =ilike, =?, child_of, parent_of,   # parent_of: Odoo 9
+#   =like, =ilike, =?, child_of, parent_of,
 #   any, not any,                             # Odoo 17
 #   not =like, not =ilike,                    # Odoo 19
 _term_re = re.compile(
@@ -92,27 +91,6 @@ _web_methods = {
 _rpc_methods = {
     'common': ['login', 'authenticate', 'version'],
     'object': ['execute', 'execute_kw'],
-    # Removed Odoo 20
-    'db': ['create_database', 'duplicate_database', 'db_exist', 'drop', 'dump',
-           'restore', 'rename', 'list', 'list_lang', 'list_countries',
-           'change_admin_password', 'server_version', 'migrate_databases'],
-}
-# New Odoo 7:       (db) duplicate_database
-# New Odoo 9:       (db) list_countries
-# Removed Odoo 20:  (common) about, set_loglevel
-
-_obsolete_rpc_methods = {
-    'common': [
-        'check_connectivity', 'get_available_updates',
-        'get_migration_scripts', 'get_os_time', 'get_stats',
-        'get_server_environment', 'get_sqlcount',
-        'list_http_services', 'login_message',              # Odoo < 8
-        'timezone_get',                                     # Odoo < 9
-    ],
-    'db': ['create', 'get_progress'],                       # Odoo < 8
-    'object': ['exec_workflow'],                            # Odoo < 11
-    'report': ['render_report', 'report', 'report_get'],    # Odoo < 11
-    'wizard': ['execute', 'create'],                        # Odoo < 7
 }
 _cause_message = ("\nThe above exception was the direct cause "
                   "of the following exception:\n\n")
@@ -137,9 +115,6 @@ http_context = None
 if os.getenv('ODOOLY_SSL_UNVERIFIED'):
     import ssl
 
-    def ServerProxy(url, transport, allow_none, _ServerProxy=ServerProxy):
-        return _ServerProxy(url, transport=transport, allow_none=allow_none,
-                            context=ssl._create_unverified_context())
     http_context = ssl._create_unverified_context()
     requests = None
 
@@ -248,10 +223,7 @@ def literal_eval(expression, _octal_digits=frozenset('01234567')):
     node = compile(expression, '<unknown>', 'eval', _ast.PyCF_ONLY_AST)
     if expression[:1] == '0' and expression[1:2] in _octal_digits:
         raise SyntaxError('unsupported octal notation')
-    value = _convert(node.body)
-    if isinstance(value, int) and not MININT <= value <= MAXINT:
-        raise ValueError('overflow, int exceeds XML-RPC limits')
-    return value
+    return _convert(node.body)
 
 
 def format_params(params, hide=('passw', 'pwd')):
@@ -265,7 +237,7 @@ def format_exception(exc_type, exc, tb, limit=None, chain=True,
     """Format a stack trace and the exception information.
 
     This wrapper is a replacement of ``traceback.format_exception``
-    which formats the error and traceback received by XML-RPC/JSON-RPC.
+    which formats the error and traceback received by API.
     If `chain` is True, then the original exception is printed too.
     """
     values = _format_exception(exc_type, exc, tb, limit=limit)
@@ -277,24 +249,8 @@ def format_exception(exc_type, exc, tb, limit=None, chain=True,
     elif issubclass(exc_type, ServerError):     # JSON-RPC or Web API
         server_error = exc.args[0]['data']
         print_tb = not server_error.get('name', '').startswith(('odoo.', 'werkzeug.'))
-    elif issubclass(exc_type, Fault) and isinstance(exc.faultCode, str):  # XML-RPC
-        (message, tb) = (exc.faultCode, exc.faultString)
-        exc_name = exc_type.__name__
-        print_tb = not message.startswith('warning --')
-        if print_tb:       # ValidationError, DatabaseExists, etc ...
-            parts = message.rsplit('\n', 1)
-            if parts[-1] == 'None':
-                message, print_tb = parts[0], False
-            last_line = tb.rstrip().rsplit('\n', 1)[-1]
-            if last_line.startswith('odoo.'):
-                exc_name, print_tb = last_line.split(':', 1)[0], False
-        else:
-            message = re.sub(r'\((.*), None\)$',
-                             lambda m: literal_eval(m.group(1)),
-                             message.split(None, 2)[2])
-        server_error = {'name': exc_name, 'arguments': (message,), 'debug': tb}
     if server_error:
-        # Format readable XML-RPC and JSON-RPC errors
+        # Format readable API errors
         try:
             message = str(server_error['arguments'][0])
         except Exception:
@@ -346,35 +302,22 @@ def start_odoo_services(options=None, appname=None):
 
     Return the ``odoo`` package.
     """
-    try:
-        import openerp as odoo
-    except ImportError:
-        import odoo
+    import odoo
     if not hasattr(odoo, "_get_pool"):
         os.putenv('TZ', 'UTC')
         if appname is not None:
             os.putenv('PGAPPNAME', appname)
         odoo.tools.config.parse_config(options or [])
-        if odoo.release.version_info < (7,):
-            odoo.netsvc.init_logger()
-            odoo.osv.osv.start_object_proxy()
-            odoo.service.web_services.start_web_services()
-        elif odoo.release.version_info < (8,):
-            odoo.service.start_internal()
-        elif odoo.release.version_info < (15,):
+        if odoo.release.version_info < (15,):
             odoo.api.Environment.reset()
         elif odoo.release.version_info > (19, 2):
             import odoo.http.router
             odoo.http.dispatch_rpc = odoo.http.router.dispatch_rpc
 
-        try:
-            manager_class = odoo.modules.registry.RegistryManager
-            odoo._get_pool = manager_class.get
-        except AttributeError:  # Odoo >= 10
-            odoo._get_pool = manager_class = odoo.modules.registry.Registry
+        odoo._get_pool = odoo.modules.registry.Registry
 
         def close_all():
-            for db in manager_class.registries.keys():
+            for db in odoo._get_pool.registries.keys():
                 odoo.sql_db.close_db(db)
         atexit.register(close_all)
 
@@ -519,7 +462,7 @@ class Service:
     The connected endpoints are exposed on the Client instance.
     The `client` argument is the connected Client.
     The `endpoint` argument is the name of the service
-    (examples: ``"object"``, ``"db"``).  The `methods` is the list of methods
+    (examples: ``"object"``, ``"common"``).  The `methods` is the list of methods
     which should be exposed on this endpoint.  Use ``dir(...)`` on the
     instance to list them.
     """
@@ -543,7 +486,7 @@ class Service:
             raise AttributeError(f"'Service' object has no attribute {name!r}")
 
         def sanitize(args):
-            if self._endpoint != 'db' and len(args) > 2:
+            if len(args) > 2:
                 args = args[:2] + ('*',) + args[3:]
             return ', '.join(repr(arg) for arg in args)
 
@@ -644,6 +587,7 @@ class Env:
     """
 
     name = uid = user = session_info = _api_key = _doc = _json2 = _access_models = None
+    _class_ids = Ids, Id1
     _cache = {}
 
     def __new__(cls, client, db_name=()):
@@ -654,7 +598,6 @@ class Env:
         if not db_name or client.env.db_name:
             env = object.__new__(cls)
             env.client, env.db_name, env.context = client, db_name, {}
-            env._class_ids = (list, int) if client._proxy == client._proxy_xmlrpc else (Ids, Id1)
         else:
             env, env.db_name = client.env, db_name
         if db_name:
@@ -746,7 +689,6 @@ class Env:
                 self._doc = None
         prev_protocol = getattr(self, '_execute_kw', ...)
         if self.client._object:  # RPC endpoint if available
-            self._execute = env_auth(self.client._object.execute)
             self._execute_kw = env_auth(self.client._object.execute_kw)
             self._execute_kw._protocol_name = self.client._proxy._protocol_name
         else:  # Otherwise, use JSON-2 or WebAPI
@@ -754,15 +696,6 @@ class Env:
         if prev_protocol not in (self._execute_kw._protocol_name, ...):
             self.client.connect()
         self._api_key = api_key if store else None
-
-        if self.client._report:   # Odoo < 11
-            self.exec_workflow = env_auth(self.client._object.exec_workflow)
-            self.report = env_auth(self.client._report.report)
-            self.report_get = env_auth(self.client._report.report_get)
-            self.render_report = env_auth(self.client._report.render_report)
-        if self.client._wizard:   # OpenERP 6.1
-            self.wizard_execute = env_auth(self.client._wizard.execute)
-            self.wizard_create = env_auth(self.client._wizard.create)
         return api_key
 
     def _configure(self, uid, user, password, api_key, context, session):
@@ -786,30 +719,19 @@ class Env:
         if uid != self.uid or (api_key and api_key != self._api_key):
             env.set_api_key(api_key or password, bool(api_key))
         else:  # Copy methods
-            env._execute_kw, env._doc = self._execute_kw, self._doc
-            env._api_key, env._json2 = self._api_key, self._json2
-            for key in ('_execute', 'exec_workflow', '_access_models',
-                        'report', 'report_get', 'render_report',
-                        'wizard_execute', 'wizard_create'):
-                if hasattr(self, key):
-                    setattr(env, key, getattr(self, key))
+            for attr in 'access_models', 'api_key', 'doc', 'execute_kw', 'json2':
+                setattr(env, f'_{attr}', getattr(self, f'_{attr}'))
         return env
 
     @property
     def odoo_env(self):
-        """Return a server Environment.
-
-        Supported since Odoo 8.
-        """
-        assert self.client.version_info >= 8.0, 'Not supported'
+        """Return a server Environment."""
         return self.client._server.api.Environment(self.cr, self.uid, self.context)
 
     @property
     def cr(self):
         """Return a cursor on the database."""
-        return self.__dict__.get('cr') or _memoize(
-            self, 'cr', self.registry.db.cursor()
-            if self.client.version_info < 8.0 else self.registry.cursor())
+        return self.__dict__.get('cr') or _memoize(self, 'cr', self.registry.cursor())
 
     @property
     def registry(self):
@@ -835,8 +757,7 @@ class Env:
     def sudo(self, user=None):
         """Attach to the provided user, or Superuser."""
         if user is None:
-            if (self.client._object or self.client.version_info < 12.0 or
-                    not (self.session_info or {}).get('is_system')):
+            if self.client._object or not (self.session_info or {}).get('is_system'):
                 user = ADMIN_USER
             else:
                 user = SYSTEM_USER
@@ -883,7 +804,7 @@ class Env:
         return hasattr(result, 'get') and result.get('res_model') == 'res.users.identitycheck'
 
     def _identitycheck(self, result):
-        assert self.client.version_info >= 14.0
+        assert self.client.version_info >= 14.0, f'Not supported: Odoo {self.client.version_info}'
         idcheck = self._get(result['res_model'], transient=True).get(result['res_id'])
         password = self._cache_get('auth')[self.user.login][1]
         result = None
@@ -935,12 +856,7 @@ class Env:
                 ids = [params[0]] if params[0] else False
             elif params[0] and issearchdomain(params[0]):
                 # Combine search+read
-                if self.client.version_info < 8.0:
-                    search_params = searchargs(params[:1], kwargs)
-                    kw = ({'context': self.context},) if self.context else ()
-                    ids = self._execute_kw(obj, 'search', search_params, *kw)
-                else:
-                    method, [ids] = 'search_read', searchargs(params[:1])
+                method, [ids] = 'search_read', searchargs(params[:1])
             else:
                 order_ids = kwargs.pop('order', False) and params[0]
                 ids = sorted(set(params[0]) - {False})
@@ -1002,14 +918,13 @@ class Env:
         """
         if self._access_models is None:
             ir_model = self._get('ir.model', False)
-            fld_transient = 'transient' if 'transient' in ir_model._keys else 'osv_memory'
             domain = [('abstract', '=', False)] if 'abstract' in ir_model._keys else []  # Odoo 19
             try:
-                models = ir_model.search_read(domain, ('model', fld_transient))
+                models = ir_model.search_read(domain, ('model', 'transient'))
             except ServerError:
                 # Only Odoo 15 prevents non-admin user to retrieve models
                 models = ir_model.get_available_models() if self.client.version_info >= 16.0 else {}
-            self._model_names.update({m['model']: m.get(fld_transient, False) for m in models})
+            self._model_names.update({m['model']: m.get('transient', False) for m in models})
             self._access_models = bool(models)
         return sorted(mod for mod, is_transient in self._model_names.items()
                       if name in mod and transient == is_transient)
@@ -1082,9 +997,6 @@ class Env:
                                         'state != to remove'], 'name')
                 if names:
                     raise Error(f"Not installed: {', '.join(names)}")
-                if self.client.version_info < 7.0:
-                    # A trick to uninstall dependent add-ons
-                    sel.write({'state': 'to remove'})
             # Click upgrade/install/uninstall button
             if button != 'cancel':
                 self.execute('ir.module.module', button, sel.ids)
@@ -1175,7 +1087,7 @@ class Env:
         Caution: API Key is not saved. It can be set in the
         configuration: ``api_key = ...``.
         """
-        assert self.client.version_info >= 14.0, 'Not supported'
+        assert self.client.version_info >= 14.0, f'Not supported: Odoo {self.client.version_info}'
         key_vals = {'name': f'Created by Odooly {__version__}'}
         wiz_model = self._get("res.users.apikeys.description", transient=True)
         res = wiz_model.create(key_vals).make_key()
@@ -1190,8 +1102,7 @@ class Client:
 
     This is the top level object.
     The `server` is the URL of the instance, like ``http://localhost:8069``.
-    If `server` is an ``odoo``/``openerp`` Python package, it is used to
-    connect to the local server.
+    If `server` is an ``odoo`` Python package, it is used to connect to the local server.
 
     The `db` is the name of the database and the `user` should exist in the
     table ``res.users``.  If the `password` is not provided, it will be
@@ -1201,13 +1112,12 @@ class Client:
     _saved_config = {}
     _globals = None
 
-    def __init__(self, server, db=None, user=None, password=None,
-                 api_key=None, transport=None, verbose=False):
+    def __init__(self, server, db=None, user=None, password=None, api_key=None, verbose=False):
         self._http = HTTPSession()
         self._printer = Printer()
         self._session_uid = None
         self.verbose = verbose
-        self._set_services(server, db, transport)
+        self._set_services(server, db)
         self.env = Env(self)
         if user:  # Try to login
             self.login(user, password=password, api_key=api_key, database=db)
@@ -1221,13 +1131,13 @@ class Client:
         cols = MAXCOL[min(3, cols) - 1] if (cols or 9) < 9 else cols
         self._printer.cols = cols and max(36, cols) or None
 
-    def _set_services(self, server, db, transport):
+    def _set_services(self, server, db):
         if isinstance(server, list):
             appname = Path(__file__).name.rstrip('co')
             server = start_odoo_services(server, appname=appname)
         elif isinstance(server, str):
             rsvr = urlsplit(server)
-            if "@" in rsvr.netloc and '/xmlrpc' not in rsvr.path:
+            if "@" in rsvr.netloc:
                 [username, password] = rsvr._userinfo
                 rsvr = rsvr._replace(netloc=rsvr.netloc.rsplit("@", 1)[1])
                 self._http.set_auth(server, username, password)
@@ -1235,14 +1145,9 @@ class Client:
                 rsvr = rsvr._replace(path=rsvr.path.rstrip('/'))
             server = rsvr.geturl()
         self._server = server
-        self._connections = []
 
         if not isinstance(server, str):
-            api_v7 = server.release.version_info < (8,)
-            self._proxy = self._proxy_v7 if api_v7 else self._proxy_odoo
-        elif '/xmlrpc' in server:
-            self._proxy = self._proxy_xmlrpc
-            self._transport = transport
+            self._proxy = self._proxy_odoo
         elif '/jsonrpc' in server:
             self._proxy = self._proxy_jsonrpc
         else:
@@ -1252,9 +1157,7 @@ class Client:
             if not server.endswith('/web'):
                 server = urljoin(server, '/web')
             self._server = server
-            self._proxy = self.db = self.common = None
-            self._object = self._report = self._wizard = None
-        assert not transport or self._proxy == self._proxy_xmlrpc, 'Not supported'
+            self._proxy = self.common = self._object = None
 
         if isinstance(server, str):
             self.web = WebAPI(self, 'web', ())
@@ -1269,28 +1172,17 @@ class Client:
         else:
             self.web = None
 
-        # Request server version
         if self._proxy is None:
             self.server_version = self.web_webclient.version_info()['server_version']
         else:
-            self.server_version = Service(self, 'common', ['version']).version()['server_version']
+            # Create the RPC services
+            self.common = Service(self, 'common', _rpc_methods['common'])
+            self._object = Service(self, 'object', _rpc_methods['object'])
+            self.server_version = self.common.version()['server_version']
+        # Parse server version
         major_minor = re.search(r'\d+\.?\d*', self.server_version).group()
-        self.version_info = float_version = float(major_minor)
-        assert float_version > 6.0, f'Not supported: {float_version}'
-
-        # Create the RPC services
-        if self._proxy is not None:
-
-            def get_service(name):
-                methods = list(_rpc_methods.get(name) or [])
-                if float_version < 11.0:
-                    methods += _obsolete_rpc_methods.get(name) or ()
-                return Service(self, name, methods)
-            self.db = get_service('db') if float_version < 19.1 else None
-            self.common = get_service('common')
-            self._object = get_service('object')
-            self._report = get_service('report') if float_version < 11.0 else None
-            self._wizard = get_service('wizard') if float_version < 7.0 else None
+        self.version_info = float(major_minor)
+        assert self.version_info > 8.0, f'Not supported: Odoo {major_minor}'
 
     def _request_parse(self, path, *, method=None, data=None, headers=None, regex=None):
         verb = method or ('GET' if data is None else 'POST')
@@ -1316,16 +1208,6 @@ class Client:
     def _proxy_odoo(self, name):
         return partial(self._server.http.dispatch_rpc, name)
     _proxy_odoo._protocol_name = 'Odoo'
-
-    def _proxy_v7(self, name):
-        return self._server.netsvc.ExportService.getService(name).dispatch
-
-    def _proxy_xmlrpc(self, name):
-        proxy = ServerProxy(self._server + '/' + name,
-                            transport=self._transport, allow_none=True)
-        self._connections.append(proxy)
-        return proxy._ServerProxy__request
-    _proxy_xmlrpc._protocol_name = 'XML-RPC'
 
     def _proxy_jsonrpc(self, name):
         def dispatch_jsonrpc(method, args):
@@ -1399,17 +1281,12 @@ class Client:
     def __repr__(self):
         return f"<Client '{self._server}?db={self.env.db_name or ''}'>"
 
-    def close(self):
-        for conn in self._connections:
-            conn.__exit__()
-        self._connections = []
-
     def _authenticate(self, db, login, password, api_key):
         if api_key and not password and self.version_info >= 19.0:
             json2_api = Json2(self, db, api_key)
             context = json2_api('res.users', 'context_get', ())
             info = {'uid': context['uid'], 'user_context': context, 'db': db}
-        elif self.web and self.version_info >= 9.0:
+        elif self.web:
             info = self._authenticate_session(db, login, password)
         else:
             raise Error("Error: Cannot authenticate")
@@ -1491,7 +1368,7 @@ class Client:
         env = self.env
         if not env.db_name or (database and env.db_name != database):
             try:
-                dbs = self.db.list() if self.db else self.database.list()
+                dbs = self.database.list()
             except Exception:
                 pass  # AccessDenied: simply ignore this check
             else:
@@ -1575,15 +1452,9 @@ class Client:
         Login if successful.
         """
         extra = (login, country_code) if login != ADMIN_USER or country_code else ()
-        if extra and self.version_info < 9.0:
-            raise Error("Custom 'login' and 'country_code' are not supported")
-        if self.db:
-            self.db.create_database(passwd, database, demo, lang,
-                                    user_password, *extra)
-        else:
-            self.database.create(master_pwd=passwd, name=database, lang=lang,
-                                 password=user_password, demo=demo, login=login,
-                                 country_code=country_code, phone='')
+        self.database.create(master_pwd=passwd, name=database, lang=lang,
+                             password=user_password, demo=demo, login=login,
+                             country_code=country_code, phone='')
         return self.login(login, user_password, database=database)
 
     def clone_database(self, passwd, database, neutralize_database=False):
@@ -1597,12 +1468,9 @@ class Client:
         extra = (neutralize_database,) if neutralize_database else ()
         if extra and self.version_info < 16.0:
             raise Error("Argument 'neutralize_database' is not supported")
-        if self.db:
-            self.db.duplicate_database(passwd, self.env.db_name, database, *extra)
-        else:
-            extra = {"neutralize_database": extra[0]} if extra else {}
-            self.database.duplicate(master_pwd=passwd, name=self.env.db_name,
-                                    new_name=database, **extra)
+        extra = {"neutralize_database": extra[0]} if extra else {}
+        self.database.duplicate(master_pwd=passwd, name=self.env.db_name,
+                                new_name=database, **extra)
         # Copy the cache for authentication
         auth_cache = self.env._cache_get('auth')
         self.env._cache_set('auth', {**auth_cache}, db_name=database)
@@ -1622,13 +1490,8 @@ class Client:
         """
         if not database or database == self.env.db_name:
             raise Error("Failed - Cannot delete active database")
-        if self.db:
-            self.db.drop(passwd, database)
-            db_list = self.db.list()
-        else:
-            self.database.drop(master_pwd=passwd, name=database)
-            db_list = self.database.list()
-        if database in db_list:
+        self.database.drop(master_pwd=passwd, name=database)
+        if database in self.database.list():
             raise Error("Failed - Database was not deleted")
 
 
@@ -1763,11 +1626,7 @@ class Model(BaseModel):
     def search_read(self, domain=None, fields=None, **kwargs):
         """Combine search and read."""
         fields, fmt = self._parse_format(fields, browse=False)
-        if self.env.client.version_info < 8.0:
-            ids = self._execute('search', domain or [], **kwargs)
-            res = self._execute('read', ids, fields)
-        else:
-            res = self._execute('search_read', domain or [], fields, **kwargs)
+        res = self._execute('search_read', domain or [], fields, **kwargs)
         return fmt(res)
 
     def get(self, domain, *args, **kwargs):
@@ -1801,8 +1660,7 @@ class Model(BaseModel):
         create the record.  Relationship fields `one2many` and `many2many`
         accept either a list of ids or a RecordList or the extended Odoo
         syntax.  Relationship fields `many2one` and `reference` accept
-        either a Record or the Odoo syntax.
-        Since Odoo 12, it can create multiple records.
+        either a Record or the Odoo syntax.  It can create multiple records.
 
         The newly created :class:`Record` is returned, or :class:`RecordList`.
         """
@@ -2081,9 +1939,6 @@ class BaseRecord(BaseModel):
 
         Return a dictionary of values.
         """
-        if self.env.client.version_info < 8.0:
-            rv = self._execute('perm_read', self.ids)
-            return rv[0] if (rv and self.id != self.ids) else (rv or None)
         return self._execute('get_metadata', self.ids)
 
     def with_env(self, env):
@@ -2365,10 +2220,7 @@ class Record(BaseRecord):
 
     def _get_name(self):
         try:
-            if self.env.client.version_info < 8.0:
-                [(id_, name)] = self._execute('name_get', [self.id])
-            else:
-                name = self.display_name
+            name = self.display_name
         except Exception:
             name = f'{self._name},{self.id}'
         self.__dict__['_idnames'] = [(int(self.id), str(name))]
@@ -2414,12 +2266,6 @@ class Record(BaseRecord):
         if isinstance(new_id, list):
             [new_id] = new_id or [False]
         return Record(self._model, new_id)
-
-    def _send(self, signal):
-        """Trigger workflow `signal` for this :class:`Record`."""
-        assert self.env.client.version_info < 11.0, 'Not supported'
-        self._invalidate_cache()
-        return self.env.exec_workflow(self._name, signal, self.id)
 
     @property
     def _external_id(self):
@@ -2483,7 +2329,7 @@ def _interact(global_vars, use_pprint=True, usage=USAGE):
         sys.displayhook = displayhook
 
     def excepthook(exc_type, exc, tb):
-        # Print readable 'Fault' errors
+        # Print readable errors
         msg = ''.join(format_exception(exc_type, exc, tb, chain=False))
         print(msg.strip())
     sys.excepthook = excepthook
@@ -2505,8 +2351,7 @@ def _interact(global_vars, use_pprint=True, usage=USAGE):
         # better append instead of replace?
         atexit.register(rl.write_history_file, HIST_FILE)
 
-    # Key UP to avoid an empty line
-    code.InteractiveConsole(global_vars).interact('\033[A', '')
+    code.InteractiveConsole(global_vars).interact('', '')
 
 
 def main(interact=_interact):
@@ -2532,7 +2377,7 @@ def main(interact=_interact):
         help='password, or it will be requested on login')
     parser.add_option(
         '--api-key', dest='api_key', default=None,
-        help='API Key for JSON2 or JSON-RPC/XML-RPC')
+        help='API Key for JSON-2 or JSON-RPC')
     parser.add_option(
         '-v', '--verbose', default=0, action='count',
         help='verbose')
