@@ -323,15 +323,12 @@ def read_config(section=None):
     Return tuple ``(server, db or None, user, password or None, api_key or None)``.
     Without argument, it returns the list of configured environments.
     """
-    p = ConfigParser()
     with Client._config_file.open() as f:
-        p.read_file(f)
+        (p := ConfigParser()).read_file(f)
     if section is None:
         return p.sections()
-    env = dict(p.items(section))
-    scheme = env.get('scheme', 'http')
-    server = env.get('server')
-    if scheme == 'local':
+    server = (env := dict(p.items(section))).get('server')
+    if (scheme := env.get('scheme', 'http')) == 'local':
         server = shlex.split(server or env.get('options', ''))
     elif not server:
         protocol = env.get('protocol', 'web')
@@ -404,13 +401,11 @@ def searchargs(params, kwargs=None):
     """Compute the 'search' parameters."""
     if not params:
         return ([],)
-    domain = params[0]
-    if not isinstance(domain, list):
+    if not isinstance(domain := params[0], list):
         return params
     for (idx, term) in enumerate(domain):
         if isinstance(term, str) and term not in DOMAIN_OPERATORS:
-            m = _term_re.match(term.strip())
-            if not m:
+            if not (m := _term_re.match(term.strip())):
                 raise ValueError(f"Cannot parse term {term!r}")
             (field, operator, value) = m.groups()
             try:
@@ -515,8 +510,7 @@ class WebAPI:
             snt = [f'POST {self._endpoint}/{path}'] + format_params(params)
         with self._printer as log:
             log.print_sent(' '.join(snt))
-            res = self._dispatch(path, params)
-            log.print_recv(repr(res))
+            log.print_recv(repr(res := self._dispatch(path, params)))
         return res
 
 
@@ -559,8 +553,7 @@ class Service:
                 return self._dispatch(name, args)
             with self._printer as log:
                 log.print_sent(f"{self._endpoint}.{name}({sanitize(args)})")
-                res = self._dispatch(name, args)
-                log.print_recv(repr(res))
+                log.print_recv(repr(res := self._dispatch(name, args)))
             return res
         return _memoize(self, name, wrapper)
 
@@ -603,8 +596,7 @@ class Json2:
             return {**kwargs}
         if len(args) == 1 and args[0].__class__ in (Ids, Id1):
             return {'ids': args[0], **kwargs}
-        arg_names = self._method_params['base'].get(method)
-        if not arg_names:
+        if not (arg_names := self._method_params['base'].get(method)):
             arg_names = self._methods(model).setdefault(method, ())
         params = dict(zip(arg_names, args))
         params.update(kwargs)
@@ -836,8 +828,7 @@ class Env:
         else:
             return self
         env_key = bytes.fromhex(f"{uid:08x}{hash(json.dumps(context, sort_keys=1)) % 2**32:08x}")
-        env = self._cache_get(env_key)
-        if env is None:
+        if (env := self._cache_get(env_key)) is None:
             env = self._configure(uid, user, password, api_key, context, session)
             env._cache_set(env_key, env)
         return env
@@ -1062,8 +1053,7 @@ class Env:
             op = 'not in' if installed else 'in'
             domain.append(('state', op, ['uninstalled', 'uninstallable']))
         ir_module = self._get('ir.module.module', False)
-        mods = ir_module.read(domain, 'name state')
-        if mods:
+        if mods := ir_module.read(domain, 'name state'):
             res = {}
             for mod in mods:
                 if mod['state'] not in res:
@@ -1115,8 +1105,7 @@ class Env:
         # Confirm?
         if not quiet and any(mod['id'] not in sel.ids for mod in mods):
             assert self.client._is_interactive(), "Cannot continue"
-            ans = input('Confirm? [y/N] ')
-            if not ans or ans[:1].lower() != 'y':
+            if not (ans := input('Confirm? [y/N] ')) or ans[:1].lower() != 'y':
                 button = 'cancel'
 
         if button == 'cancel':
@@ -1321,8 +1310,8 @@ class Client:
         req_id = f"{os.getpid():04x}{int(time.time() * 1E6) % 2**40:010x}"
         payload = {'jsonrpc': '2.0', 'method': 'call', 'params': params or {}, 'id': req_id}
         resp = self._http.request(urljoin(self._server, endpoint), json=payload)
-        if resp.get('error'):
-            raise ServerError(resp['error'])
+        if r_error := resp.get('error'):
+            raise ServerError(r_error)
         return resp.get('result')
 
     def _proxy_odoo(self, name):
@@ -1398,8 +1387,7 @@ class Client:
         Return a connected :class:`Client`.
         """
         (server, db, conf_user, password, api_key) = cls.get_config(environment)
-        skip_save = user and user != conf_user
-        if skip_save:
+        if skip_save := user and user != conf_user:
             password = None
         try:
             client = Env._cache[Env, db, server].client
@@ -1520,10 +1508,10 @@ class Client:
         try:
             self.env = env(user=user, password=password, api_key=api_key)
         except Exception:
-            current_thread().dbname = self.env.db_name
             raise
-        # Used for logging, copied from odoo.sql_db.db_connect
-        current_thread().dbname = self.env.db_name
+        finally:
+            # Used for logging, copied from odoo.sql_db.db_connect
+            current_thread().dbname = self.env.db_name
         return self.env.uid
 
     def login(self, user, password=None, database=None, api_key=None):
@@ -1803,8 +1791,7 @@ class Model(BaseModel):
             assert rec._model is self, f'Model mismatch {rec!r} {self!r}'
             return rec
         assert issearchdomain(domain)       # a search domain
-        ids = self._execute('search', domain)
-        if len(ids) > 1:
+        if len(ids := self._execute('search', domain)) > 1:
             raise ValueError(f'domain matches too many records ({len(ids)})')
         return Record(self, ids[0]) if ids else None
 
@@ -1878,8 +1865,7 @@ class Model(BaseModel):
             if not formatter:
                 formatter = self._browse_values
             elif fields == arg.split():
-                fspec = self.field(fields[0])
-                if 'relation' in fspec:
+                if 'relation' in (fspec := self.field(fields[0])):
                     rel_model = self.env._get(fspec['relation'], False)
                     if fspec['type'] == 'many2one':
                         m_browse = partial(RecordList, rel_model)
@@ -1896,8 +1882,7 @@ class Model(BaseModel):
                 elif fspec['type'] == 'reference':
 
                     def formatter(dic):
-                        value = dic[fields[0]]
-                        if not value:
+                        if not (value := dic[fields[0]]):
                             return value
                         (res_model, res_id) = value.split(',')
                         rel_model = self.env._get(res_model, False)
@@ -1918,8 +1903,7 @@ class Model(BaseModel):
         for (key, value) in values.items():
             if key == 'id' or value is False or hasattr(value, 'id'):
                 continue
-            field = self._fields[key]
-            if field['type'] == 'reference':
+            if (field := self._fields[key])['type'] == 'reference':
                 (res_model, res_id) = value.split(',')
                 value = int(res_id)
             elif 'relation' in field:
@@ -1964,8 +1948,7 @@ class Model(BaseModel):
 
     def __getattr__(self, attr):
         if attr == '_fields':
-            vals = self.env._cache_get((attr, self._name))
-            if vals is None:
+            if (vals := self.env._cache_get((attr, self._name))) is None:
                 vals = self._doc['fields'] if self.__dict__.get('_doc') else self._execute('fields_get')
                 self.env._cache_set((attr, self._name), vals)
             return _memoize(self, attr, vals)
@@ -2080,8 +2063,7 @@ class BaseRecord(BaseModel):
         """
         if self.id and not isinstance(self.id, list):
             return self
-        recs = self.union()
-        if len(recs.id) == 1:
+        if len((recs := self.union()).id) == 1:
             return recs[0]
         raise ValueError(f"Expected singleton: {self}")
 
@@ -2189,8 +2171,7 @@ class BaseRecord(BaseModel):
 
     def sorted(self, key=None, reverse=False):
         """Return the records sorted by ``key``."""
-        recs = self.union()
-        if len(recs.ids) < 2:
+        if len((recs := self.union()).ids) < 2:
             return recs
         if key is None:
             idnames = dict(zip(recs.ids, recs._idnames))
