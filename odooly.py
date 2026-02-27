@@ -1767,6 +1767,8 @@ class Model(BaseModel):
 
     def search(self, domain, **kwargs):
         """Search for records in the `domain`."""
+        if kwargs.get('count'):
+            return self.search_count(domain)
         return RecordList._prepared(self, domain, kwargs)
 
     def search_count(self, domain=None):
