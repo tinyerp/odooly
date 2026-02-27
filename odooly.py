@@ -1824,7 +1824,6 @@ class Model(BaseModel):
          - a tuple of fields: ``('street', 'city')``
          - a space separated list: ``'street city'``
          - a format string: ``'{street} {city}'``
-         - a %-format string: ``'%(street)s %(city)s'``
 
         If `fields` is omitted, all fields are read.
 
@@ -1853,8 +1852,6 @@ class Model(BaseModel):
             fields = [re.match(r'\w+', tup[1]).group(0)
                       for tup in Formatter().parse(arg) if tup[1]]
             formatter = arg.format_map
-        elif '%(' in arg:
-            fields, formatter = re.findall(r'(?<!%)%\((\w+)\)', arg), arg.__mod__
         else:  # transform: "zip city" --> ["zip", "city"]
             fields = arg.split()
             formatter = (lambda d: d[fields[0]]) if len(fields) == 1 else None

@@ -333,10 +333,6 @@ class TestModel(TestCase):
                          'aaa {birthdate!r} bbb {city:°>9}', offset=80, limit=99)
         self.assertEqual(rv, ["aaa 'v_birthdate' bbb °°°v_city"] * 2)
 
-        rv = FooBar.read([searchterm],
-                         'aaa %(birthdate)s bbb %(city)s', offset=80, limit=99)
-        self.assertEqual(rv, ['aaa v_birthdate bbb v_city'] * 2)
-
         domain = [('name', 'like', 'Morice')]
         domain2 = [('name', '=', 'mushroom'), ('state', '!=', 'draft')]
         expected_calls = [
@@ -351,7 +347,6 @@ class TestModel(TestCase):
             OBJ('foo.bar', 'search_read', domain2),
             OBJ('foo.bar', 'search_read', domain),
             OBJ('foo.bar', 'search_read', domain),
-            OBJ('foo.bar', 'search_read', domain, ['birthdate', 'city'], offset=80, limit=99),
             OBJ('foo.bar', 'search_read', domain, ['birthdate', 'city'], offset=80, limit=99),
         ]
         if float(self.server_version) < 8.0:
@@ -371,8 +366,6 @@ class TestModel(TestCase):
                 OBJ('foo.bar', 'search', domain2), call_read(),
                 OBJ('foo.bar', 'search', domain), call_read(),
                 OBJ('foo.bar', 'search', domain), call_read(),
-                OBJ('foo.bar', 'search', domain, 80, 99, None),
-                call_read(['birthdate', 'city']),
                 OBJ('foo.bar', 'search', domain, 80, 99, None),
                 call_read(['birthdate', 'city']),
             ]
@@ -717,7 +710,7 @@ class TestRecord(TestCase):
         rv = records.read('aaa {birthdate!r} bbb {city:°>9}')
         self.assertEqual(rv, ["aaa 'v_birthdate' bbb °°°v_city"] * 2)
 
-        rv = rec.read('aaa %(birthdate)r bbb %(city)s')
+        rv = rec.read('aaa {birthdate!r} bbb {city}')
         self.assertEqual(rv, "aaa 'v_birthdate' bbb v_city")
 
         self.assertCalls(

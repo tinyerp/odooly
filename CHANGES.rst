@@ -9,6 +9,9 @@ Changelog
 
 * Remove option for CSV output.
 
+* Remove ``%(...)`` formatting for :meth:`RecordList.read`.
+  Use ``{...}`` instead.
+
 
 2.5.8 (2026-03-11)
 ~~~~~~~~~~~~~~~~~~

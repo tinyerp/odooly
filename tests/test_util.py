@@ -135,9 +135,6 @@ class TestUtils(TestCase):
         readfmt = partial(dummy._parse_format, browse=False)
 
         # Helper for 'read' methods
-        (fields, fmt) = readfmt('a %(color)s elephant enters %(location)r.\n\n%(firstname)s has left')
-        self.assertEqual(fields, ['color', 'location', 'firstname'])
-
         (fields, fmt) = readfmt('a {color} elephant enters {location[1]}.\n\n{firstname!r} has left')
         self.assertEqual(fields, ['color', 'location', 'firstname'])
 
