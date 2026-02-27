@@ -48,7 +48,7 @@ class OdooTestCase(TestCase):
             if url.endswith("/web/session/authenticate"):
                 result = {'uid': uid or self.uid, 'user_context': context or self.user_context}
             else:
-                raise odooly.ServerError()
+                raise odooly.ServerError(url)
             return {'result': result}
         return mock.patch('odooly.HTTPSession.request', side_effect=func).start()
 
@@ -97,7 +97,7 @@ class OdooTestCase(TestCase):
             self.assertMultiLineEqual(stdout_value, stdout)
 
 
-class XmlRpcTestCase(OdooTestCase):
+class JsonRpcTestCase(OdooTestCase):
 
     def setUp(self):
         super().setUp()
@@ -112,20 +112,22 @@ class XmlRpcTestCase(OdooTestCase):
 
     def _patch_service(self):
         def get_svc(server, name, *args, **kwargs):
-            return getattr(svcs, name)
+            return getattr(svcs, name.rsplit('/')[-1])
         patcher = mock.patch('odooly.Service', side_effect=get_svc)
         svcs = patcher.start()
         svcs.stop = patcher.stop
-        for svc_name in 'db common object wizard report'.split():
+        for svc_name in 'common object database dataset doc web'.split():
             svcs.attach_mock(mock.Mock(name=svc_name), svc_name)
         # Default values
         svcs.common.version.return_value = {'server_version': self.server_version}
-        svcs.db.list.return_value = [self.database]
         svcs.common.login.return_value = self.uid
         svcs.object.execute_kw.return_value = self.user_context
+        # Patch WebAPI as well
+        svcs.database.list.return_value = [self.database]
+        mock.patch('odooly.WebAPI', side_effect=get_svc).start()
         return svcs
 
-    def assertServiceCalls(self, *expected_args):
+    def assertCalls(self, *expected_args):
         expected_calls = list(expected_args)
         for idx, expected in enumerate(expected_calls):
             if not isinstance(expected, type_call) and isinstance(expected, tuple):
@@ -136,6 +138,3 @@ class XmlRpcTestCase(OdooTestCase):
                     args = expected[1:]
                 expected_calls[idx] = getattr(call, rpcmethod)(*args)
         self.assertMockCalls(self.service, expected_calls)
-
-    # Legacy
-    assertCalls = assertServiceCalls

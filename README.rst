@@ -28,8 +28,8 @@ Key features:
 
 - provides an API similar to Odoo Model, through Webclient API
 - supports JSON-2 API with Odoo 19 and more recent
-- supports external APIs JSON-RPC and XML-RPC as alternative
-- compatible with Odoo 8 to 19, and OpenERP
+- supports external API JSON-RPC as alternative
+- compatible with Odoo 9 to 19
 - single file ``odooly.py``, no external dependency
 - helpers for ``search``, for data model introspection, etc...
 - simplified syntax for search ``domain``
@@ -156,7 +156,7 @@ Although it is quite limited::
       -u USER, --user=USER  username
       -p PASSWORD, --password=PASSWORD
                             password, or it will be requested on login
-      --api-key=API_KEY     API Key for JSON2 or JSON-RPC/XML-RPC
+      --api-key=API_KEY     API Key for JSON-2 or JSON-RPC
 
       -m MODEL, --model=MODEL
                             the type of object to find

@@ -7,6 +7,14 @@ Changelog
 
 * Drop support for Python 3.6 and 3.7.
 
+* Drop support for OpenERP and for Odoo 8.
+
+* Drop support for XML-RPC protocol.  Use JSON-2 or JSON-RPC.
+
+* Remove ``db`` Service.  Use ``Client.database`` :class:`WebAPI` instead.
+
+* Remove ``report`` Service and workflow helpers. It was for Odoo <= 10.
+
 * Remove option for CSV output.
 
 * Remove ``%(...)`` formatting for :meth:`RecordList.read`.

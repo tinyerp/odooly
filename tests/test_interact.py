@@ -4,7 +4,7 @@ from unittest import mock
 from unittest.mock import call, ANY
 
 import odooly
-from ._common import OdooTestCase, XmlRpcTestCase
+from ._common import OdooTestCase, JsonRpcTestCase
 
 
 class _TestInteract(OdooTestCase):
@@ -31,20 +31,16 @@ class _TestInteract(OdooTestCase):
         }
 
 
-class TestInteractXmlRpc(XmlRpcTestCase, _TestInteract):
-    """Test interactive mode with OpenERP 6.1."""
-    protocol = 'XML-RPC'
-    server_version = '6.1'
-    server = f"{OdooTestCase.server}/xmlrpc"
+class TestInteractJsonRpc(JsonRpcTestCase, _TestInteract):
+    """Test interactive mode with Odoo 14."""
+    protocol = 'JSON-RPC'
+    server_version = '14.0'
+    server = f"{OdooTestCase.server}/jsonrpc"
     startup_calls = (
         call(ANY, 'common', ANY),
-        'common.version',
-        call(ANY, 'db', ANY),
-        call(ANY, 'common', ANY),
         call(ANY, 'object', ANY),
-        call(ANY, 'report', ANY),
-        call(ANY, 'wizard', ANY),
-        'db.list',
+        'common.version',
+        'database.list',
     )
 
     def test_main(self):
@@ -54,7 +50,7 @@ class TestInteractXmlRpc(XmlRpcTestCase, _TestInteract):
                                  return_value=env_tuple).start()
         getpass = mock.patch('odooly.getpass',
                              return_value='password').start()
-        self.service.db.list.return_value = ['database']
+        self.service.database.list.return_value = ['database']
         self.service.common.login.side_effect = [17, 51]
         self.service.object.execute_kw.side_effect = [{}, {}, {}]
 
@@ -90,7 +86,7 @@ class TestInteractXmlRpc(XmlRpcTestCase, _TestInteract):
             f"Logged in as 'gaspard' with {self.protocol}",
             "42",
         ])
-        self.assertOutput(stderr='\x1b[A\n\n', startswith=True)
+        self.assertOutput(stderr='\n', startswith=True)
 
     def test_no_database(self):
         env_tuple = (self.server, 'missingdb', 'usr', None, None)
@@ -98,7 +94,7 @@ class TestInteractXmlRpc(XmlRpcTestCase, _TestInteract):
         mock.patch('odooly.getpass', return_value='xyz').start()
         read_config = mock.patch('odooly.Client.get_config',
                                  return_value=env_tuple).start()
-        self.service.db.list.return_value = ['database']
+        self.service.database.list.return_value = ['database']
 
         # Launch interactive
         self.infunc.side_effect = [
@@ -110,7 +106,7 @@ class TestInteractXmlRpc(XmlRpcTestCase, _TestInteract):
         odooly.main()
 
         expected_calls = self.startup_calls + (
-            "db.list",
+            "database.list",
             ('common.login', 'database', 'gaspard', 'xyz'),
         )
         self.assertCalls(*expected_calls)
@@ -131,9 +127,9 @@ class TestInteractXmlRpc(XmlRpcTestCase, _TestInteract):
         mock.patch('os.environ', new={'LANG': 'fr_FR.UTF-8'}).start()
         mock.patch('odooly.Client.get_config', return_value=env_tuple).start()
         mock.patch('odooly.getpass', return_value='x').start()
-        self.service.db.list.return_value = ['database']
+        self.service.database.list.return_value = ['database']
         self.service.common.login.side_effect = [17, None]
-        self.service.object.execute_kw.side_effect = [{}, {}, [42], [{'model': 'abc'}]]
+        self.service.object.execute_kw.side_effect = [{}, {}, [{'id': 42, 'model': 'abc'}]]
 
         # Launch interactive
         self.infunc.side_effect = [
@@ -150,8 +146,7 @@ class TestInteractXmlRpc(XmlRpcTestCase, _TestInteract):
             ('common.login', 'database', 'usr', 'passwd'),
             ('object.execute_kw', 'database', 17, 'passwd', 'res.users', 'context_get', ()),
             usr17('ir.model', 'fields_get'),
-            usr17('ir.model', 'search', []),
-            usr17('ir.model', 'read', [42], ('model', 'osv_memory')),
+            usr17('ir.model', 'search_read', [], ('model', 'transient')),
             ('common.login', 'database', 'gaspard', 'x'),
         )
         self.assertCalls(*expected_calls)
@@ -230,7 +225,7 @@ class TestInteract19(_TestInteract):
             f"Logged in as 'gaspard' with {self.protocol}",
             "42",
         ])
-        self.assertOutput(stderr='\x1b[A\n\n', startswith=True)
+        self.assertOutput(stderr='\n', startswith=True)
 
     # TODO
     test_no_database = None

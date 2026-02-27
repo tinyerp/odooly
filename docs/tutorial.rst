@@ -42,8 +42,9 @@ For example ``/jsonrpc`` for the JSON-RPC API::
 
 .. note::
 
-    These protocols JSON-RPC and XML-RPC are deprecated in Odoo 19 and will
-    be removed in Odoo 20.
+    Protocols JSON-RPC and XML-RPC are deprecated in Odoo 19 and will
+    be removed in Odoo 20.  Odooly 2.5 has support for XML-RPC and older
+    versions of Odoo.
 
 On login, it prints few lines about the commands available.
 
