@@ -841,11 +841,11 @@ class Env:
             (uid, user, session) = (self.uid, self.user, self.session_info)
         else:
             return self
-        env_key = bytes.fromhex(f"{uid:08x}{hash(json.dumps(context, sort_keys=True))%2**32:08x}")
+        env_key = bytes.fromhex(f"{uid:08x}{hash(json.dumps(context, sort_keys=1)) % 2**32:08x}")
         env = self._cache_get(env_key)
         if env is None:
             env = self._configure(uid, user, password, api_key, context, session)
-            self._cache_set(env_key, env)
+            env._cache_set(env_key, env)
         return env
 
     def sudo(self, user=None):
@@ -875,7 +875,7 @@ class Env:
     def refresh(self):
         db_key = (self.db_name, self.client._server)
         for key in list(self._cache):
-            if key[1:] == db_key and key[0] != 'auth':
+            if key[1:] == db_key and key[0] != 'auth' and self._cache[key] != self:
                 del self._cache[key]
         self._access_models = None
         self._model_names = self._cache_set('model_names', {})
@@ -1197,6 +1197,7 @@ class Env:
         wiz_model = self._get("res.users.apikeys.description", transient=True)
         res = wiz_model.create(key_vals).make_key()
         self.user._invalidate_cache()
+        self.refresh()  # Remove cached Envs
         assert res['res_model'] == "res.users.apikeys.show"
         return self.set_api_key(res['context']['default_key'])
 

@@ -7,6 +7,8 @@ Changelog
 
 * Support Odoo saas-19.1. RPC service ``Client.db`` is removed.
 
+* Fix ``Env`` caching when API switches to JSON-2.
+
 
 2.5.6 (2026-02-26)
 ~~~~~~~~~~~~~~~~~~
