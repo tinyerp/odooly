@@ -924,10 +924,10 @@ class Env:
 
     def _call_kw(self, model, method, args, kw=None):
         if self.uid != self.client._session_uid:
-            if self.user.login == SYSTEM_USER:
+            password = self._cache_get('auth')[self.user.login][1]
+            if self.user.login == SYSTEM_USER and not password:
                 self.client._authenticate_system()
             else:
-                password = self._cache_get('auth')[self.user.login][1]
                 self.client._authenticate_session(self.db_name, self.user.login, password)
         return self.client.web_dataset.call_kw(model=model, method=method, args=args, kwargs=kw or {})
 
