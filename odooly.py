@@ -1283,10 +1283,7 @@ class Client:
             self.web = None
 
         # Request server version
-        if self._proxy is None:
-            self.server_version = self.web_webclient.version_info()["server_version"]
-        else:
-            self.server_version = Service(self, 'db', ['server_version']).server_version()
+        self.server_version = self.web_webclient.version_info()["server_version"]
         major_minor = re.search(r'\d+\.?\d*', self.server_version).group()
         self.version_info = float_version = float(major_minor)
         assert float_version > 6.0, f'Not supported: {float_version}'
