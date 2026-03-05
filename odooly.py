@@ -377,6 +377,9 @@ def start_odoo_services(options=None, appname=None):
             odoo.service.start_internal()
         elif odoo.release.version_info < (15,):
             odoo.api.Environment.reset()
+        elif odoo.release.version_info > (19, 2):
+            import odoo.http.router
+            odoo.http.dispatch_rpc = odoo.http.router.dispatch_rpc
 
         try:
             manager_class = odoo.modules.registry.RegistryManager
