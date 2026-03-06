@@ -15,6 +15,8 @@ class _TestInteract(OdooTestCase):
         odooly.Client._set_interactive.__func__.__defaults__ = ({},)
         # Hide readline module
         mock.patch.dict('sys.modules', {'readline': None}).start()
+        # Hide _pyrepl module
+        mock.patch.dict('sys.modules', {'_pyrepl': None}).start()
         mock.patch('odooly.Client._globals', None).start()
         mock.patch('odooly.Client._set_interactive', wraps=odooly.Client._set_interactive).start()
         self.interact = mock.patch('odooly._interact', wraps=odooly._interact).start()
