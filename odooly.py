@@ -233,14 +233,14 @@ def format_params(params, hide=('passw', 'pwd')):
 
 
 def format_exception(exc_type, exc, tb, limit=None, chain=True,
-                     _format_exception=traceback.format_exception):
+                     _format_exception=traceback.format_exception, **kw):
     """Format a stack trace and the exception information.
 
     This wrapper is a replacement of ``traceback.format_exception``
     which formats the error and traceback received by API.
     If `chain` is True, then the original exception is printed too.
     """
-    values = _format_exception(exc_type, exc, tb, limit=limit)
+    values = _format_exception(exc_type, exc, tb, limit=limit, **kw)
     server_error = None
     if issubclass(exc_type, Error):             # Client-side
         values = [f"{exc}\n"]
@@ -2317,8 +2317,35 @@ class Record(BaseRecord):
 
 def _interact(global_vars, use_pprint=True, usage=USAGE):
     import builtins
-    import code
     import pprint
+
+    if use_pyrepl := not os.getenv("PYTHON_BASIC_REPL"):
+        try:
+            from _pyrepl.main import CAN_USE_PYREPL as use_pyrepl
+        except ImportError:
+            use_pyrepl = False
+
+    if use_pyrepl:  # Python >= 3.13
+        from _pyrepl.console import InteractiveColoredConsole as Console
+        from _pyrepl.simple_interact import run_multiline_interactive_console as run
+        from _pyrepl import readline
+    else:
+        from code import InteractiveConsole as Console
+        try:
+            import readline
+            import rlcompleter
+            readline.parse_and_bind('tab: complete')
+        except ImportError:
+            pass
+
+    try:
+        readline.read_history_file(HIST_FILE)
+        if readline.get_history_length() < 0:
+            readline.set_history_length(int(os.getenv('HISTSIZE', 500)))
+        # better append instead of replace?
+        atexit.register(readline.write_history_file, HIST_FILE)
+    except Exception:
+        pass  # IOError if file missing, or other error
 
     if use_pprint:
         def displayhook(value, _printer=pprint.pp, _builtins=builtins):
@@ -2330,28 +2357,16 @@ def _interact(global_vars, use_pprint=True, usage=USAGE):
 
     def excepthook(exc_type, exc, tb):
         # Print readable errors
-        msg = ''.join(format_exception(exc_type, exc, tb, chain=False))
+        msg = ''.join(format_exception(exc_type, exc, tb, chain=False, **exfmt))
         print(msg.strip())
     sys.excepthook = excepthook
 
     builtins.usage = type('Usage', (), {'__call__': lambda s: print(usage),
                                         '__repr__': lambda s: usage})()
 
-    try:
-        import readline as rl
-        import rlcompleter
-        rl.parse_and_bind('tab: complete')
-        # IOError if file missing, or broken Apple readline
-        rl.read_history_file(HIST_FILE)
-    except Exception:
-        pass
-    else:
-        if rl.get_history_length() < 0:
-            rl.set_history_length(int(os.getenv('HISTSIZE', 500)))
-        # better append instead of replace?
-        atexit.register(rl.write_history_file, HIST_FILE)
-
-    code.InteractiveConsole(global_vars).interact('', '')
+    console = Console(global_vars, filename="<stdin>")
+    exfmt = {"colorize": console.can_colorize} if use_pyrepl else {}
+    run(console) if use_pyrepl else console.interact('', '')
 
 
 def main(interact=_interact):
