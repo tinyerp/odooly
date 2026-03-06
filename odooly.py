@@ -426,8 +426,7 @@ def searchargs(params, kwargs=None):
             try:
                 value = literal_eval(value)
             except Exception:
-                # Interpret the value as a string
-                pass
+                pass  # Interpret the value as a string
             domain[idx] = (field, operator, value)
     params = (domain,) + params[1:]
     if kwargs and len(params) == 1:
@@ -1441,8 +1440,7 @@ class Client:
                 info = self._authenticate_web(login=login, password=password)
             self._session_uid = info.get('uid')
         except TypeError:
-            # Cannot extract `csrf_token` or `session_info` with Regex
-            pass
+            pass  # Cannot extract `csrf_token` or `session_info` with Regex
         except ServerError as exc:
             # Ignore: odoo.exceptions.AccessDenied
             if exc.args[0]['code'] not in (0, 200):
@@ -1509,7 +1507,7 @@ class Client:
             try:
                 dbs = self.db.list() if self.db else self.database.list()
             except Exception:
-                pass    # AccessDenied: simply ignore this check
+                pass  # AccessDenied: simply ignore this check
             else:
                 if not database:
                     # Database selector page
@@ -1549,7 +1547,7 @@ class Client:
         elif server:
             if not user and self.env.uid:
                 user = self.env.user.login
-            self.__class__(server, db=database, user=user, verbose=self.verbose)
+            Client(server, db=database, user=user, verbose=self.verbose)
         else:
             assert not user, "Use client.login(...) instead"
             self._globals['client'] = self.env.client
