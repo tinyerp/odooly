@@ -5,6 +5,9 @@ Changelog
 2.5.x (unreleased)
 ~~~~~~~~~~~~~~~~~~
 
+* Change ``dir(...)`` of :class:`Record` and :class:`RecordList`
+  to avoid extra API calls on readline completion.
+
 * Json2: print details for internal server error 500.
 
 

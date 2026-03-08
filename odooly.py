@@ -29,7 +29,7 @@ try:
 except ImportError:
     requests = None
 
-__version__ = '2.5.7'
+__version__ = '2.5.8.dev0'
 __all__ = ['Client', 'Env', 'HTTPSession', 'WebAPI', 'Service', 'Json2',
            'Printer', 'Error', 'ServerError',
            'BaseModel', 'Model', 'BaseRecord', 'Record', 'RecordList',
@@ -1994,9 +1994,6 @@ class BaseRecord(BaseModel):
     def __repr__(self):
         ids = f'length={len(self.ids)}' if len(self.ids) > 6 else self.id
         return f"<{self.__class__.__name__} '{self._name},{ids}'>"
-
-    def __dir__(self):
-        return sorted(set(self.__dict__) | set(self._model._keys))
 
     def __bool__(self):
         return bool(self.ids)
