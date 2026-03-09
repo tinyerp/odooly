@@ -872,9 +872,9 @@ class Env:
         return self.context.get('lang')
 
     def refresh(self):
-        db_key = (self.db_name, self.client._server)
+        db_key, preserve = (self.db_name, self.client._server), ('auth', Env)
         for key in list(self._cache):
-            if key[1:] == db_key and key[0] != 'auth' and self._cache[key] != self:
+            if key[1:] == db_key and key[0] not in preserve and self._cache[key] != self:
                 del self._cache[key]
         self._access_models = None
         self._model_names = self._cache_set('model_names', {})
