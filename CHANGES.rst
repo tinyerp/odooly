@@ -10,6 +10,8 @@ Changelog
 
 * Json2: print details for internal server error 500.
 
+* Print API protocol on login: JSON-2, Web API, JSON-RPC, ...
+
 
 2.5.7 (2026-03-06)
 ~~~~~~~~~~~~~~~~~~

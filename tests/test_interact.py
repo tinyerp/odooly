@@ -33,6 +33,7 @@ class _TestInteract(OdooTestCase):
 
 class TestInteractXmlRpc(XmlRpcTestCase, _TestInteract):
     """Test interactive mode with OpenERP 6.1."""
+    protocol = 'XML-RPC'
     server_version = '6.1'
     server = f"{OdooTestCase.server}/xmlrpc"
     startup_calls = (
@@ -82,11 +83,11 @@ class TestInteractXmlRpc(XmlRpcTestCase, _TestInteract):
         self.assertEqual(self.interact.call_count, 1)
         outlines = self.stdout.popvalue().splitlines()
         self.assertSequenceEqual(outlines[-6:], [
-            "Logged in as 'usr'",
+            f"Logged in as 'usr' with {self.protocol}",
             f"<Client '{self.server}?db=database'>",
             "<Env 'usr@database'>",
             "<Env 'gaspard@database'>",
-            "Logged in as 'gaspard'",
+            f"Logged in as 'gaspard' with {self.protocol}",
             "42",
         ])
         self.assertOutput(stderr='\x1b[A\n\n', startswith=True)
@@ -156,7 +157,7 @@ class TestInteractXmlRpc(XmlRpcTestCase, _TestInteract):
         self.assertCalls(*expected_calls)
         outlines = self.stdout.popvalue().splitlines()
         self.assertSequenceEqual(outlines[-4:], [
-            "Logged in as 'usr'",
+            f"Logged in as 'usr' with {self.protocol}",
             'Model not found: res.company',
             'Error: Invalid username or password',
             'Model not found: res.company',
@@ -166,6 +167,7 @@ class TestInteractXmlRpc(XmlRpcTestCase, _TestInteract):
 
 class TestInteract19(_TestInteract):
     """Test interactive mode with Odoo 19."""
+    protocol = 'Web API'
     server_version = '19.0'
     server = f"{OdooTestCase.server}/"
     database, user, password, uid = 'database', 'usr', 'password', 17
@@ -221,11 +223,11 @@ class TestInteract19(_TestInteract):
         self.assertEqual(self.interact.call_count, 1)
         outlines = self.stdout.popvalue().splitlines()
         self.assertSequenceEqual(outlines[-6:], [
-            "Logged in as 'usr'",
+            f"Logged in as 'usr' with {self.protocol}",
             f"<Client '{self.server}web?db=database'>",
             "<Env 'usr@database'>",
             "<Env 'gaspard@database'>",
-            "Logged in as 'gaspard'",
+            f"Logged in as 'gaspard' with {self.protocol}",
             "42",
         ])
         self.assertOutput(stderr='\x1b[A\n\n', startswith=True)

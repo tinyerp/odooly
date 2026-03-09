@@ -580,6 +580,7 @@ class Json2:
 
     Added in Odoo 19.
     """
+    _protocol_name = 'JSON-2'
     _endpoint = '/json/2'
     _doc_endpoint = '/doc-bearer'
 
@@ -762,11 +763,15 @@ class Env:
                 self._doc('res.device')
             except ServerError:
                 self._doc = None
+        prev_protocol = getattr(self, '_execute_kw', ...)
         if self.client._object:  # RPC endpoint if available
             self._execute = env_auth(self.client._object.execute)
             self._execute_kw = env_auth(self.client._object.execute_kw)
+            self._execute_kw._protocol_name = self.client._proxy._protocol_name
         else:  # Otherwise, use JSON-2 or WebAPI
             self._execute_kw = self._json2 or self._call_kw
+        if prev_protocol not in (self._execute_kw._protocol_name, ...):
+            self.client.connect()
         self._api_key = api_key if store else None
 
         if self.client._report:   # Odoo < 11
@@ -929,6 +934,7 @@ class Env:
             else:
                 self.client._authenticate_session(self.db_name, self.user.login, password)
         return self.client.web_dataset.call_kw(model=model, method=method, args=args, kwargs=kw or {})
+    _call_kw._protocol_name = 'Web API'
 
     def execute(self, obj, method, *params, **kwargs):
         """Wrapper around ``/web/dataset/call_kw`` Webclient endpoint,
@@ -1331,6 +1337,7 @@ class Client:
 
     def _proxy_odoo(self, name):
         return partial(self._server.http.dispatch_rpc, name)
+    _proxy_odoo._protocol_name = 'Odoo'
 
     def _proxy_v7(self, name):
         return self._server.netsvc.ExportService.getService(name).dispatch
@@ -1340,11 +1347,13 @@ class Client:
                             transport=self._transport, allow_none=True)
         self._connections.append(proxy)
         return proxy._ServerProxy__request
+    _proxy_xmlrpc._protocol_name = 'XML-RPC'
 
     def _proxy_jsonrpc(self, name):
         def dispatch_jsonrpc(method, args):
             return self._post_jsonrpc(params={'service': name, 'method': method, 'args': args})
         return dispatch_jsonrpc
+    _proxy_jsonrpc._protocol_name = 'JSON-RPC'
 
     def _proxy_web(self, name):
         if name == 'doc':
@@ -1549,14 +1558,14 @@ class Client:
                 user = self.env.user.login
             Client(server, db=database, user=user, verbose=self.verbose)
         else:
-            assert not user, "Use client.login(...) instead"
+            assert not user, f"Use client.login({user!r}) instead"
             self._globals['client'] = self.env.client
-            self._globals['env'] = self.env
-            self._globals['self'] = self.env.user if self.env.uid else None
+            self._globals['env'] = env = self.env
+            self._globals['self'] = env.user if env.uid else None
             self._set_prompt()
             # Logged in?
-            if self.env.uid:
-                print(f'Logged in as {self.env.user.login!r}')
+            if env.uid:
+                print(f'Logged in as {env.user.login!r} with {env._execute_kw._protocol_name}')
 
     def _set_prompt(self):
         # Tweak prompt
