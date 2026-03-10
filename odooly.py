@@ -39,6 +39,7 @@ DEFAULT_URL = 'http://localhost:8069/'
 ADMIN_USER = 'admin'
 SYSTEM_USER = '__system__'
 MAXCOL = [79, 179, 9999]    # Line length in verbose mode
+PP_FORMAT = {'sort_dicts': False, 'width': 120}
 USER_AGENT = f'Mozilla/5.0 (X11) odooly.py/{__version__}'
 
 USAGE = """\
@@ -110,7 +111,7 @@ _base_method_params = [
     ('unlink', ['ids']),
     ('write', ['ids', 'vals']),
 ]
-http_context = None
+colorize, http_context = str, None
 
 if os.getenv('ODOOLY_SSL_UNVERIFIED'):
     import ssl
@@ -1130,6 +1131,7 @@ class Client:
     def verbose(self, cols):
         cols = MAXCOL[min(3, cols) - 1] if (cols or 9) < 9 else cols
         self._printer.cols = cols and max(36, cols) or None
+        PP_FORMAT['width'] = cols and max(79, cols) or PP_FORMAT['width']
 
     def _set_services(self, server, db):
         if isinstance(server, list):
@@ -1428,12 +1430,19 @@ class Client:
 
     @classmethod
     def _set_interactive(cls, global_vars={}):
+        global colorize
         # Don't call multiple times
         del Client._set_interactive
         assert not cls._is_interactive()
-
         for name in ['__name__', '__version__', '__doc__', 'Client']:
             global_vars[name] = globals()[name]
+        try:  # Python >= 3.14
+            from _pyrepl.utils import disp_str, gen_colors, _colorize
+            colorize = lambda v: "".join(disp_str(v, colors=[*gen_colors(v)])[0])
+            colorize.__name__ = colorize.__qualname__ = 'colorize'
+            global_vars |= {'colorize': colorize, 'decolor': _colorize.decolor}
+        except ImportError:
+            pass
         cls._globals = global_vars
         return global_vars
 
@@ -2348,7 +2357,9 @@ def _interact(global_vars, use_pprint=True, usage=USAGE):
         pass  # IOError if file missing, or other error
 
     if use_pprint:
-        def displayhook(value, _printer=pprint.pp, _builtins=builtins):
+        pp = lambda obj: print(colorize(pprint.pformat(obj, **PP_FORMAT)))
+
+        def displayhook(value, _printer=pp, _builtins=builtins):
             # Pretty-format the output
             if value is not None:
                 _printer(value)
@@ -2358,7 +2369,7 @@ def _interact(global_vars, use_pprint=True, usage=USAGE):
     def excepthook(exc_type, exc, tb):
         # Print readable errors
         msg = ''.join(format_exception(exc_type, exc, tb, chain=False, **exfmt))
-        print(msg.strip())
+        print(colorize(msg.rstrip()))
     sys.excepthook = excepthook
 
     builtins.usage = type('Usage', (), {'__call__': lambda s: print(usage),
@@ -2405,7 +2416,7 @@ def main(interact=_interact):
         return
 
     global_vars = Client._set_interactive()
-    print(USAGE)
+    print(colorize(USAGE))
 
     if args.env:
         client = Client.from_config(args.env, user=args.user, verbose=args.verbose)
