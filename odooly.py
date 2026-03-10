@@ -203,8 +203,8 @@ class HTTPSession:
                 return resp if method == 'HEAD' else self._parse_response(resp)
         except OSError as exc:
             status_code, result = self._parse_error(exc)
-            if result and status_code in (401, 403, 404, 422):
-                # Unauthorized, Forbidden, NotFound, UnprocessableEntity
+            if result and status_code in (401, 403, 404, 422, 500):
+                # Unauthorized, Forbidden, NotFound, UnprocessableContent, InternalServerError
                 if isinstance(result, str):
                     lines = re.findall(r'>([^>\n]+)<', result) or (status_code, result)
                     result = {'name': exc.__class__.__name__, 'debug': None,

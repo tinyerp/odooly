@@ -2,6 +2,12 @@ Changelog
 ---------
 
 
+2.5.x (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* Json2: print details for internal server error 500.
+
+
 2.5.7 (2026-03-06)
 ~~~~~~~~~~~~~~~~~~
 
