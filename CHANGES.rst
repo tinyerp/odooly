@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-2.5.x (unreleased)
+2.5.8 (2026-03-11)
 ~~~~~~~~~~~~~~~~~~
 
 * Change ``dir(...)`` of :class:`Record` and :class:`RecordList`
