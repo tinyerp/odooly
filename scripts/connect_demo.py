@@ -25,7 +25,6 @@ import optparse
 import re
 
 import odooly
-import requests
 
 RUNBOT_HOST = "runbot.odoo.com"
 RUNBOT_URL = f"https://{RUNBOT_HOST}/runbot/submit?update_triggers=1&trigger_1=on&trigger_122=on"
@@ -40,8 +39,8 @@ DEFAULT_USER = "demo"
 
 def _retrieve_servers(url=RUNBOT_URL, regex=RUNBOT_REGEX, user=DEFAULT_USER):
     test_servers = collections.defaultdict(set)
-    overview = requests.get(url)
-    builds = re.findall(regex, overview.text, re.DOTALL)
+    overview = odooly.HTTPSession().request(url, method='GET')
+    builds = re.findall(regex, overview, re.DOTALL)
     for edition, odoo_url, build, ver in builds:
         suffix = "+e" if edition == "Enterprise" else ""
         if "saas" in ver:
@@ -68,23 +67,31 @@ def main():
     parser = optparse.OptionParser(usage='%prog [options] ENV', description=description)
     parser.add_option('-u', '--user', default=DEFAULT_USER, help='\'demo\' or \'admin\'')
     parser.add_option('-v', '--verbose', default=0, action='count', help='verbose')
+    parser.add_option('-c', '--config', default=None)
+    parser.add_option('--api-key', dest='api_key', default=None, help='API Key')
 
     [opts, args] = parser.parse_args()
     [version] = args or ['demo']
 
+    if opts.config:
+        odooly.Client._config_file = odooly.Path.cwd() / opts.config
     _retrieve_servers(user=opts.user)
-
-    print("Available Odoo builds: " + ", ".join(ODOO_SERVERS))
-    try:
-        while version not in ODOO_SERVERS:
-            version = input("Choose one: ")
-    except KeyboardInterrupt:
-        raise SystemExit("")
-
-    print(f"Connect to Odoo {version} ...")
     global_vars = odooly.Client._set_interactive()
     global_vars['__doc__'] = __doc__
-    odooly.Client.from_config(version, user=opts.user, verbose=opts.verbose)
+
+    if version.startswith('http'):
+        print(f"Connect to {version} ...")
+        odooly.Client(version, user=opts.user, api_key=opts.api_key, verbose=opts.verbose)
+    else:
+        print("Available Odoo builds: " + ", ".join(ODOO_SERVERS))
+        try:
+            while version not in ODOO_SERVERS:
+                version = input("Choose one: ")
+        except (KeyboardInterrupt, EOFError):
+            raise SystemExit("")
+        print(f"Connect to Odoo {version} ...")
+        odooly.Client.from_config(version, user=opts.user, verbose=opts.verbose)
+
     odooly._interact(global_vars)
 
 
