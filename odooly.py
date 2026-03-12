@@ -111,7 +111,7 @@ _base_method_params = [
     ('unlink', ['ids']),
     ('write', ['ids', 'vals']),
 ]
-colorize, http_context = str, None
+colorize, color_comment, http_context = str, str, None
 
 if os.getenv('ODOOLY_SSL_UNVERIFIED'):
     import ssl
@@ -395,7 +395,7 @@ class Printer:
     def _print_(self, message, _prefix):
         suffix = f"... L={len(message)}" if len(message) > self.cols else ""
         xch = message[:self.cols - len(suffix)] + suffix
-        print(f"{_prefix} {xch}")
+        print(color_comment(f"{_prefix} {xch}"))
 
     print_sent = functools.partialmethod(_print_, _prefix='-->')
     print_recv = functools.partialmethod(_print_, _prefix='<--')
@@ -1430,7 +1430,7 @@ class Client:
 
     @classmethod
     def _set_interactive(cls, global_vars={}):
-        global colorize
+        global colorize, color_comment
         # Don't call multiple times
         del Client._set_interactive
         assert not cls._is_interactive()
@@ -1440,6 +1440,7 @@ class Client:
             from _pyrepl.utils import disp_str, gen_colors, _colorize
             colorize = lambda v: "".join(disp_str(v, colors=[*gen_colors(v)])[0])
             colorize.__name__ = colorize.__qualname__ = 'colorize'
+            color_comment = colorize('#').replace('#', '{}').format
             global_vars |= {'colorize': colorize, 'decolor': _colorize.decolor}
         except ImportError:
             pass
