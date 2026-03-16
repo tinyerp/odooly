@@ -7,6 +7,8 @@ Changelog
 
 * Colorize interactive console with Python 3.13+.
 
+* Switch to ``argparse`` for colored command line parser.
+
 * Drop support for Python 3.6 and 3.7.
 
 * Drop support for OpenERP and for Odoo 8.

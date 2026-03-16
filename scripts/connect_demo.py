@@ -20,8 +20,8 @@ To connect to the same server in the browser, URL can be printed::
     'saas~18.3+e'
 
 """
+import argparse
 import collections
-import optparse
 import re
 
 import odooly
@@ -63,25 +63,25 @@ def _retrieve_servers(url=RUNBOT_URL, regex=RUNBOT_REGEX, user=DEFAULT_USER):
 
 
 def main():
-    description = "Connect to runbot.odoo.com or demo.odoo.com."
-    parser = optparse.OptionParser(usage='%prog [options] ENV', description=description)
-    parser.add_option('-u', '--user', default=DEFAULT_USER, help='\'demo\' or \'admin\'')
-    parser.add_option('-v', '--verbose', default=0, action='count', help='verbose')
-    parser.add_option('-c', '--config', default=None)
-    parser.add_option('--api-key', dest='api_key', default=None, help='API Key')
+    parser = argparse.ArgumentParser(description="Connect to runbot.odoo.com or demo.odoo.com.")
+    parser.add_argument('env', nargs='?', default='?', metavar='ENV', help='environment')
+    parser.add_argument('-u', '--user', default=DEFAULT_USER, help='\'demo\' or \'admin\'')
+    parser.add_argument('-v', '--verbose', default=0, action='count', help='verbose')
+    parser.add_argument('-c', '--config', default=None)
+    parser.add_argument('--api-key', dest='api_key', default=None, help='API Key')
 
-    [opts, args] = parser.parse_args()
-    [version] = args or ['demo']
+    args = parser.parse_args()
+    version = args.env
 
-    if opts.config:
-        odooly.Client._config_file = odooly.Path.cwd() / opts.config
-    _retrieve_servers(user=opts.user)
+    if args.config:
+        odooly.Client._config_file = odooly.Path.cwd() / args.config
+    _retrieve_servers(user=args.user)
     global_vars = odooly.Client._set_interactive()
     global_vars['__doc__'] = __doc__
 
     if version.startswith('http'):
         print(f"Connect to {version} ...")
-        odooly.Client(version, user=opts.user, api_key=opts.api_key, verbose=opts.verbose)
+        odooly.Client(version, user=args.user, api_key=args.api_key, verbose=args.verbose)
     else:
         print("Available Odoo builds: " + ", ".join(ODOO_SERVERS))
         try:
@@ -90,7 +90,7 @@ def main():
         except (KeyboardInterrupt, EOFError):
             raise SystemExit("")
         print(f"Connect to Odoo {version} ...")
-        odooly.Client.from_config(version, user=opts.user, verbose=opts.verbose)
+        odooly.Client.from_config(version, user=args.user, verbose=args.verbose)
 
     odooly._interact(global_vars)
 

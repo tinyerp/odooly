@@ -4,10 +4,10 @@
 Author: Florent Xicluna
 """
 import _ast
+import argparse
 import atexit
 import functools
 import json
-import optparse
 import os
 import re
 import shlex
@@ -2379,37 +2379,55 @@ def _interact(global_vars, use_pprint=True, usage=USAGE):
     run(console) if use_pyrepl else console.interact('', '')
 
 
-def main(interact=_interact):
-    parser = optparse.OptionParser(
-        usage='%prog [options]', version=__version__,
-        description='Interact with Odoo')
-    parser.add_option(
+def get_parser():
+    parser = argparse.ArgumentParser(description='Interact with Odoo')
+    parser.add_argument('args', nargs='*', help='URL of the server')
+    parser.add_argument(
         '-l', '--list', action='store_true', dest='list_env',
         help='list sections of the configuration')
-    parser.add_option(
+    parser.add_argument(
         '--env',
         help='read connection settings from the given section')
-    parser.add_option(
-        '-c', '--config', default=None,
+    parser.add_argument(
+        '-c', '--config', default=CONF_FILE,
         help=f'specify alternate config file (default: {CONF_FILE})')
-    parser.add_option(
+    parser.add_argument(
         '--server', default=None,
         help=f'full URL of the server (default: {DEFAULT_URL})')
-    parser.add_option('-d', '--db', default=None, help='database')
-    parser.add_option('-u', '--user', default=None, help='username')
-    parser.add_option(
-        '-p', '--password', default=None,
+    parser.add_argument('-d', '--db', default=None, help='database')
+    parser.add_argument('-u', '--user', default=None, help='username')
+    parser.add_argument(
+        '-p', '--password', default=None, metavar='PASS',
         help='password, or it will be requested on login')
-    parser.add_option(
+    parser.add_argument(
         '--api-key', dest='api_key', default=None,
         help='API Key for JSON-2 or JSON-RPC')
-    parser.add_option(
+    parser.add_argument(
         '-v', '--verbose', default=0, action='count',
         help='verbose')
+    parser.add_argument('--version', action='version', version=__version__)
+    return parser
 
-    (args, domain) = parser.parse_args()
 
-    Client._config_file = Path.cwd() / (args.config or CONF_FILE)
+def connect_client(args):
+    if args.env:
+        client = Client.from_config(args.env, user=args.user, verbose=args.verbose)
+    else:
+        if not args.server:
+            args.server = ['-c', args.config] if args.config else DEFAULT_URL
+            if args.args:
+                args.server = args.server + args.args if args.config else ' '.join(args.args)
+        if not args.user:
+            args.user = ADMIN_USER
+        client = Client(args.server, args.db, args.user, password=args.password,
+                        api_key=args.api_key, verbose=args.verbose)
+    return client
+
+
+def main(interact=_interact):
+    args = get_parser().parse_args()
+
+    Client._config_file = Path.cwd() / args.config
     if args.list_env:
         print('Available settings:  ' + ' '.join(read_config()))
         return
@@ -2417,18 +2435,7 @@ def main(interact=_interact):
     global_vars = Client._set_interactive()
     print(colorize(USAGE))
 
-    if args.env:
-        client = Client.from_config(args.env, user=args.user, verbose=args.verbose)
-    else:
-        if not args.server:
-            args.server = ['-c', args.config] if args.config else DEFAULT_URL
-            if domain:
-                args.server = args.server + domain if args.config else "".join(domain)
-        if not args.user:
-            args.user = ADMIN_USER
-        client = Client(args.server, args.db, args.user, password=args.password,
-                        api_key=args.api_key, verbose=args.verbose)
-
+    connect_client(args)
     return interact(global_vars) if interact else global_vars
 
 

@@ -13,9 +13,9 @@ Example::
                 {'TimeZone': 'GMT'},
                 {'pg_postmaster_start_time': '2026-01-02 06:17:53.549373+00'}]}
 """
+import argparse
 import collections
 import datetime
-import optparse
 import re
 
 import odooly
@@ -113,24 +113,25 @@ def sql_execute(env, queries):
 
 def main():
     description = "Connect to runbot.odoo.com, demo.odoo.com or any instance."
-    parser = optparse.OptionParser(usage='%prog [options] ENV', description=description)
-    parser.add_option('-u', '--user', default=DEFAULT_USER, help='\'demo\' or \'admin\'')
-    parser.add_option('-v', '--verbose', default=0, action='count', help='verbose')
-    parser.add_option('-c', '--config', default=None)
-    parser.add_option('--api-key', dest='api_key', default=None, help='API Key')
+    parser = argparse.ArgumentParser(description=description)
+    parser.add_argument('env', nargs='?', default='demo', metavar='ENV', help='environment')
+    parser.add_argument('-u', '--user', default=DEFAULT_USER, help='\'demo\' or \'admin\'')
+    parser.add_argument('-v', '--verbose', default=0, action='count', help='verbose')
+    parser.add_argument('-c', '--config', default=None)
+    parser.add_argument('--api-key', dest='api_key', default=None, help='API Key')
 
-    [opts, args] = parser.parse_args()
-    [version] = args or ['demo']
+    args = parser.parse_args()
+    version = args.env
 
-    if opts.config:
-        odooly.Client._config_file = odooly.Path.cwd() / opts.config
-    _retrieve_servers(user=opts.user)
+    if args.config:
+        odooly.Client._config_file = odooly.Path.cwd() / args.config
+    _retrieve_servers(user=args.user)
     global_vars = odooly.Client._set_interactive()
     global_vars['__doc__'] = __doc__
 
     if version.startswith('http'):
         print(f"Connect to {version} ...")
-        odooly.Client(version, user=opts.user, api_key=opts.api_key, verbose=opts.verbose)
+        odooly.Client(version, user=args.user, api_key=args.api_key, verbose=args.verbose)
     else:
         print("Available Odoo builds: " + ", ".join(ODOO_SERVERS))
         try:
@@ -139,7 +140,7 @@ def main():
         except KeyboardInterrupt:
             raise SystemExit("")
         print(f"Connect to Odoo {version} ...")
-        odooly.Client.from_config(version, user=opts.user, verbose=opts.verbose)
+        odooly.Client.from_config(version, user=args.user, verbose=args.verbose)
 
     odooly.Env.sql = sql_execute
     odooly._interact(global_vars)
