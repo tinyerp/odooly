@@ -74,7 +74,7 @@ class TestServiceJsonRpc(JsonRpcTestCase):
         self.assertCalls()
         self.assertOutput('')
 
-    def test_service_openerp(self):
+    def test_service_odoo(self):
         client = self._get_client()
 
         def get_proxy(name, methods=None):

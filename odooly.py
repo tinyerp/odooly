@@ -1472,8 +1472,6 @@ class Client:
 
         The superadmin `passwd` and `database` are mandatory.
         Login if successful.
-
-        Supported since OpenERP 7.
         """
         extra = (neutralize_database,) if neutralize_database else ()
         if extra and self.version_info < 16.0:
