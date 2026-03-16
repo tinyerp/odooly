@@ -76,6 +76,9 @@ def main():
     if args.config:
         odooly.Client._config_file = odooly.Path.cwd() / args.config
     _retrieve_servers(user=args.user)
+    all_envs = set(ODOO_SERVERS)
+    if odooly.Client._config_file.exists():
+        all_envs |= set(odooly.read_config())
     global_vars = odooly.Client._set_interactive()
     global_vars['__doc__'] = __doc__
 
@@ -85,12 +88,12 @@ def main():
     else:
         print("Available Odoo builds: " + ", ".join(ODOO_SERVERS))
         try:
-            while version not in ODOO_SERVERS:
+            while version not in all_envs:
                 version = input("Choose one: ")
         except (KeyboardInterrupt, EOFError):
             raise SystemExit("")
         print(f"Connect to Odoo {version} ...")
-        odooly.Client.from_config(version, user=args.user, verbose=args.verbose)
+        odooly.Client.from_config(version, verbose=args.verbose)
 
     odooly._interact(global_vars)
 
