@@ -22,9 +22,11 @@ To connect to the same server in the browser, URL can be printed::
 """
 import argparse
 import collections
+import os
 import re
 
 import odooly
+from odooly_run import patch_colors
 
 RUNBOT_HOST = "runbot.odoo.com"
 RUNBOT_URL = f"https://{RUNBOT_HOST}/runbot/submit?update_triggers=1&trigger_1=on&trigger_122=on"
@@ -81,6 +83,9 @@ def main():
         all_envs |= set(odooly.read_config())
     global_vars = odooly.Client._set_interactive()
     global_vars['__doc__'] = __doc__
+
+    if not os.getenv('NO_COLOR') and odooly.colorize is str:
+        global_vars.update(patch_colors(odooly))  # Python <= 3.13
 
     if version.startswith('http'):
         print(f"Connect to {version} ...")

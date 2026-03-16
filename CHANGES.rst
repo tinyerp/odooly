@@ -9,6 +9,9 @@ Changelog
 
 * Switch to ``argparse`` for colored command line parser.
 
+* Backport output coloring for Python <= 3.13.  Use environment
+  variable ``FORCE_COLOR=1`` to enable it.
+
 * Display error when identity check is not successful.
 
 * Drop support for Python 3.6 and 3.7.
