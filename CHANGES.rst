@@ -14,6 +14,8 @@ Changelog
 
 * Display error when identity check is not successful.
 
+* Add method :meth:`Env.sql` to execute SQL queries as an administrator.
+
 * Drop support for Python 3.6 and 3.7.
 
 * Drop support for OpenERP and for Odoo 8.

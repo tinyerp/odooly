@@ -204,6 +204,8 @@ Please refer to `the Odoo documentation`_ for details.
 
 .. automethod:: Env.execute(obj, method, *params, **kwargs)
 
+.. automethod:: Env.sql
+
 .. method:: Env._call_kw(obj, method, params, kw=None)
 
    Expose the ``/web/dataset/call_kw`` endpoint.

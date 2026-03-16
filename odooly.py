@@ -6,6 +6,7 @@ Author: Florent Xicluna
 import _ast
 import argparse
 import atexit
+import datetime
 import functools
 import json
 import os
@@ -111,6 +112,26 @@ _base_method_params = [
     ('unlink', ['ids']),
     ('write', ['ids', 'vals']),
 ]
+_sql_action_code = """\
+sql_queries = env.context.get("__sql") or []
+result = env.cr.connection.notices
+
+if not env.is_system():
+    raise UserError("Not allowed")
+
+for query in sql_queries:
+    env.cr.execute(query)
+    if not env.cr.description:
+        result.append(env.cr.statusmessage)
+    elif not env.cr.rowcount:
+        result.append({c.name: () for c in env.cr.description})
+    else:
+        columns = [c.name for c in env.cr.description]
+        result.extend(dict(zip(columns, values)) for values in env.cr.fetchall())
+
+log(str({'queries': sql_queries, 'result': result}))
+result[:] = []
+"""
 colorize = color_bold = color_comment = str
 http_context = None
 
@@ -1099,6 +1120,32 @@ class Env:
         self.refresh()  # Remove cached Envs
         assert res['res_model'] == "res.users.apikeys.show"
         return self.set_api_key(res['context']['default_key'])
+
+    def _get_sql_action(self, _external_id="__odooly__.sql"):
+        act_model = self._get('ir.actions.server', False)
+        if not (action := act_model.get(_external_id)):
+            logg_model = self._get('ir.model', False).get('base.model_ir_logging')
+            values = {'name': 'SQL Execute', 'state': 'code', 'model_id': logg_model.id}
+            (action := act_model.create(values).ensure_one())._set_external_id(_external_id)
+        return action.with_context(lang=None)
+
+    def sql(self, queries):
+        """Execute SQL commands on the PostgreSQL server."""
+        qlist = []
+        for query in queries.split(";"):
+            if any(li.split('--', 1)[0].strip() for li in query.splitlines()):
+                qlist.append(query)
+        if not qlist:
+            return None
+
+        vals = {"name": f"SQL Execute - {datetime.datetime.now()}"}
+        if (sql_action := self._get_sql_action()).code != _sql_action_code:
+            vals["code"] = _sql_action_code
+        sql_action.write(vals)
+        sql_action.with_context(__sql=qlist).run()
+
+        logg = self._get('ir.logging', False).get([f"func = {vals['name']}"])
+        return eval(logg.message, {"datetime": datetime}) if logg else None
 
 
 class Client:
