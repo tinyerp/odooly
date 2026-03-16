@@ -111,7 +111,8 @@ _base_method_params = [
     ('unlink', ['ids']),
     ('write', ['ids', 'vals']),
 ]
-colorize, color_comment, http_context = str, str, None
+colorize = color_bold = color_comment = str
+http_context = None
 
 if os.getenv('ODOOLY_SSL_UNVERIFIED'):
     import ssl
@@ -645,7 +646,7 @@ class Env:
         password = password or pwcache
         # Ask for password
         if not password and not api_key:
-            password = getpass(f"Password for {user!r}: ")
+            password = getpass(f"Password for '{color_bold(user)}': ")
         if not self.client._object:
             try:  # Standard Web or JSON-2 authentication
                 info = self.client._authenticate(self.db_name, user, password, api_key)
@@ -811,7 +812,7 @@ class Env:
         result = None
         while not result:
             try:
-                password = password or getpass(f"Password for {self.user.login!r}: ")
+                password = password or getpass(f"Password for '{color_bold(self.user.login)}': ")
             except (KeyboardInterrupt, EOFError):
                 print()
                 raise Error("Security Control - FAILED")
@@ -1062,7 +1063,7 @@ class Env:
         params = {
             'db': self.db_name,
             'login': login,
-            'password': password or getpass(f"Password for {login!r}: "),
+            'password': password or getpass(f"Password for '{color_bold(login)}': "),
         }
         self.session_info = self.client._authenticate_session(**params)
         # When database name is discovered, copy cached data
@@ -1332,7 +1333,7 @@ class Client:
                 break
 
             # 4. Ask TOTP code
-            token = getpass(f"Authentication Code for {kw['login']!r} (2FA 6-digits): ")
+            token = getpass(f"Authentication Code for '{color_bold(kw['login'])}' (2FA 6-digits): ")
 
             # 5. Submit TOTP
             params = {'csrf_token': csrf, 'totp_token': token, 'remember': 1}
@@ -1423,7 +1424,7 @@ class Client:
             self._set_prompt()
             # Logged in?
             if env.uid:
-                print(f'Logged in as {env.user.login!r} with {env._execute_kw._protocol_name}')
+                print(f"Logged in as '{color_bold(env.user.login)}' with {env._execute_kw._protocol_name}")
 
     def _set_prompt(self):
         # Tweak prompt
@@ -1432,7 +1433,7 @@ class Client:
 
     @classmethod
     def _set_interactive(cls, global_vars={}):
-        global colorize, color_comment
+        global colorize, color_bold, color_comment
         # Don't call multiple times
         del Client._set_interactive
         assert not cls._is_interactive()
@@ -1442,6 +1443,7 @@ class Client:
             from _pyrepl.utils import disp_str, gen_colors, _colorize
             colorize = lambda v: "".join(disp_str(v, colors=[*gen_colors(v)])[0])
             colorize.__name__ = colorize.__qualname__ = 'colorize'
+            color_bold = colorize('def _').split()[1].replace('_', '{}').format
             color_comment = colorize('#').replace('#', '{}').format
             global_vars |= {'colorize': colorize, 'decolor': _colorize.decolor}
         except ImportError:
