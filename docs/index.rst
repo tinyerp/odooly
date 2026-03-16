@@ -4,8 +4,8 @@
    contain the root `toctree` directive.
 
 
-Odooly's documentation
-=======================
+Odooly - client for Odoo
+========================
 
 *A versatile tool for Odoo*
 
@@ -28,34 +28,25 @@ The :doc:`tutorial` gives an in-depth look at the capabilities.
 Authentication methods per Odoo version, and per API:
 
 
-============ ============ ========= ========== ========== =========
- Odoo \\ API   Webclient   Public     JSON-2    JSON-RPC   XML-RPC
-============ ============ ========= ========== ========== =========
- 20.0 +      | Login 2FA             API Key
-             | Login       no-auth
------------- ------------ --------- ---------- ---------- ---------
- 19.0        | Login 2FA             API Key   | API Key  | API Key
-             | Login       no-auth             | Login    | Login
------------- ------------ --------- ---------- ---------- ---------
- 18.0        | Login 2FA                       | API Key  | API Key
-             | Login       no-auth             | Login    | Login
------------- ------------ --------- ---------- ---------- ---------
- 17.0        | Login 2FA                       | API Key  | API Key
-             | Login       no-auth             | Login    | Login
------------- ------------ --------- ---------- ---------- ---------
- 16.0        | Login 2FA                       | API Key  | API Key
-             | Login       no-auth             | Login    | Login
------------- ------------ --------- ---------- ---------- ---------
- 15.0        | Login 2FA                       | API Key  | API Key
-             | Login       no-auth             | Login    | Login
------------- ------------ --------- ---------- ---------- ---------
- 14.0                                          | API Key  | API Key
-              Login        no-auth             | Login    | Login
------------- ------------ --------- ---------- ---------- ---------
- 8.0 to 13.0  Login        no-auth              Login      Login
------------- ------------ --------- ---------- ---------- ---------
- 6.1 and 7.0  Login        no-auth                         Login
-============ ============ ========= ========== ========== =========
+============= ============ ========= ========== ========== =========
+ Odoo \\ API    Webclient   Public     JSON-2    JSON-RPC   XML-RPC
+============= ============ ========= ========== ========== =========
+ 22.0 +       | Login 2FA             API Key     *( both removed )*
+              | Login       no-auth
+------------- ------------ --------- ---------- --------------------
+ 19.0 to 21.0 | Login 2FA             API Key   | API Key *(deprecated)*
+              | Login       no-auth             | Login *(deprecated)*
+------------- ------------ --------- ---------- --------------------
+ 15.0 to 18.0 | Login 2FA                       | API Key  | API Key
+              | Login       no-auth             | Login    | Login
+------------- ------------ --------- ---------- ---------- ---------
+ 14.0                                           | API Key  | API Key
+               Login        no-auth             | Login    | Login
+------------- ------------ --------- ---------- ---------- ---------
+ 8.0 to 13.0   Login        no-auth              Login      Login
+------------- ------------ --------- ---------- ---------- ---------
+ 6.1 and 7.0   Login        no-auth                         Login
+============= ============ ========= ========== ========== =========
 
 .. note:: So called Public API is available without authentication. For
           example ``/web/webclient/version_info``.  The ``/web/database/*``

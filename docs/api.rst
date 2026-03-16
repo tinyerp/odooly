@@ -115,7 +115,7 @@ Please refer to `the Odoo documentation`_ for more details.
 .. note::
 
    These RPC services are deprecated in Odoo 19.  They are scheduled
-   for removal in Odoo 20.
+   for removal in Odoo 22.
 
 .. attribute:: Client.common
 
@@ -123,13 +123,13 @@ Please refer to `the Odoo documentation`_ for more details.
 
    Example: :meth:`Client.common.version` RPC method.
 
-   Removed in Odoo 20.
+   Removed in Odoo 22.
 
 .. data:: Client._object
 
    Expose the ``object`` :class:`Service`.
 
-   Removed in Odoo 20.
+   Removed in Odoo 22.
 
 .. autoclass:: Service
    :members:
