@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-2.6.x (unreleased)
+2.6.0 (2026-03-17)
 ~~~~~~~~~~~~~~~~~~
 
 * Colorize interactive console with Python 3.13+.
