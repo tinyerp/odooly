@@ -820,10 +820,12 @@ class Env:
             try:
                 # Odoo >= 19 read from context
                 result = idcheck.with_context(password=password).run_check()
-            except ServerError:
-                password = None
-                if not self.client._is_interactive():
+            except ServerError as exc:
+                error = exc.args[0]['data']
+                if not self.client._is_interactive() or error['name'] != 'odoo.exceptions.UserError':
                     raise
+                password = None
+                print(error['message'])
         if self.client._is_interactive():
             print("Security Control - PASSED")
         return result

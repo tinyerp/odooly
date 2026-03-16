@@ -9,6 +9,8 @@ Changelog
 
 * Switch to ``argparse`` for colored command line parser.
 
+* Display error when identity check is not successful.
+
 * Drop support for Python 3.6 and 3.7.
 
 * Drop support for OpenERP and for Odoo 8.
