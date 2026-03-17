@@ -75,7 +75,8 @@ def main():
     args = parser.parse_args()
     version = args.env
 
-    odooly.Client._config_file = odooly.Path.cwd() / (args.config or CONF_FILE)
+    if args.config:
+        odooly.Client._config_file = odooly.Path.cwd() / args.config
     _retrieve_servers(user=args.user)
     all_envs = set(ODOO_SERVERS)
     if odooly.Client._config_file.exists():
