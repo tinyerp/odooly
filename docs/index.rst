@@ -19,8 +19,8 @@ and an encapsulation of the methods on :ref:`Active Record objects
 Additional helpers are provided to explore the model and administrate the
 server remotely.
 
-The :doc:`intro` describes how to use it as a :ref:`command line tool
-<command-line>` or within an :ref:`interactive shell <interactive-mode>`.
+The :doc:`intro` describes how to use it within a Python
+:ref:`interactive shell <interactive-mode>`.
 
 The :doc:`tutorial` gives an in-depth look at the capabilities.
 

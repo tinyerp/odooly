@@ -3,8 +3,8 @@
 Introduction
 ============
 
-This section gives the bare minimum to use Odooly as a :ref:`command line
-tool <command-line>` or within an :ref:`interactive shell <interactive-mode>`.
+This section gives the bare minimum to use Odooly within a Python
+:ref:`interactive shell <interactive-mode>`.
 
 Installation
 ------------
