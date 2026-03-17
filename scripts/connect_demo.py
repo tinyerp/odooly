@@ -66,7 +66,7 @@ def _retrieve_servers(url=RUNBOT_URL, regex=RUNBOT_REGEX, user=DEFAULT_USER):
 
 def main():
     parser = argparse.ArgumentParser(description="Connect to runbot.odoo.com or demo.odoo.com.")
-    parser.add_argument('env', nargs='?', default='?', metavar='ENV', help='environment')
+    parser.add_argument('env', nargs='?', default='demo', metavar='ENV', help='environment')
     parser.add_argument('-u', '--user', default=DEFAULT_USER, help='\'demo\' or \'admin\'')
     parser.add_argument('-v', '--verbose', default=0, action='count', help='verbose')
     parser.add_argument('-c', '--config', default=None)
@@ -100,7 +100,7 @@ def main():
         print(f"Connect to Odoo {version} ...")
         odooly.Client.from_config(version, verbose=args.verbose)
 
-    odooly._interact(global_vars)
+    odooly._interact(global_vars, usage=__doc__)
 
 
 if __name__ == "__main__":
