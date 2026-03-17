@@ -1134,7 +1134,7 @@ class Env:
         qlist = []
         for query in queries.split(";"):
             if any(li.split('--', 1)[0].strip() for li in query.splitlines()):
-                qlist.append(query)
+                qlist.append(query.strip())
         if not qlist:
             return None
 
