@@ -1512,7 +1512,6 @@ class Client:
         and no country is set into the database.
         Login if successful.
         """
-        extra = (login, country_code) if login != ADMIN_USER or country_code else ()
         self.database.create(master_pwd=passwd, name=database, lang=lang,
                              password=user_password, demo=demo, login=login,
                              country_code=country_code, phone='')
@@ -1524,10 +1523,9 @@ class Client:
         The superadmin `passwd` and `database` are mandatory.
         Login if successful.
         """
-        extra = (neutralize_database,) if neutralize_database else ()
+        extra = {"neutralize_database": neutralize_database} if neutralize_database else {}
         if extra and self.version_info < 16.0:
             raise Error("Argument 'neutralize_database' is not supported")
-        extra = {"neutralize_database": extra[0]} if extra else {}
         self.database.duplicate(master_pwd=passwd, name=self.env.db_name,
                                 new_name=database, **extra)
         # Copy the cache for authentication
