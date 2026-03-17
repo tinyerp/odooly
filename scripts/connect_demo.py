@@ -82,7 +82,7 @@ def main():
     if odooly.Client._config_file.exists():
         all_envs |= set(odooly.read_config())
     global_vars = odooly.Client._set_interactive()
-    global_vars['__doc__'] = __doc__
+    global_vars['__doc__'] = odooly.Client.connect.__doc__ = __doc__
 
     if not os.getenv('NO_COLOR') and odooly.colorize is str:
         global_vars.update(patch_colors(odooly))  # Python <= 3.13
@@ -100,7 +100,7 @@ def main():
         print(f"Connect to Odoo {version} ...")
         odooly.Client.from_config(version, verbose=args.verbose)
 
-    odooly._interact(global_vars, usage=__doc__)
+    odooly._interact(global_vars)
 
 
 if __name__ == "__main__":

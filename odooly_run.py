@@ -112,7 +112,8 @@ def patch_colors(module):
 def main():
     args = odooly.get_parser().parse_args()
 
-    odooly.Client._config_file = pathlib.Path.cwd() / args.config
+    if args.config:
+        odooly.Client._config_file = odooly.Path.cwd() / args.config
     if args.list_env:
         print('Available settings:  ' + ' '.join(odooly.read_config()))
         return
