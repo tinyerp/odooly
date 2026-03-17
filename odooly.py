@@ -28,7 +28,7 @@ try:
 except ImportError:
     requests = None
 
-__version__ = '2.6.0'
+__version__ = '2.6.1'
 __all__ = ['Client', 'Env', 'HTTPSession', 'WebAPI', 'Service', 'Json2',
            'Printer', 'Error', 'ServerError',
            'BaseModel', 'Model', 'BaseRecord', 'Record', 'RecordList',
@@ -2440,7 +2440,7 @@ def get_parser():
         '--env',
         help='read connection settings from the given section')
     parser.add_argument(
-        '-c', '--config', default=CONF_FILE,
+        '-c', '--config', default=None,
         help=f'specify alternate config file (default: {CONF_FILE})')
     parser.add_argument(
         '--server', default=None,
@@ -2478,7 +2478,7 @@ def connect_client(args):
 def main(interact=_interact):
     args = get_parser().parse_args()
 
-    Client._config_file = Path.cwd() / args.config
+    Client._config_file = Path.cwd() / (args.config or CONF_FILE)
     if args.list_env:
         print('Available settings:  ' + ' '.join(read_config()))
         return

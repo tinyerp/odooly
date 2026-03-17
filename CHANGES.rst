@@ -2,6 +2,12 @@ Changelog
 ---------
 
 
+2.6.1 (2026-03-17)
+~~~~~~~~~~~~~~~~~~
+
+* Fix invocation like ``odooly https://demo.odoo.com``.
+
+
 2.6.0 (2026-03-17)
 ~~~~~~~~~~~~~~~~~~
 
