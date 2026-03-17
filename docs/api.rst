@@ -198,7 +198,7 @@ Environment
 Advanced methods
 ~~~~~~~~~~~~~~~~
 
-Those methods give more control on the Odoo objects: workflows and reports.
+Those methods give more control on the Odoo objects.
 Please refer to `the Odoo documentation`_ for details.
 
 
@@ -238,7 +238,7 @@ Python script or interactively in a Python session.
    It is not recommended to install or upgrade modules in offline mode when
    any web server is still running: the operation will not be signaled to
    other processes.  This restriction does not apply when connected through
-   Webclient API or other RPC API.
+   Webclient API or JSON-RPC API.
 
 
 .. _model-and-records:

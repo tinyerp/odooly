@@ -46,31 +46,28 @@ Interactive use
 
 Launch without any configuration.  It connects to the Odoo server, local or remote::
 
-    ~$ odooly --server https://demo.odoo.com/
+    ~$ odooly https://demo.odoo.com/
 
 Or::
 
-    ~$ odooly --server http://127.0.0.1:8069/
+    ~$ odooly http://127.0.0.1:8069/
 
 
 Environments can also be declared in ``odooly.ini``::
 
     [DEFAULT]
-    scheme = http
-    host = localhost
-    port = 8069
     database = odoo
     username = admin
 
     [demo]
+    server = http://localhost:8069/web
     username = demo
     password = demo
-    protocol = web
 
-    [demo_jsonrpc]
+    [demo/jsonrpc]
+    server = http://localhost:8069/jsonrpc
     username = demo
     password = demo
-    protocol = jsonrpc
 
     [local]
     scheme = local

@@ -122,10 +122,8 @@ Default password is ``"admin"``.
    Create an ``odooly.ini`` file in the current directory to declare all our
    environments.  Example::
 
-       [DEFAULT]
-       server = http://localhost:8069/web
-
        [demo]
+       server = http://localhost:8069/web
        database = demo
        username = joe
 
