@@ -132,7 +132,7 @@ for query in sql_queries:
 log(str({'queries': sql_queries, 'result': result}))
 result[:] = []
 """
-colorize = color_bold = color_comment = str
+color_bold = color_comment = color_py = color_repr = str
 http_context = None
 
 if os.getenv('ODOOLY_SSL_UNVERIFIED'):
@@ -417,7 +417,7 @@ class Printer:
         xch = message[:self.cols - len(suffix)] + suffix
         print(color_comment(f"{_prefix} {xch}"))
 
-    print_sent = functools.partialmethod(_print_, _prefix='-->')
+    print_sent = functools.partialmethod(_print_, _prefix='  >')
     print_recv = functools.partialmethod(_print_, _prefix='<--')
 
     def __bool__(self):
@@ -1478,7 +1478,7 @@ class Client:
 
     @classmethod
     def _set_interactive(cls, global_vars={}):
-        global colorize, color_bold, color_comment
+        global color_bold, color_comment, color_py, color_repr
         # Don't call multiple times
         del Client._set_interactive
         assert not cls._is_interactive()
@@ -1486,11 +1486,11 @@ class Client:
             global_vars[name] = globals()[name]
         try:  # Python >= 3.14
             from _pyrepl.utils import disp_str, gen_colors, _colorize
-            colorize = lambda v: "".join(disp_str(v, colors=[*gen_colors(v)])[0])
-            colorize.__name__ = colorize.__qualname__ = 'colorize'
-            color_bold = colorize('def _').split()[1].replace('_', '{}').format
-            color_comment = colorize('#').replace('#', '{}').format
-            global_vars |= {'colorize': colorize, 'decolor': _colorize.decolor}
+            color_py = color_repr = lambda v: "".join(disp_str(v, colors=[*gen_colors(v)])[0])
+            color_py.__name__ = color_py.__qualname__ = 'color_python'
+            color_bold = color_py('def _').split()[1].replace('_', '{}').format
+            color_comment = color_py('#').replace('#', '{}').format
+            global_vars |= {'color_py': color_py, 'decolor': _colorize.decolor}
         except ImportError:
             pass
         cls._globals = global_vars
@@ -2403,7 +2403,7 @@ def _interact(global_vars, use_pprint=True, usage=USAGE):
         pass  # IOError if file missing, or other error
 
     if use_pprint:
-        pp = lambda obj: print(colorize(pprint.pformat(obj, **PP_FORMAT)))
+        pp = lambda obj: print(color_repr(pprint.pformat(obj, **PP_FORMAT)))
 
         def displayhook(value, _printer=pp, _builtins=builtins):
             # Pretty-format the output
@@ -2415,7 +2415,7 @@ def _interact(global_vars, use_pprint=True, usage=USAGE):
     def excepthook(exc_type, exc, tb):
         # Print readable errors
         msg = ''.join(format_exception(exc_type, exc, tb, chain=False, **exfmt))
-        print(colorize(msg.rstrip()))
+        print(color_repr(msg.rstrip()))
     sys.excepthook = excepthook
 
     builtins.usage = type('Usage', (), {'__call__': lambda s: print(usage),
@@ -2480,7 +2480,7 @@ def main(interact=_interact):
         return
 
     global_vars = Client._set_interactive()
-    print(colorize(USAGE))
+    print(color_repr(USAGE))
 
     connect_client(args)
     return interact(global_vars) if interact else global_vars

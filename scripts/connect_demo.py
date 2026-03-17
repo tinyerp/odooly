@@ -84,8 +84,8 @@ def main():
     global_vars = odooly.Client._set_interactive()
     global_vars['__doc__'] = odooly.Client.connect.__doc__ = __doc__
 
-    if not os.getenv('NO_COLOR') and odooly.colorize is str:
-        global_vars.update(patch_colors(odooly))  # Python <= 3.13
+    if not os.getenv('NO_COLOR'):
+        global_vars.update(patch_colors(odooly))
 
     if version.startswith('http'):
         print(f"Connect to {version} ...")
