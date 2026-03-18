@@ -61,7 +61,7 @@ def _retrieve_servers(url=RUNBOT_URL, regex=RUNBOT_REGEX, user=DEFAULT_USER):
         {name: (server, None, user, user, None)
          for name, server in ODOO_SERVERS.items()}
     )
-    print(f"Found {len(set(builds))} builds on {RUNBOT_HOST}")
+    print(f"Found {len({*builds})} builds on {RUNBOT_HOST}")
 
 
 def main():
@@ -78,9 +78,9 @@ def main():
     if args.config:
         odooly.Client._config_file = odooly.Path.cwd() / args.config
     _retrieve_servers(user=args.user)
-    all_envs = set(ODOO_SERVERS)
+    all_envs = {*ODOO_SERVERS}
     if odooly.Client._config_file.exists():
-        all_envs |= set(odooly.read_config())
+        all_envs |= {*odooly.read_config()}
     global_vars = odooly.Client._set_interactive()
     global_vars['__doc__'] = odooly.Client.connect.__doc__ = __doc__
 

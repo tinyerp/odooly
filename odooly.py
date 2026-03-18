@@ -450,7 +450,7 @@ class WebAPI:
         self._dispatch = client._proxy_web(endpoint)
         self._server = urljoin(client._server, '/')
         self._endpoint = f'/{endpoint}'
-        self._methods = methods
+        self._methods = [*methods]
         self._printer = client._printer
 
     def __repr__(self):
@@ -800,7 +800,7 @@ class Env:
 
     def refresh(self):
         db_key, preserve = (self.db_name, self.client._server), ('auth', Env)
-        for key in list(self._cache):
+        for key in [*self._cache]:
             if key[1:] == db_key and key[0] not in preserve and self._cache[key] != self:
                 del self._cache[key]
         self._access_models = None
@@ -882,7 +882,7 @@ class Env:
                 method, [ids] = 'search_read', searchargs(params[:1])
             else:
                 order_ids = kwargs.pop('order', False) and params[0]
-                ids = sorted(set(params[0]) - {False})
+                ids = sorted({*params[0]} - {False})
                 if not ids and order_ids:
                     return [False] * len(order_ids)
             if not ids:
@@ -1089,7 +1089,7 @@ class Env:
         if not self.db_name and (not self.uid or login == self.user.login) and self.session_info.get('db'):
             empty_db_key = (self.db_name, self.client._server)
             self.db_name = self.session_info['db']
-            for key in list(self._cache):
+            for key in [*self._cache]:
                 if key[1:] == empty_db_key:
                     self._cache_set(key[0], self._cache[key])
         print(f'Session authenticated for {login!r}' if self.session_info['uid'] else 'Failed')
@@ -1304,7 +1304,7 @@ class Client:
             try:
                 cls._saved_config[environment] = read_config(environment)
             except Exception:
-                envs = list(cls._saved_config)
+                envs = [*cls._saved_config]
                 if cls._config_file.exists():
                     envs += [env for env in read_config() if env not in cls._saved_config]
                 raise Error("No such environment.\nAvailable: " + ", ".join(envs))
@@ -1630,7 +1630,7 @@ class Model(BaseModel):
         methods = doc_dict.get('methods') or {}
         result = []
         for key, vals in methods.items():
-            arg_names = list(vals['parameters'])
+            arg_names = [*vals['parameters']]
             if 'model' not in vals.get('api', ()):
                 arg_names.insert(0, 'ids')
             result.append((key, arg_names))
@@ -1909,14 +1909,14 @@ class BaseRecord(BaseModel):
 
     def __sub__(self, other):
         self._check_model(other, '-')
-        other_ids = set(other.ids)
+        other_ids = {*other.ids}
         ids = [idn for (id_, idn) in zip(self.ids, self._idnames)
                if id_ not in other_ids]
         return RecordList(self._model, ids)
 
     def __and__(self, other):
         self._check_model(other, '&')
-        other_ids = set(other.ids)
+        other_ids = {*other.ids}
         self_set = self.union()
         ids = [idn for (id_, idn) in zip(self_set.ids, self_set._idnames)
                if id_ in other_ids]
@@ -1934,19 +1934,19 @@ class BaseRecord(BaseModel):
 
     def __lt__(self, other):
         self._check_model(other, '<')
-        return set(self.ids) < set(other.ids)
+        return {*self.ids} < {*other.ids}
 
     def __le__(self, other):
         self._check_model(other, '<=')
-        return set(self.ids).issubset(other.ids)
+        return {*self.ids}.issubset(other.ids)
 
     def __gt__(self, other):
         self._check_model(other, '>')
-        return set(self.ids) > set(other.ids)
+        return {*self.ids} > {*other.ids}
 
     def __ge__(self, other):
         self._check_model(other, '>=')
-        return set(self.ids).issuperset(other.ids)
+        return {*self.ids}.issuperset(other.ids)
 
     def __int__(self):
         return int(self.ensure_one().id)
@@ -2004,7 +2004,7 @@ class BaseRecord(BaseModel):
             raise TypeError(f"Mixing apples and oranges: {self} {oper} {other}")
 
     def _concat_ids(self, args):
-        ids = list(self._idnames)
+        ids = [*self._idnames]
         for other in args:
             self._check_model(other, '+')
             ids.extend(other._idnames)
@@ -2022,7 +2022,7 @@ class BaseRecord(BaseModel):
         """
         ids = self._concat_ids(args)
         if len(ids) > 1:
-            seen = set()
+            seen = {*()}
             uniqids = []
             for idn in ids:
                 id_, name = idn if isinstance(idn, (list, tuple)) else (idn, None)
@@ -2265,7 +2265,7 @@ class Record(BaseRecord):
         else:
             idnames = [(arg, name)] = [arg]
         Ids, Id1 = self.env._class_ids
-        attrs = {'id': Id1(arg), 'ids': Ids([arg]), '_idnames': idnames, '_cached_keys': set()}
+        attrs = {'id': Id1(arg), 'ids': Ids([arg]), '_idnames': idnames, '_cached_keys': {*()}}
         if name is not None:
             attrs['_Record__name'] = attrs['display_name'] = name
         self.__dict__.update(attrs)
@@ -2331,7 +2331,7 @@ class Record(BaseRecord):
         exist, only one of them is returned (randomly).
         """
         xml_ids = self._model._get_external_ids(self.ids)
-        return list(xml_ids)[0] if xml_ids else False
+        return [*xml_ids][0] if xml_ids else False
 
     def _set_external_id(self, xml_id):
         """Set the External ID of this record."""
