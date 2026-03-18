@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-2.6.x (unreleased)
+2.6.3 (2026-03-18)
 ~~~~~~~~~~~~~~~~~~
 
 * Improve output coloring.  Do not color Python keywords and built-ins.
