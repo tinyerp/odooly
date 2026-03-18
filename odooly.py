@@ -225,12 +225,12 @@ def _memoize(inst, attr, value, doc_values=None):
 
 # Simplified ast.literal_eval which does not parse operators
 def _convert(node):
-    if isinstance(node, _ast.Constant):
+    if isinstance(node, _ast.Constant) and node.value.__class__ is not complex:
         return node.value
     if isinstance(node, _ast.Tuple):
         return tuple(map(_convert, node.elts))
     if isinstance(node, _ast.List):
-        return list(map(_convert, node.elts))
+        return [*map(_convert, node.elts)]
     if isinstance(node, _ast.Dict):
         return {_convert(k): _convert(v)
                 for (k, v) in zip(node.keys, node.values)}
@@ -242,10 +242,8 @@ def _convert(node):
     raise ValueError('malformed or disallowed expression')
 
 
-def literal_eval(expression, _octal_digits=frozenset('01234567')):
+def literal_eval(expression):
     node = compile(expression, '<unknown>', 'eval', _ast.PyCF_ONLY_AST)
-    if expression[:1] == '0' and expression[1:2] in _octal_digits:
-        raise SyntaxError('unsupported octal notation')
     return _convert(node.body)
 
 
