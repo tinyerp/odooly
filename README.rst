@@ -17,11 +17,8 @@ Overview
 --------
 
 Odooly connects to an Odoo instance through HTTP.  It makes it easy to browse the application model,
-and to perform actions.  It carries three modes of use:
-
-(1) with command line arguments
-(2) as an interactive shell
-(3) as a client library
+and to perform actions on the server.  It is both an interactive shell (with pretty-printing and colors)
+and a client library.
 
 
 Key features:
@@ -29,7 +26,7 @@ Key features:
 - provides an API similar to Odoo Model, through Webclient API
 - supports JSON-2 API with Odoo 19 and more recent
 - supports external API JSON-RPC as alternative
-- compatible with Odoo 9 to 19
+- compatible with Odoo 9 to 20
 - single file ``odooly.py``, no external dependency
 - helpers for ``search``, for data model introspection, etc...
 - simplified syntax for search ``domain``
