@@ -32,7 +32,7 @@ RUNBOT_HOST = "runbot.odoo.com"
 RUNBOT_URL = f"https://{RUNBOT_HOST}/runbot/submit?update_triggers=1&trigger_1=on&trigger_122=on"
 RUNBOT_REGEX = (
     # (<Community or Enterprise>, <URL without http>, <build number>, <Odoo version>)
-    r"<span>(\w+) Run</span>.*?"
+    r"<span>(\w+) Run</span>(?:(?! Run).)*?"
     r"href=.https?:(//(\d+)-([^.]+).runbot\d+.odoo.com/web)/database/selector."
 )
 ODOO_SERVERS = {"demo": "https://demo.odoo.com/"}
@@ -65,7 +65,7 @@ def _retrieve_servers(url=RUNBOT_URL, regex=RUNBOT_REGEX, user=DEFAULT_USER):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Connect to runbot.odoo.com or demo.odoo.com.")
+    parser = argparse.ArgumentParser(description=f"Connect to {RUNBOT_HOST} or demo.odoo.com.")
     parser.add_argument('env', nargs='?', default='demo', metavar='ENV', help='environment')
     parser.add_argument('-u', '--user', default=DEFAULT_USER, help='\'demo\' or \'admin\'')
     parser.add_argument('-v', '--verbose', default=0, action='count', help='verbose')
