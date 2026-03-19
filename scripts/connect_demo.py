@@ -32,8 +32,8 @@ RUNBOT_HOST = "runbot.odoo.com"
 RUNBOT_URL = f"https://{RUNBOT_HOST}/runbot/submit?update_triggers=1&trigger_1=on&trigger_122=on"
 RUNBOT_REGEX = (
     # (<Community or Enterprise>, <URL without http>, <build number>, <Odoo version>)
-    r"<span>(\w+) Run</span>(?:(?! Run).)*?"
-    r"href=.https?:(//(\d+)-([^.]+).runbot\d+.odoo.com/web)/database/selector."
+    r"<span>([CE]\w+) Run</span>(?:(?! Run).){660,800}"  # Typical distance is 711 chars
+    r"href=.https?(://(\d+)-([^.]+).runbot\d+.odoo.com/web)/database/selector."
 )
 ODOO_SERVERS = {"demo": "https://demo.odoo.com/"}
 DEFAULT_USER = "demo"
@@ -46,13 +46,13 @@ def _retrieve_servers(url=RUNBOT_URL, regex=RUNBOT_REGEX, user=DEFAULT_USER):
     for edition, odoo_url, build, ver in builds:
         suffix = "+e" if edition == "Enterprise" else ""
         if "saas" in ver:
-            test_servers[f"saas{suffix}"].add((int(build), f"https:{odoo_url}"))
+            test_servers[f"saas{suffix}"].add((int(build), f"https{odoo_url}"))
         elif "master" in ver:
-            test_servers[f"test{suffix}"].add((int(build), f"https:{odoo_url}"))
+            test_servers[f"test{suffix}"].add((int(build), f"https{odoo_url}"))
         ver = ver.replace("saas-", "").replace("-", ".") + suffix
         # Get the newest for each Odoo version
         if ver not in ODOO_SERVERS:
-            ODOO_SERVERS[ver] = f"https:{odoo_url}"
+            ODOO_SERVERS[ver] = f"https{odoo_url}"
     # For test servers, get the oldest
     for ver in test_servers:
         ODOO_SERVERS[ver] = min(test_servers[ver])[1]
