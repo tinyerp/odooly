@@ -2,6 +2,13 @@ Changelog
 ---------
 
 
+2.6.x (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* Remove ``self`` from vars available in interactive mode.
+  It was giving wrong suggestions in case of typing error.
+
+
 2.6.3 (2026-03-18)
 ~~~~~~~~~~~~~~~~~~
 

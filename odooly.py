@@ -1465,7 +1465,6 @@ class Client:
             assert not user, f"Use client.login({user!r}) instead"
             self._globals['client'] = self.env.client
             self._globals['env'] = env = self.env
-            self._globals['self'] = env.user if env.uid else None
             self._set_prompt()
             # Logged in?
             if env.uid:
