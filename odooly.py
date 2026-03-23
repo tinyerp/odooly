@@ -1276,6 +1276,8 @@ class Client:
                 return self._post_jsonrpc(f"{name}/{method}", params=params)
         else:
             def dispatch_web(method, params):
+                if method == 'call_kw' and name == 'web/dataset':
+                    method = f"{method}/{params['model']}/{params['method']}"
                 return self._post_jsonrpc(f"{name}/{method}", params=params)
         return dispatch_web
 

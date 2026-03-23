@@ -8,6 +8,9 @@ Changelog
 * Remove ``self`` from vars available in interactive mode.
   It was giving wrong suggestions in case of typing error.
 
+* Adjust ``call_kw`` path to ``/web/dataset/call_kw/<model>/<method``
+  for adequate HTTP logging, and to be consistent with Odoo Web.
+
 
 2.6.3 (2026-03-18)
 ~~~~~~~~~~~~~~~~~~
