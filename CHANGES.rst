@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-2.6.x (unreleased)
+2.6.4 (2026-03-26)
 ~~~~~~~~~~~~~~~~~~
 
 * Remove ``self`` from vars available in interactive mode.
