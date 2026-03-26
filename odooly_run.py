@@ -127,7 +127,7 @@ def patch_colors(module):
     global THEME
     try:  # Python >= 3.14
         from _pyrepl.utils import BUILTINS, THEME
-        BUILTINS |= {'Client', 'client', 'env'}
+        BUILTINS |= {'Client', 'client', 'env', 'clear'}
     except ImportError:
         pass
 

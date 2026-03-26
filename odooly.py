@@ -2387,6 +2387,7 @@ def _interact(global_vars, use_pprint=True, usage=USAGE):
         from _pyrepl import readline
     else:
         from code import InteractiveConsole as Console
+        builtins.clear = type('', (), {'__repr__': lambda s: os.system('clear') or ''})()
         try:
             import readline
             import rlcompleter

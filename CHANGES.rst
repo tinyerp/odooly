@@ -8,6 +8,8 @@ Changelog
 * Remove ``self`` from vars available in interactive mode.
   It was giving wrong suggestions in case of typing error.
 
+* Inject ``clear`` command in built-ins for Python <= 3.12.
+
 * Adjust ``call_kw`` path to ``/web/dataset/call_kw/<model>/<method``
   for adequate HTTP logging, and to be consistent with Odoo Web.
 
