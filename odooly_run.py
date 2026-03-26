@@ -20,17 +20,18 @@ SOFTKEYW = {*getattr(keyword, 'softkwlist', ())}
 J_SPECIAL = {'false', 'null', 'true'}
 CONSTANTS = {'False', 'None', 'True'}
 DEF_CLASS = {'def', 'class'}
+CSI = '\233'  # Control Sequence Introducer, same as ESC+[ or \x1b[
 
 
 class THEME:  # Default theme
-    keyword = '\x1b[1;34m'
-    builtin = '\x1b[36m'
-    comment = '\x1b[31m'
-    string = '\x1b[32m'
-    number = '\x1b[33m'
-    op = '\x1b[0m'  # No color
-    definition = '\x1b[1m'
-    reset = '\x1b[0m'
+    keyword = f'{CSI}1;34m'
+    builtin = f'{CSI}36m'
+    comment = f'{CSI}31m'
+    string = f'{CSI}32m'
+    number = f'{CSI}33m'
+    op = f'{CSI}m'  # No color
+    definition = f'{CSI}1m'
+    reset = f'{CSI}m'
 
 
 def gen_colors(value, theme, keywords=KEYWORDS):
@@ -132,13 +133,13 @@ def patch_colors(module):
         pass
 
     module.color_repr = color_repr
+    decolor = odooly.partial(re.compile(r'(\233|\033\[)[;\d]*m').sub, '')
     if module.color_py is not str:  # Python >= 3.14
-        return {'color_repr': color_repr}
+        return {'color_repr': color_repr, 'decolor': decolor}
     theme = THEME()
     module.color_py = color_python
     module.color_bold = f'{theme.definition}{{}}{theme.reset}'.format
     module.color_comment = f'{theme.comment}{{}}{theme.reset}'.format
-    decolor = odooly.partial(re.compile(r'\x1b\[[;\d]+m').sub, '')
     return {'color_py': color_python, 'color_repr': color_repr, 'decolor': decolor}
 
 
