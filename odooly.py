@@ -895,8 +895,10 @@ class Env:
             params = searchargs(params)
         elif method == 'search_read':
             params = searchargs(params[:1]) + params[1:]
-        kw = ((dict(kwargs, context=self.context),)
-              if self.context else (kwargs and (kwargs,) or ()))
+        kw = (({**kwargs, 'context': self.context},)
+              if self.context else (kwargs and ({**kwargs},) or ()))
+        if self.client._use_call_button and method in ('create', 'write', 'unlink'):
+            return self.client.web_dataset.call_button(model=obj, method=method, args=params, kwargs=kw[0])
         res = self._execute_kw(obj, method, params, *kw)
         if self._is_identitycheck(res):
             res = self._identitycheck(res)
@@ -1160,6 +1162,7 @@ class Client:
     _config_file = CONF_FILE
     _saved_config = {}
     _globals = None
+    _use_call_button = False
 
     def __init__(self, server, db=None, user=None, password=None, api_key=None, verbose=False):
         self._http = HTTPSession()
@@ -1721,10 +1724,12 @@ class Model(BaseModel):
         The newly created :class:`Record` is returned, or :class:`RecordList`.
         """
         if hasattr(values, "items"):
-            values = self._unbrowse_values(values)
+            values, nb = self._unbrowse_values(values), 1
         else:  # Odoo >= 12
-            values = [self._unbrowse_values(vals) for vals in values]
+            values, nb = [self._unbrowse_values(vals) for vals in values], len(values)
         new_ids = self._execute('create', values)
+        if not new_ids and self.env.client._use_call_button:
+            return self.search([], order='id DESC', limit=nb)
         return self.browse(new_ids)
 
     def read(self, *params, **kwargs):
