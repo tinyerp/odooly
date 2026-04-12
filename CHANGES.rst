@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-2.6.x (unreleased)
+2.6.5 (2026-04-12)
 ~~~~~~~~~~~~~~~~~~
 
 * Use CSI `\x1b[` for colors, which is more universal than `\x9b`.
