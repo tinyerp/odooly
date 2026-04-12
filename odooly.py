@@ -410,18 +410,19 @@ class ServerError(Exception):
 
 
 class Printer:
-    cols = None
+    width = None
 
     def _print_(self, message, _prefix):
-        suffix = f"... L={len(message)}" if len(message) > self.cols else ""
-        xch = message[:self.cols - len(suffix)] + suffix
+        cols = self.width - len(_prefix) - 1
+        suffix = f"... L={len(message)}" if len(message) > cols else ""
+        xch = message[:cols - len(suffix)] + suffix
         print(color_comment(f"{_prefix} {xch}"))
 
     print_sent = functools.partialmethod(_print_, _prefix='  >')
     print_recv = functools.partialmethod(_print_, _prefix='<--')
 
     def __bool__(self):
-        return bool(self.cols)
+        return bool(self.width)
 
     def __enter__(self):
         return self
@@ -1176,13 +1177,12 @@ class Client:
 
     @property
     def verbose(self):
-        return self._printer.cols
+        return self._printer.width
 
     @verbose.setter
     def verbose(self, cols):
         cols = MAXCOL[min(3, cols) - 1] if (cols or 9) < 9 else cols
-        self._printer.cols = cols and max(36, cols) or None
-        PP_FORMAT['width'] = cols and max(79, cols) or PP_FORMAT['width']
+        self._printer.width = cols and max(36, cols) or None
 
     def _set_services(self, server, db):
         if isinstance(server, list):

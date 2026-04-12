@@ -145,24 +145,24 @@ class TestUtils(TestCase):
         client = object.__new__(Client)
         client._printer = Printer()
         client.verbose = 2
-        self.assertEqual(client._printer.cols, 179)
+        self.assertEqual(client._printer.width, 179)
         self.assertEqual(client.verbose, 179)
         client.verbose = 3
-        self.assertEqual(client._printer.cols, 9999)
+        self.assertEqual(client._printer.width, 9999)
         client.verbose = 250
-        self.assertEqual(client._printer.cols, 250)
+        self.assertEqual(client._printer.width, 250)
         client.verbose = None
-        self.assertIsNone(client._printer.cols)
+        self.assertIsNone(client._printer.width)
         client.verbose = 64
-        self.assertEqual(client._printer.cols, 64)
+        self.assertEqual(client._printer.width, 64)
         self.assertEqual(client.verbose, 64)
         client.verbose = True
-        self.assertEqual(client._printer.cols, 79)
+        self.assertEqual(client._printer.width, 79)
         client.verbose = 8
-        self.assertEqual(client._printer.cols, 9999)
+        self.assertEqual(client._printer.width, 9999)
         self.assertEqual(client.verbose, 9999)
         client.verbose = 0
-        self.assertIsNone(client._printer.cols)
+        self.assertIsNone(client._printer.width)
 
         self.assertRaises(TypeError, setattr, client, 'verbose', 'a')
         self.assertRaises(IndexError, setattr, client, 'verbose', -4)

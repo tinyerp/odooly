@@ -321,11 +321,11 @@ class TestSampleSession(JsonRpcTestCase):
 
         client.verbose = 140
         self.assertEqual(client.verbose, 140)
-        self.assertEqual(client._printer.cols, 140)
+        self.assertEqual(client._printer.width, 140)
 
         client.verbose = 0
         self.assertIsNone(client.verbose)
-        self.assertIsNone(client._printer.cols)
+        self.assertIsNone(client._printer.width)
 
 
 class TestClientApi(JsonRpcTestCase):

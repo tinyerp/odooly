@@ -6,6 +6,7 @@ import keyword
 import io
 import os
 import re
+import signal
 import token as T
 import tokenize
 import unicodedata
@@ -20,16 +21,16 @@ SOFTKEYW = {*getattr(keyword, 'softkwlist', ())}
 J_SPECIAL = {'false', 'null', 'true'}
 CONSTANTS = {'False', 'None', 'True'}
 DEF_CLASS = {'def', 'class'}
-CSI = '\233'  # Control Sequence Introducer, same as ESC+[ or \x1b[
+CSI = '\33['  # Control Sequence Introducer, same as ESC+[ or \x1b[
 
 
-class THEME:  # Default theme
+class THEME:  # Default theme in Python 3.14+
     keyword = f'{CSI}1;34m'
     builtin = f'{CSI}36m'
     comment = f'{CSI}31m'
     string = f'{CSI}32m'
     number = f'{CSI}33m'
-    op = f'{CSI}m'  # No color
+    op = ''  # No color
     definition = f'{CSI}1m'
     reset = f'{CSI}m'
 
@@ -133,14 +134,29 @@ def patch_colors(module):
         pass
 
     module.color_repr = color_repr
-    decolor = odooly.partial(re.compile(r'(\233|\033\[)[;\d]*m').sub, '')
-    if module.color_py is not str:  # Python >= 3.14
+    decolor = odooly.partial(re.compile('(\233|\33\\[)[;0-9]*m').sub, '')
+    if module.color_py is not str:  # Python 3.14+
         return {'color_repr': color_repr, 'decolor': decolor}
     theme = THEME()
     module.color_py = color_python
     module.color_bold = f'{theme.definition}{{}}{theme.reset}'.format
     module.color_comment = f'{theme.comment}{{}}{theme.reset}'.format
     return {'color_py': color_python, 'color_repr': color_repr, 'decolor': decolor}
+
+
+def handle_resize(signum, frame):
+    term = os.get_terminal_size()
+    if not odooly.Client._is_interactive() or not term.columns:
+        return
+    client = odooly.Client._globals.get('client')
+    if client and client.verbose:
+        client.verbose = term.columns
+    odooly.PP_FORMAT['width'] = odooly.MAXCOL[1] = term.columns
+
+
+def install_signal_handler():
+    signal.signal(signal.SIGWINCH, handle_resize)
+    signal.raise_signal(signal.SIGWINCH)
 
 
 def main():
@@ -155,6 +171,7 @@ def main():
     global_vars = odooly.Client._set_interactive()
     if odooly.color_py is not str or (os.getenv('FORCE_COLOR') and not os.getenv('NO_COLOR')):
         global_vars.update(patch_colors(odooly))
+    install_signal_handler()
 
     print(odooly.color_repr(odooly.USAGE))
     odooly.connect_client(args)

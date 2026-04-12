@@ -26,7 +26,7 @@ import os
 import re
 
 import odooly
-from odooly_run import patch_colors
+from odooly_run import install_signal_handler, patch_colors
 
 RUNBOT_HOST = "runbot.odoo.com"
 RUNBOT_URL = f"https://{RUNBOT_HOST}/runbot/submit?update_triggers=1&trigger_1=on&trigger_122=on"
@@ -86,6 +86,7 @@ def main():
 
     if not os.getenv('NO_COLOR'):
         global_vars.update(patch_colors(odooly))
+    install_signal_handler()
 
     if version.startswith('http'):
         print(f"Connect to {version} ...")

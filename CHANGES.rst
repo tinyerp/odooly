@@ -2,6 +2,15 @@ Changelog
 ---------
 
 
+2.6.x (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* Use CSI `\x1b[` for colors, which is more universal than `\x9b`.
+
+* Handle signal SIGWINCH to adjust width of output printing.
+  Replace ``cols`` with ``Printer.width`` to match output's width.
+
+
 2.6.4 (2026-03-26)
 ~~~~~~~~~~~~~~~~~~
 
