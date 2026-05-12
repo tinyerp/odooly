@@ -125,3 +125,27 @@ This is a sample session::
    create an empty file in your home directory::
 
        ~$ touch ~/.odooly_history
+
+
+Non-interactive use
+-------------------
+
+Odooly can also run a snippet of Python against a connected client and
+exit, instead of dropping into the REPL.  This is convenient for scripts
+and one-off automations.
+
+Pass the code inline with ``--command``::
+
+    ~$ odooly --env demo --command 'print(env["res.users"].search_count([]))'
+
+Or pipe a script through stdin::
+
+    ~$ odooly --env demo < provision.py
+    ~$ cat <<'EOF' | odooly --env demo
+    ... users = env['res.users'].search([])
+    ... print(len(users), 'users')
+    ... EOF
+
+In both cases the ``client`` and ``env`` globals are pre-populated; no
+prompt is shown.  When stdin is not a terminal (e.g. inside CI), Odooly
+automatically reads the script from stdin.

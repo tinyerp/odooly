@@ -2,6 +2,15 @@ Changelog
 ---------
 
 
+Unreleased
+~~~~~~~~~~
+
+* Add non-interactive mode.  Use ``--command "<code>"`` to run a Python
+  snippet against a connected client and exit, or pipe a script through
+  stdin (e.g. ``odooly --env demo < script.py``).  In both cases the
+  ``client`` and ``env`` globals are pre-populated and no REPL is started.
+
+
 2.6.5 (2026-04-12)
 ~~~~~~~~~~~~~~~~~~
 

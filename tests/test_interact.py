@@ -17,6 +17,8 @@ class _TestInteract(OdooTestCase):
         mock.patch.dict('sys.modules', {'readline': None}).start()
         # Hide _pyrepl module
         mock.patch.dict('sys.modules', {'_pyrepl': None}).start()
+        # Force interactive flow (test stdin is not a real tty)
+        mock.patch('sys.stdin.isatty', return_value=True).start()
         mock.patch('odooly.Client._globals', None).start()
         mock.patch('odooly.Client._set_interactive', wraps=odooly.Client._set_interactive).start()
         self.interact = mock.patch('odooly._interact', wraps=odooly._interact).start()
@@ -122,6 +124,40 @@ class TestInteractJsonRpc(JsonRpcTestCase, _TestInteract):
             "Error: Invalid username or password",
         ])
         self.assertOutput(stderr=ANY)
+
+    def test_command(self):
+        """--command runs a script then exits without invoking REPL."""
+        env_tuple = (self.server, 'database', 'usr', 'password', None)
+        mock.patch('sys.argv', new=['odooly', '--env', 'demo',
+                                    '--command', 'print(env.uid)\nprint(2 + 2)']).start()
+        mock.patch('odooly.Client.get_config', return_value=env_tuple).start()
+        self.service.database.list.return_value = ['database']
+        self.service.common.login.return_value = 17
+        self.service.object.execute_kw.return_value = {}
+
+        ns = odooly.main()
+
+        self.assertEqual(self.interact.call_count, 0)
+        self.assertEqual(ns['client'].env.uid, 17)
+        outlines = self.stdout.popvalue().splitlines()
+        self.assertSequenceEqual(outlines[-2:], ['17', '4'])
+
+    def test_stdin_pipe(self):
+        """Piped (non-tty) stdin runs as a script then exits without REPL."""
+        env_tuple = (self.server, 'database', 'usr', 'password', None)
+        mock.patch('sys.argv', new=['odooly', '--env', 'demo']).start()
+        mock.patch('sys.stdin.isatty', return_value=False).start()
+        mock.patch('sys.stdin.read', return_value='print(env.uid + 1)\n').start()
+        mock.patch('odooly.Client.get_config', return_value=env_tuple).start()
+        self.service.database.list.return_value = ['database']
+        self.service.common.login.return_value = 17
+        self.service.object.execute_kw.return_value = {}
+
+        odooly.main()
+
+        self.assertEqual(self.interact.call_count, 0)
+        outlines = self.stdout.popvalue().splitlines()
+        self.assertEqual(outlines[-1], '18')
 
     def test_invalid_user_password(self):
         env_tuple = (self.server, 'database', 'usr', 'passwd', None)

@@ -2459,8 +2459,33 @@ def get_parser():
     parser.add_argument(
         '-v', '--verbose', default=0, action='count',
         help='verbose')
+    parser.add_argument(
+        '--command', default=None, metavar='CMD',
+        help='program passed in as string; runs non-interactively')
     parser.add_argument('--version', action='version', version=__version__)
     return parser
+
+
+def _is_non_interactive(args):
+    return args.command is not None or not sys.stdin.isatty()
+
+
+def _exec_script(args):
+    """Run a script string or stdin against a connected client, then exit."""
+    client = connect_client(args)
+    if args.command is not None:
+        src, filename = args.command, '<string>'
+    else:
+        src, filename = sys.stdin.read(), '<stdin>'
+    ns = {
+        '__name__': '__main__',
+        '__doc__': None,
+        'Client': Client,
+        'client': client,
+        'env': client.env,
+    }
+    exec(compile(src, filename, 'exec'), ns)
+    return ns
 
 
 def connect_client(args):
@@ -2485,6 +2510,9 @@ def main(interact=_interact):
     if args.list_env:
         print('Available settings:  ' + ' '.join(read_config()))
         return
+
+    if _is_non_interactive(args):
+        return _exec_script(args)
 
     global_vars = Client._set_interactive()
     print(color_repr(USAGE))

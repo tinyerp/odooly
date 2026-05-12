@@ -168,6 +168,10 @@ def main():
         print('Available settings:  ' + ' '.join(odooly.read_config()))
         return
 
+    if odooly._is_non_interactive(args):
+        odooly._exec_script(args)
+        return
+
     global_vars = odooly.Client._set_interactive()
     if odooly.color_py is not str or (os.getenv('FORCE_COLOR') and not os.getenv('NO_COLOR')):
         global_vars.update(patch_colors(odooly))
