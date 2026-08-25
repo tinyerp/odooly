@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-2.6.6 (unreleased)
+2.6.6 (2026-08-25)
 ~~~~~~~~~~~~~~~~~~
 
 * Non-interactive mode: pipe a script, it gets executed (e.g. ``odooly --env demo < script.py``).
@@ -14,7 +14,7 @@ Changelog
 2.6.5 (2026-04-12)
 ~~~~~~~~~~~~~~~~~~
 
-* Use CSI `\x1b[` for colors, which is more universal than `\x9b`.
+* Use CSI ``\x1b[`` for colors, which is more universal than ``\x9b``.
 
 * Handle signal SIGWINCH to adjust width of output printing.
   Replace ``cols`` with ``Printer.width`` to match output's width.

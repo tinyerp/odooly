@@ -28,7 +28,7 @@ try:
 except ImportError:
     requests = None
 
-__version__ = '2.6.6.dev0'
+__version__ = '2.6.6'
 __all__ = ['Client', 'Env', 'HTTPSession', 'WebAPI', 'Service', 'Json2',
            'Printer', 'Error', 'ServerError',
            'BaseModel', 'Model', 'BaseRecord', 'Record', 'RecordList',
@@ -1282,6 +1282,7 @@ class Client:
         else:
             def dispatch_web(method, params):
                 if method == 'call_kw' and name == 'web/dataset':
+                    # Because of odoo/odoo#195886
                     method = f"{method}/{params['model']}/{params['method']}"
                 return self._post_jsonrpc(f"{name}/{method}", params=params)
         return dispatch_web
