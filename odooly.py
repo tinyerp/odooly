@@ -858,6 +858,8 @@ class Env:
                 self.client._authenticate_system()
             else:
                 self.client._authenticate_session(self.db_name, self.user.login, password)
+        if method in {'create', 'write', 'unlink'} and self.client._use_call_button:
+            return self.client.web_dataset.call_button(model=model, method=method, args=args, kwargs=kw or {})
         return self.client.web_dataset.call_kw(model=model, method=method, args=args, kwargs=kw or {})
     _call_kw._protocol_name = 'Web API'
 
@@ -898,8 +900,6 @@ class Env:
             params = searchargs(params[:1]) + params[1:]
         kw = (({**kwargs, 'context': self.context},)
               if self.context else (kwargs and ({**kwargs},) or ()))
-        if self.client._use_call_button and method in ('create', 'write', 'unlink'):
-            return self.client.web_dataset.call_button(model=obj, method=method, args=params, kwargs=kw[0])
         res = self._execute_kw(obj, method, params, *kw)
         if self._is_identitycheck(res):
             res = self._identitycheck(res)
