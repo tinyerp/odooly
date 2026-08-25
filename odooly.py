@@ -28,7 +28,7 @@ try:
 except ImportError:
     requests = None
 
-__version__ = '2.6.5'
+__version__ = '2.6.6.dev0'
 __all__ = ['Client', 'Env', 'HTTPSession', 'WebAPI', 'Service', 'Json2',
            'Printer', 'Error', 'ServerError',
            'BaseModel', 'Model', 'BaseRecord', 'Record', 'RecordList',
@@ -2478,19 +2478,38 @@ def connect_client(args):
     return client
 
 
-def main(interact=_interact):
-    args = get_parser().parse_args()
+def configure_client():
+    """Configure client, and decide if interactive.
 
-    Client._config_file = Path.cwd() / (args.config or CONF_FILE)
+    If it is not interactive, execute script received on standard input.
+    """
+    args = get_parser().parse_args()
+    is_interactive_shell = sys.stdin.isatty()
+
+    if args.config:
+        Client._config_file = Path.cwd() / args.config
+
+    if not is_interactive_shell:  # Read and execute commands from standard input
+        client = connect_client(args)
+        exec(compile(sys.stdin.read(), '<stdin>', 'exec'), {'client': client, 'env': client.env})
+        return
+
     if args.list_env:
         print('Available settings:  ' + ' '.join(read_config()))
         return
 
-    global_vars = Client._set_interactive()
-    print(color_repr(USAGE))
+    Client._set_interactive()
+    return args
 
-    connect_client(args)
-    return interact(global_vars) if interact else global_vars
+
+def main(interact=_interact):
+    args = configure_client()
+
+    if args:  # Interactive mode
+        print(color_repr(USAGE))
+
+        global_vars = connect_client(args)._globals
+        return interact(global_vars) if interact else global_vars
 
 
 if __name__ == '__main__':

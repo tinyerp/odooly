@@ -161,6 +161,23 @@ class TestInteractJsonRpc(JsonRpcTestCase, _TestInteract):
         ])
         self.assertOutput(stderr=ANY)
 
+    def test_stdin_pipe(self):
+        """Piped (non-tty) stdin runs as a script then exits without REPL."""
+        code_snippet = 'assert env and client\nprint(env.uid + 1)\n'
+        env_tuple = (self.server, 'database', 'usr', 'password', None)
+        mock.patch('sys.argv', new=['odooly', '--env', 'demo']).start()
+        mock.patch('sys.stdin.isatty', return_value=False).start()
+        mock.patch('sys.stdin.read', return_value=code_snippet).start()
+        mock.patch('odooly.Client.get_config', return_value=env_tuple).start()
+        self.service.database.list.return_value = ['database']
+        self.service.common.login.return_value = 17
+        self.service.object.execute_kw.return_value = {}
+
+        odooly.main()
+
+        self.assertEqual(self.interact.call_count, 0)
+        self.assertOutput(stdout='18\n')
+
 
 class TestInteract19(_TestInteract):
     """Test interactive mode with Odoo 19."""

@@ -160,22 +160,17 @@ def install_signal_handler():
 
 
 def main():
-    args = odooly.get_parser().parse_args()
+    args = odooly.configure_client()
 
-    if args.config:
-        odooly.Client._config_file = odooly.Path.cwd() / args.config
-    if args.list_env:
-        print('Available settings:  ' + ' '.join(odooly.read_config()))
-        return
+    if args:
+        global_vars = odooly.Client._globals
+        if odooly.color_py is not str or (os.getenv('FORCE_COLOR') and not os.getenv('NO_COLOR')):
+            global_vars.update(patch_colors(odooly))
+        install_signal_handler()
 
-    global_vars = odooly.Client._set_interactive()
-    if odooly.color_py is not str or (os.getenv('FORCE_COLOR') and not os.getenv('NO_COLOR')):
-        global_vars.update(patch_colors(odooly))
-    install_signal_handler()
-
-    print(odooly.color_repr(odooly.USAGE))
-    odooly.connect_client(args)
-    odooly._interact(global_vars)
+        print(odooly.color_repr(odooly.USAGE))
+        odooly.connect_client(args)
+        odooly._interact(global_vars)
 
 
 if __name__ == '__main__':
