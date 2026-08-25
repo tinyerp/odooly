@@ -269,13 +269,15 @@ def format_exception(exc_type, exc, tb, limit=None, chain=True,
         values = [f"{exc_type.__name__}: {exc}\n"]
     elif issubclass(exc_type, ServerError):     # JSON-RPC or Web API
         server_error = exc.args[0]['data']
+        if 'arguments' not in server_error and 'error' in server_error:
+            server_error = server_error['error']['data']
         print_tb = not server_error.get('name', '').startswith(('odoo.', 'werkzeug.'))
     if server_error:
         # Format readable API errors
         try:
             message = str(server_error['arguments'][0])
         except Exception:
-            message = str(server_error['arguments'])
+            message = str(server_error.get('arguments') or server_error.get('error'))
         fault = f"{server_error['name']}: {message}"
         tb = print_tb and not message.startswith('FATAL:') and server_error['debug']
         if chain:

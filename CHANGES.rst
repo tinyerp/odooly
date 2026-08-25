@@ -8,6 +8,8 @@ Changelog
 * Non-interactive mode: pipe a script, it gets executed (e.g. ``odooly --env demo < script.py``).
   Objects ``client`` and ``env`` are injected in the globals.
 
+* Improve error handling and display.
+
 
 2.6.5 (2026-04-12)
 ~~~~~~~~~~~~~~~~~~
