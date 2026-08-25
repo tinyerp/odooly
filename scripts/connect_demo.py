@@ -31,9 +31,9 @@ from odooly_run import install_signal_handler, patch_colors
 RUNBOT_HOST = "runbot.odoo.com"
 RUNBOT_URL = f"https://{RUNBOT_HOST}/runbot/submit?update_triggers=1&trigger_1=on&trigger_122=on"
 RUNBOT_REGEX = (
-    # (<Community or Enterprise>, <URL without http>, <build number>, <Odoo version>)
-    r"<span>([CE]\w+) Run</span>(?:(?! Run).){660,800}"  # Typical distance is 711 chars
-    r"href=.https?(://(\d+)-([^.]+).runbot\d+.odoo.com/web)/database/selector."
+    # (<Community or Enterprise>, <domain>, <build number>, <Odoo version>)
+    r"<span>([CE]\w+) Run</span>.{,200}<build-options-dropdown.{,400}"
+    r" data-domain=.((\d+)-([^.]+).runbot\d+.odoo.com). "
 )
 ODOO_SERVERS = {"demo": "https://demo.odoo.com/"}
 DEFAULT_USER = "demo"
@@ -43,16 +43,21 @@ def _retrieve_servers(url=RUNBOT_URL, regex=RUNBOT_REGEX, user=DEFAULT_USER):
     test_servers = collections.defaultdict(set)
     overview = odooly.HTTPSession().request(url, method='GET')
     builds = re.findall(regex, overview, re.DOTALL)
-    for edition, odoo_url, build, ver in builds:
+    if not builds:
+        fdump = odooly.Path.cwd() / "runbot_odoo_com.html"
+        fdump.write_text(overview)
+        raise SystemExit(f"Could not parse content of {RUNBOT_HOST}:\n  check here \"{fdump}\"")
+    for edition, domain, build, ver in builds:
         suffix = "+e" if edition == "Enterprise" else ""
+        odoo_url = f"https://{domain}/web"
         if "saas" in ver:
-            test_servers[f"saas{suffix}"].add((int(build), f"https{odoo_url}"))
+            test_servers[f"saas{suffix}"].add((int(build), odoo_url))
         elif "master" in ver:
-            test_servers[f"test{suffix}"].add((int(build), f"https{odoo_url}"))
+            test_servers[f"test{suffix}"].add((int(build), odoo_url))
         ver = ver.replace("saas-", "").replace("-", ".") + suffix
         # Get the newest for each Odoo version
         if ver not in ODOO_SERVERS:
-            ODOO_SERVERS[ver] = f"https{odoo_url}"
+            ODOO_SERVERS[ver] = odoo_url
     # For test servers, get the oldest
     for ver in test_servers:
         ODOO_SERVERS[ver] = min(test_servers[ver])[1]
