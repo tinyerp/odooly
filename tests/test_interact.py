@@ -17,6 +17,8 @@ class _TestInteract(OdooTestCase):
         mock.patch.dict('sys.modules', {'readline': None}).start()
         # Hide _pyrepl module
         mock.patch.dict('sys.modules', {'_pyrepl': None}).start()
+        # Force interactive flow (test stdin is not a real tty)
+        mock.patch('sys.stdin.isatty', return_value=True).start()
         mock.patch('odooly.Client._globals', None).start()
         mock.patch('odooly.Client._set_interactive', wraps=odooly.Client._set_interactive).start()
         self.interact = mock.patch('odooly._interact', wraps=odooly._interact).start()
