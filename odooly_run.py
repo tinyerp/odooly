@@ -128,8 +128,9 @@ def patch_colors(module):
     """Set functions to color output."""
     global THEME
     try:  # Python >= 3.14
-        from _pyrepl.utils import BUILTINS, THEME
-        BUILTINS |= {'Client', 'client', 'env', 'clear'}
+        from _pyrepl import utils
+        from _pyrepl.utils import THEME
+        utils.BUILTINS |= {'Client', 'client', 'env', 'clear'}
     except ImportError:
         pass
 

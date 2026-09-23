@@ -28,7 +28,7 @@ try:
 except ImportError:
     requests = None
 
-__version__ = '2.6.6'
+__version__ = '2.6.7.dev0'
 __all__ = ['Client', 'Env', 'HTTPSession', 'WebAPI', 'Service', 'Json2',
            'Printer', 'Error', 'ServerError',
            'BaseModel', 'Model', 'BaseRecord', 'Record', 'RecordList',
