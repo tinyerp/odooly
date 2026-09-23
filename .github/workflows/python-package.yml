@@ -18,8 +18,6 @@ jobs:
         os:
           - ubuntu-26.04
         python-version:
-          - "3.8"
-          - "3.9"
           - "3.10"
           - "3.11"
           - "3.12"
@@ -29,6 +27,11 @@ jobs:
           - "pypy3.10"
           - "pypy3.11"
           - "pypy3.12"
+        include:
+          - os: ubuntu-24.04
+            python-version: "3.8"
+          - os: ubuntu-24.04
+            python-version: "3.9"
       fail-fast: false
 
     steps:
