@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-2.6.7 (unreleased)
+2.6.7 (2026-09-23)
 ~~~~~~~~~~~~~~~~~~
 
 * Color ``client`` and ``env`` with Python 3.15 too.
