@@ -1494,7 +1494,7 @@ class Client:
         try:  # Python >= 3.14
             from _pyrepl.utils import disp_str, gen_colors, _colorize
             color_py = color_repr = lambda value: "".join(char for li in value.splitlines()
-                for char in disp_str(li, colors=[*gen_colors(li)])[0] + ['\n'])
+                for char in disp_str(li, colors=[*gen_colors(li)])[0] + ['\n']).rstrip()
             color_py.__name__ = color_py.__qualname__ = 'color_python'
             color_bold = color_py('def _').split()[1].replace('_', '{}').format
             color_comment = color_py('#').replace('#', '{}').format
