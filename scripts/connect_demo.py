@@ -29,7 +29,8 @@ import odooly
 from odooly_run import install_signal_handler, patch_colors
 
 RUNBOT_HOST = "runbot.odoo.com"
-RUNBOT_URL = f"https://{RUNBOT_HOST}/runbot/submit?update_triggers=1&trigger_1=on&trigger_122=on"
+RUNBOT_URL = f"https://{RUNBOT_HOST}/"
+RUNBOT_HEADERS = {"Cookie": "trigger_display_1=1-122"}
 RUNBOT_REGEX = (
     # (<Community or Enterprise>, <domain>, <build number>, <Odoo version>)
     r"<span>([CE]\w+) Run</span>.{,200}<build-options-dropdown.{,400}"
@@ -39,9 +40,9 @@ ODOO_SERVERS = {"demo": "https://demo.odoo.com/"}
 DEFAULT_USER = "demo"
 
 
-def _retrieve_servers(url=RUNBOT_URL, regex=RUNBOT_REGEX, user=DEFAULT_USER):
+def _retrieve_servers(url=RUNBOT_URL, regex=RUNBOT_REGEX, user=DEFAULT_USER, headers=RUNBOT_HEADERS):
     test_servers = collections.defaultdict(set)
-    overview = odooly.HTTPSession().request(url, method='GET')
+    overview = odooly.HTTPSession().request(url, method='GET', headers=headers)
     builds = re.findall(regex, overview, re.DOTALL)
     if not builds:
         fdump = odooly.Path.cwd() / "runbot_odoo_com.html"
