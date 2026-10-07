@@ -28,7 +28,7 @@ try:
 except ImportError:
     requests = None
 
-__version__ = '2.6.7'
+__version__ = '2.6.8.dev0'
 __all__ = ['Client', 'Env', 'HTTPSession', 'WebAPI', 'Service', 'Json2',
            'Printer', 'Error', 'ServerError',
            'BaseModel', 'Model', 'BaseRecord', 'Record', 'RecordList',
@@ -113,11 +113,11 @@ _base_method_params = [
     ('write', ['ids', 'vals']),
 ]
 _sql_action_code = """\
-sql_queries = env.context.get("__sql") or []
+sql_queries = env.context.get('__sql') or []
 result = env.cr.connection.notices
 
 if not env.is_system():
-    raise UserError("Not allowed")
+    raise UserError('Not allowed')
 
 for query in sql_queries:
     env.cr.execute(query)
@@ -1493,7 +1493,8 @@ class Client:
             global_vars[name] = globals()[name]
         try:  # Python >= 3.14
             from _pyrepl.utils import disp_str, gen_colors, _colorize
-            color_py = color_repr = lambda v: "".join(disp_str(v, colors=[*gen_colors(v)])[0])
+            color_py = color_repr = lambda value: "".join(char for li in value.splitlines()
+                for char in disp_str(li, colors=[*gen_colors(li)])[0] + ['\n'])
             color_py.__name__ = color_py.__qualname__ = 'color_python'
             color_bold = color_py('def _').split()[1].replace('_', '{}').format
             color_comment = color_py('#').replace('#', '{}').format
