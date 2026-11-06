@@ -239,6 +239,13 @@ def _convert(node):
             return -_convert(node.operand)
         if isinstance(node.op, _ast.UAdd):
             return +_convert(node.operand)
+    if isinstance(node, _ast.Attribute) and node.attr[:1] != '_':
+        return getattr(_convert(node.value), node.attr)
+    if isinstance(node, _ast.Call):
+        kw = {kw.arg: _convert(kw.value) for kw in node.keywords}
+        return _convert(node.func)(*(_convert(arg) for arg in node.args), **kw)
+    if isinstance(node, _ast.Name) and node.id == "datetime":
+        return datetime
     raise ValueError('malformed or disallowed expression')
 
 
@@ -1148,7 +1155,7 @@ class Env:
         sql_action.with_context(__sql=qlist).run()
 
         logg = self._get('ir.logging', False).get([f"func = {vals['name']}"])
-        return eval(logg.message, {"datetime": datetime}) if logg else None
+        return literal_eval(logg.message) if logg else None
 
 
 class Client:

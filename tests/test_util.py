@@ -1,7 +1,8 @@
+import datetime as dt_
 from functools import partial
 from unittest import TestCase
 
-from odooly import issearchdomain, searchargs, Model, Client, Printer
+from odooly import issearchdomain, literal_eval, searchargs, Model, Client, Printer
 
 
 class TestUtils(TestCase):
@@ -129,6 +130,30 @@ class TestUtils(TestCase):
         self.assertRaises(ValueError, searchargs, (['[id = 1540]'],))
         self.assertRaises(ValueError, searchargs, (['some_id child_off'],))
         self.assertRaises(ValueError, searchargs, (['someth like3'],))
+
+    def test_literal_eval(self):
+        # Helper literal_eval parses `datetime.datetime` returned by psycopg2
+        result = "{'result': [{'create_date': datetime.datetime(2001, 12, 31)}]}"
+        self.assertEqual(literal_eval(result),
+                         {'result': [{'create_date': dt_.datetime(2001, 12, 31)}]})
+        result = "{'result': [{'create_date': datetime.date(2001, 12, 31)}]}"
+        self.assertEqual(literal_eval(result),
+                         {'result': [{'create_date': dt_.date(2001, 12, 31)}]})
+
+        result = (
+            "{'result': [{'create_date':\n"
+            "datetime.datetime(2001, 12, 31, 23, 59, 0, "
+            "tzinfo=datetime.timezone(datetime.timedelta(seconds=19800))),\n"
+            "'write_date': datetime.datetime(2024, 2, 29, 1, 1, 1, "
+            "tzinfo=datetime.timezone.utc),\n"
+            "'duration': datetime.timedelta(days=3, seconds=42, microseconds=200000)}]}"
+        )
+        expected = {
+            'create_date': dt_.datetime(2001, 12, 31, 23, 59, 0, tzinfo=dt_.timezone(dt_.timedelta(seconds=19800))),
+            'write_date': dt_.datetime(2024, 2, 29, 1, 1, 1, tzinfo=dt_.timezone.utc),
+            'duration': dt_.timedelta(days=3, seconds=42, microseconds=200000)
+        }
+        self.assertEqual(literal_eval(result), {'result': [expected]})
 
     def test_readfmt(self):
         dummy = object.__new__(Model)

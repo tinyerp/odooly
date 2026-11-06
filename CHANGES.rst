@@ -2,6 +2,12 @@ Changelog
 ---------
 
 
+2.6.9 (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* Parse SQL response with ``literal_eval`` to be on the safe side.
+
+
 2.6.8 (2026-11-06)
 ~~~~~~~~~~~~~~~~~~
 
