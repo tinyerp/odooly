@@ -26,7 +26,7 @@ Key features:
 - provides an API similar to Odoo Model, through Webclient API
 - supports JSON-2 API with Odoo 19 and more recent
 - supports external API JSON-RPC as alternative
-- compatible with Odoo 9 to 20
+- compatible with Odoo 9 to 21
 - single file ``odooly.py``, no external dependency
 - helpers for ``search``, for data model introspection, etc...
 - simplified syntax for search ``domain``
