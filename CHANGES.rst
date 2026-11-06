@@ -2,9 +2,10 @@ Changelog
 ---------
 
 
-2.6.8 (unreleased)
+2.6.8 (2026-11-06)
 ~~~~~~~~~~~~~~~~~~
 
+* Document usage with ``uv``.
 * Fix ``color_py`` for Python 3.15.
 
 

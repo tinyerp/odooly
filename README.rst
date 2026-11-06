@@ -2,9 +2,18 @@
 Odooly, a versatile tool for Odoo
 =================================
 
-Download and install the latest release::
+Install with `uv <https://docs.astral.sh/uv/#installation>`_::
+
+    uv tool install -U odooly
+
+Or with Pip::
 
     pip install -U odooly
+
+As an alternative, ``uv`` can invoke Odooly without installing::
+
+    uvx odooly --help
+    uvx odooly https://demo.odoo.com/ -u demo
 
 .. contents::
    :local:
