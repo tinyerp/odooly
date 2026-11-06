@@ -200,7 +200,7 @@ class HTTPSession:
                 return resp if method == 'HEAD' else self._parse_response(resp)
         except OSError as exc:
             status_code, result = self._parse_error(exc)
-            if result and status_code in (401, 403, 404, 422, 500):
+            if result and status_code in {401, 403, 404, 422, 500}:
                 # Unauthorized, Forbidden, NotFound, UnprocessableContent, InternalServerError
                 if isinstance(result, str):
                     lines = re.findall(r'>([^>\n]+)<', result) or (status_code, result)
@@ -567,7 +567,7 @@ class Json2:
     def _prepare_params(self, model, method, args, kwargs):
         if not args:
             return {**kwargs}
-        if len(args) == 1 and args[0].__class__ in (Ids, Id1):
+        if len(args) == 1 and args[0].__class__ in {Ids, Id1}:
             return {'ids': args[0], **kwargs}
         if not (arg_names := self._method_params['base'].get(method)):
             arg_names = self._methods(model).setdefault(method, ())
@@ -724,7 +724,7 @@ class Env:
             self._execute_kw._protocol_name = self.client._proxy._protocol_name
         else:  # Otherwise, use JSON-2 or WebAPI
             self._execute_kw = self._json2 or self._call_kw
-        if prev_protocol not in (self._execute_kw._protocol_name, ...):
+        if prev_protocol not in {self._execute_kw._protocol_name, ...}:
             self.client.connect()
         self._api_key = api_key if store else None
         return api_key
@@ -1371,7 +1371,7 @@ class Client:
             pass  # Cannot extract `csrf_token` or `session_info` with Regex
         except ServerError as exc:
             # Ignore: odoo.exceptions.AccessDenied
-            if exc.args[0]['code'] not in (0, 200):
+            if exc.args[0]['code'] not in {0, 200}:
                 raise
         return info
 
@@ -1844,7 +1844,7 @@ class Model(BaseModel):
         """Unwrap the id of Record and RecordList."""
         new_values = values.copy()
         for (key, value) in values.items():
-            many = self._fields[key]['type'] in ('one2many', 'many2many')
+            many = self._fields[key]['type'] in {'one2many', 'many2many'}
             if hasattr(value, 'id'):
                 if self._fields[key]['type'] == 'reference':
                     new_values[key] = f'{value._name},{value.id}'
@@ -2179,7 +2179,7 @@ class RecordList(BaseRecord):
         if new_offset:
             search_args['offset'] = (search_args.get('offset') or 0) + new_offset
         result = RecordList(self._model, None, search=search_args)
-        if (is_stop_positive or key.stop is None) and key.step in (1, None):
+        if (is_stop_positive or key.stop is None) and key.step in {1, None}:
             return result
         key = slice(None, limit if is_stop_positive else key.stop, key.step)
         return super(RecordList, result).__getitem__(key)
@@ -2237,7 +2237,7 @@ class RecordList(BaseRecord):
         return [xml_ids.get(res_id, False) for res_id in self.id]
 
     def __getattr__(self, attr):
-        if attr in ('id', 'ids', '_idnames'):
+        if attr in {'id', 'ids', '_idnames'}:
             params = {**self._search_args}
             ids = params.pop('model')._execute('search', params.pop('domain'), **params)
             Ids, __ = self.env._class_ids
