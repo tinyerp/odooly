@@ -28,7 +28,7 @@ try:
 except ImportError:
     requests = None
 
-__version__ = '2.6.8'
+__version__ = '2.6.9.dev0'
 __all__ = ['Client', 'Env', 'HTTPSession', 'WebAPI', 'Service', 'Json2',
            'Printer', 'Error', 'ServerError',
            'BaseModel', 'Model', 'BaseRecord', 'Record', 'RecordList',
@@ -718,7 +718,7 @@ class Env:
                 self._doc('res.device')
             except ServerError:
                 self._doc = None
-        prev_protocol = getattr(self, '_execute_kw', ...)
+        prev_protocol = getattr(getattr(self, '_execute_kw', 0), '_protocol_name', ...)
         if self.client._object:  # RPC endpoint if available
             self._execute_kw = env_auth(self.client._object.execute_kw)
             self._execute_kw._protocol_name = self.client._proxy._protocol_name
