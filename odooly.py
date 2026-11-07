@@ -233,7 +233,7 @@ def _convert(node):
         return [*map(_convert, node.elts)]
     if isinstance(node, _ast.Dict):
         return {_convert(k): _convert(v)
-                for (k, v) in zip(node.keys, node.values)}
+                for k, v in zip(node.keys, node.values)}
     if isinstance(node, _ast.UnaryOp):
         if isinstance(node.op, _ast.USub):
             return -_convert(node.operand)
@@ -243,7 +243,7 @@ def _convert(node):
         return getattr(_convert(node.value), node.attr)
     if isinstance(node, _ast.Call):
         kw = {kw.arg: _convert(kw.value) for kw in node.keywords}
-        return _convert(node.func)(*(_convert(arg) for arg in node.args), **kw)
+        return _convert(node.func)(*map(_convert, node.args), **kw)
     if isinstance(node, _ast.Name) and node.id == "datetime":
         return datetime
     raise ValueError('malformed or disallowed expression')
@@ -1148,13 +1148,13 @@ class Env:
         if not qlist:
             return None
 
-        vals = {"name": f"SQL Execute - {datetime.datetime.now()}"}
+        vals = {'name': f'SQL Execute {datetime.datetime.now()}_{hash(queries)*os.getpid() % 2**24:06x}'}
         if (sql_action := self._get_sql_action()).code != _sql_action_code:
-            vals["code"] = _sql_action_code
+            vals['code'] = _sql_action_code
         sql_action.write(vals)
         sql_action.with_context(__sql=qlist).run()
 
-        logg = self._get('ir.logging', False).get([f"func = {vals['name']}"])
+        logg = self._get('ir.logging', False).get([('func', '=', vals['name'])])
         return literal_eval(logg.message) if logg else None
 
 
