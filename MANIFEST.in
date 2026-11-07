@@ -1,5 +1,0 @@
-include CHANGES.rst LICENSE README.rst odooly.ini
-recursive-include docs *
-recursive-include tests *
-global-exclude *.pyc *.pyo .readthedocs.yaml
-prune docs/_build

@@ -2,6 +2,12 @@ Changelog
 ---------
 
 
+3.0.x (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* Build: migrate to pyproject.toml
+
+
 2.6.9 (2026-11-06)
 ~~~~~~~~~~~~~~~~~~
 

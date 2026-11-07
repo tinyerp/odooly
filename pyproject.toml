@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "Odooly"
+description = "Versatile tool for Odoo"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+authors = [{name = "Florent Xicluna", email = "florent.xicluna@gmail.com"}]
+keywords = ["odoo", "jsonrpc", "json2"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Framework :: Odoo",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: 3.16",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+readme = "README.rst"
+dynamic = ["version"]
+requires-python = ">= 3.8"
+
+[project.urls]
+Homepage = "https://odooly.readthedocs.org/"
+Documentation = "https://odooly.readthedocs.org/"
+Repository = "https://github.com/tinyerp/odooly"
+
+[project.scripts]
+odooly = "odooly_run:main"
+
+[tool.setuptools]
+py-modules = ["odooly", "odooly_run"]
+platforms = ["any"]
+include-package-data = false
+
+[tool.setuptools.dynamic]
+version = {attr = "odooly.__version__"}

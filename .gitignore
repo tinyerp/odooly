@@ -2,6 +2,7 @@
 *.egg-info
 *.pyc
 .eggs
+.python-version
 build
 dist
 docs/_build
