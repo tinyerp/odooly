@@ -8,6 +8,8 @@ Changelog
 **BREAKING CHANGE**: Project is no longer a single file.  It is reorganized with a traditional
 package structure.  As a consequence, some import paths have to be adapted in your projects.
 
+* Enable coloring for older Python versions.
+  Use ``NO_COLOR=1`` to opt-out.
 * Enable commands' history by default.  Can be changed with environment
   variable ``ODOOLY_HISTFILE``.
 * Support running wheel file without installing:

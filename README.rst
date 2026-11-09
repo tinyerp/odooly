@@ -113,16 +113,14 @@ This is a sample session::
 .. note::
 
    With Python 3.14, output is colored by default, and new Python REPL
-   console is used.  Colored output can be activated with previous Python
-   versions, through environment variable ``FORCE_COLOR``.
-
-   To opt-out, use environment variable ``NO_COLOR=1``.
+   console is used.  Colored output is also supported with previous Python
+   versions.  To opt-out, use environment variable ``NO_COLOR=1``.
 
    Use the ``-v/--verbose`` switch to see what happens behind the scene.
    Lines are truncated at 79 chars.  Use ``-vv`` or ``-vvv`` to print
    more.  Example::
 
-       ~$ FORCE_COLOR=1 odooly https://demo.odoo.com/ -vv
+       ~$ odooly https://demo.odoo.com/ -vv
 
    It's also possible to set verbosity from the interactive prompt::
 

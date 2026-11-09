@@ -4,6 +4,7 @@ from unittest import mock
 from unittest.mock import call, ANY
 
 import odooly.run
+from odooly.colorize import decolor
 
 from ._common import OdooTestCase, JsonRpcTestCase
 
@@ -31,6 +32,10 @@ class _TestInteract(OdooTestCase):
             'server_serie': self.server_version,
             'protocol_version': 1,
         }
+
+    def assertLinesEqual(self, lines, expected):
+        # Decolor lines to compare
+        return self.assertSequenceEqual([decolor(line) for line in lines], expected)
 
 
 class TestInteractJsonRpc(JsonRpcTestCase, _TestInteract):
@@ -80,7 +85,7 @@ class TestInteractJsonRpc(JsonRpcTestCase, _TestInteract):
         self.assertEqual(read_config.call_count, 1)
         self.assertEqual(self.interact.call_count, 1)
         outlines = self.stdout.popvalue().splitlines()
-        self.assertSequenceEqual(outlines[-6:], [
+        self.assertLinesEqual(outlines[-6:], [
             f"Logged in as 'usr' with {self.protocol}",
             f"<Client '{self.server}?db=database'>",
             "<Env 'usr@database'>",
@@ -114,7 +119,7 @@ class TestInteractJsonRpc(JsonRpcTestCase, _TestInteract):
         self.assertCalls(*expected_calls)
         self.assertEqual(read_config.call_count, 1)
         outlines = self.stdout.popvalue().splitlines()
-        self.assertSequenceEqual(outlines[-5:], [
+        self.assertLinesEqual(outlines[-5:], [
             "Database 'missingdb' does not exist: ['database']",
             f"<Client '{self.server}?db='>",
             "<Env '@()'>",
@@ -153,7 +158,7 @@ class TestInteractJsonRpc(JsonRpcTestCase, _TestInteract):
         )
         self.assertCalls(*expected_calls)
         outlines = self.stdout.popvalue().splitlines()
-        self.assertSequenceEqual(outlines[-4:], [
+        self.assertLinesEqual(outlines[-4:], [
             f"Logged in as 'usr' with {self.protocol}",
             'Model not found: res.company',
             'Error: Invalid username or password',
@@ -236,7 +241,7 @@ class TestInteract19(_TestInteract):
         self.assertEqual(read_config.call_count, 1)
         self.assertEqual(self.interact.call_count, 1)
         outlines = self.stdout.popvalue().splitlines()
-        self.assertSequenceEqual(outlines[-6:], [
+        self.assertLinesEqual(outlines[-6:], [
             f"Logged in as 'usr' with {self.protocol}",
             f"<Client '{self.server}web?db=database'>",
             "<Env 'usr@database'>",

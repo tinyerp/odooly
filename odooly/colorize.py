@@ -166,8 +166,6 @@ def install_colors(global_vars):
         from _pyrepl import utils
         from _pyrepl.utils import disp_str, gen_colors, THEME
     except ImportError:
-        if not os.getenv('FORCE_COLOR'):
-            return
         utils = None
 
     # Initialize color_repr, color_python
