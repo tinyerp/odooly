@@ -2,7 +2,10 @@ import datetime as dt_
 from functools import partial
 from unittest import TestCase
 
-from odooly import issearchdomain, literal_eval, searchargs, Model, Client, Printer
+from odooly import Model
+from odooly.printer import MAXCOL, Printer
+from odooly.run import InteractiveClient
+from odooly.helpers import issearchdomain, literal_eval, searchargs
 
 
 class TestUtils(TestCase):
@@ -167,11 +170,12 @@ class TestUtils(TestCase):
         # Verbosity None or 0   --> disable logging
         # Verbosity 1 to 8      --> mapped 1 -> 79 / 2 -> 179 / 3+ -> 9999
         # Verbosity >= 36       --> width to print in columns
-        client = object.__new__(Client)
+        client = object.__new__(InteractiveClient)
         client._printer = Printer()
         client.verbose = 2
-        self.assertEqual(client._printer.width, 179)
-        self.assertEqual(client.verbose, 179)
+        expected = MAXCOL[1]
+        self.assertEqual(client._printer.width, expected)
+        self.assertEqual(client.verbose, expected)
         client.verbose = 3
         self.assertEqual(client._printer.width, 9999)
         client.verbose = 250

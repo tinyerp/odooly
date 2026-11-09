@@ -3,7 +3,8 @@ import sys
 from unittest import mock
 from unittest.mock import call, ANY
 
-import odooly
+import odooly.run
+
 from ._common import OdooTestCase, JsonRpcTestCase
 
 
@@ -11,19 +12,16 @@ class _TestInteract(OdooTestCase):
 
     def setUp(self):
         super().setUp()
-        # Reset defaults before each run
-        odooly.Client._set_interactive.__func__.__defaults__ = ({},)
         # Hide readline module
         mock.patch.dict('sys.modules', {'readline': None}).start()
         # Hide _pyrepl module
         mock.patch.dict('sys.modules', {'_pyrepl': None}).start()
         # Force interactive flow (test stdin is not a real tty)
         mock.patch('sys.stdin.isatty', return_value=True).start()
-        mock.patch('odooly.Client._globals', None).start()
-        mock.patch('odooly.Client._set_interactive', wraps=odooly.Client._set_interactive).start()
-        self.interact = mock.patch('odooly._interact', wraps=odooly._interact).start()
+        mock.patch('odooly.run.InteractiveClient._globals', None).start()
+        self.interact = mock.patch('odooly.run._interact', wraps=odooly.run._interact).start()
         self.infunc = mock.patch('code.InteractiveConsole.raw_input').start()
-        mock.patch('odooly.main.__defaults__', (self.interact,)).start()
+        mock.patch('odooly.run.main.__defaults__', (self.interact,)).start()
 
     def _resp_version_info(self):
         [major, minor] = self.server_version.split('.')
@@ -41,8 +39,8 @@ class TestInteractJsonRpc(JsonRpcTestCase, _TestInteract):
     server_version = '14.0'
     server = f"{OdooTestCase.server}/jsonrpc"
     startup_calls = (
-        call(ANY, 'common', ANY),
-        call(ANY, 'object', ANY),
+        call(ANY, 'common'),
+        call(ANY, 'object'),
         'common.version',
         'database.list',
     )
@@ -50,9 +48,9 @@ class TestInteractJsonRpc(JsonRpcTestCase, _TestInteract):
     def test_main(self):
         env_tuple = (self.server, 'database', 'usr', None, None)
         mock.patch('sys.argv', new=['odooly', '--env', 'demo']).start()
-        read_config = mock.patch('odooly.Client.get_config',
+        read_config = mock.patch('odooly.run.InteractiveClient.get_config',
                                  return_value=env_tuple).start()
-        getpass = mock.patch('odooly.getpass',
+        getpass = mock.patch('odooly.environment.getpass',
                              return_value='password').start()
         self.service.database.list.return_value = ['database']
         self.service.common.login.side_effect = [17, 51]
@@ -66,7 +64,7 @@ class TestInteractJsonRpc(JsonRpcTestCase, _TestInteract):
             "client.login('gaspard')\n",
             "23 + 19\n",
             EOFError('Finished')]
-        odooly.main()
+        odooly.run.main()
 
         self.assertEqual(sys.ps1, 'demo >>> ')
         self.assertEqual(sys.ps2, '     ... ')
@@ -95,8 +93,8 @@ class TestInteractJsonRpc(JsonRpcTestCase, _TestInteract):
     def test_no_database(self):
         env_tuple = (self.server, 'missingdb', 'usr', None, None)
         mock.patch('sys.argv', new=['odooly', '--env', 'demo']).start()
-        mock.patch('odooly.getpass', return_value='xyz').start()
-        read_config = mock.patch('odooly.Client.get_config',
+        mock.patch('odooly.environment.getpass', return_value='xyz').start()
+        read_config = mock.patch('odooly.run.InteractiveClient.get_config',
                                  return_value=env_tuple).start()
         self.service.database.list.return_value = ['database']
 
@@ -107,7 +105,7 @@ class TestInteractJsonRpc(JsonRpcTestCase, _TestInteract):
             "env.sudo('gaspard')\n",
             "client.login('gaspard')\n",
             EOFError('Finished')]
-        odooly.main()
+        odooly.run.main()
 
         expected_calls = self.startup_calls + (
             "database.list",
@@ -128,9 +126,9 @@ class TestInteractJsonRpc(JsonRpcTestCase, _TestInteract):
     def test_invalid_user_password(self):
         env_tuple = (self.server, 'database', 'usr', 'passwd', None)
         mock.patch('sys.argv', new=['odooly', '--env', 'demo']).start()
-        mock.patch('os.environ', new={'LANG': 'fr_FR.UTF-8'}).start()
-        mock.patch('odooly.Client.get_config', return_value=env_tuple).start()
-        mock.patch('odooly.getpass', return_value='x').start()
+        mock.patch('os.environ', new={'LANG': 'fr_FR.UTF-8', 'NO_COLOR': '1'}).start()
+        mock.patch('odooly.run.InteractiveClient.get_config', return_value=env_tuple).start()
+        mock.patch('odooly.environment.getpass', return_value='x').start()
         self.service.database.list.return_value = ['database']
         self.service.common.login.side_effect = [17, None]
         self.service.object.execute_kw.side_effect = [{}, {}, [{'id': 42, 'model': 'abc'}]]
@@ -141,7 +139,7 @@ class TestInteractJsonRpc(JsonRpcTestCase, _TestInteract):
             "client.login('gaspard')\n",
             "env['res.company']\n",
             EOFError('Finished')]
-        odooly.main()
+        odooly.run.main()
 
         def usr17(model, method, *params):
             return ('object.execute_kw', 'database', 17, 'passwd', model, method, params)
@@ -170,12 +168,12 @@ class TestInteractJsonRpc(JsonRpcTestCase, _TestInteract):
         mock.patch('sys.argv', new=['odooly', '--env', 'demo']).start()
         mock.patch('sys.stdin.isatty', return_value=False).start()
         mock.patch('sys.stdin.read', return_value=code_snippet).start()
-        mock.patch('odooly.Client.get_config', return_value=env_tuple).start()
+        mock.patch('odooly.run.InteractiveClient.get_config', return_value=env_tuple).start()
         self.service.database.list.return_value = ['database']
         self.service.common.login.return_value = 17
         self.service.object.execute_kw.return_value = {}
 
-        odooly.main()
+        odooly.run.main()
 
         self.assertEqual(self.interact.call_count, 0)
         self.assertOutput(stdout='18\n')
@@ -198,9 +196,9 @@ class TestInteract19(_TestInteract):
     def test_main(self):
         env_tuple = (self.server, self.database, self.user, None, None)
         mock.patch('sys.argv', new=['odooly', '--env', 'demo']).start()
-        read_config = mock.patch('odooly.Client.get_config',
+        read_config = mock.patch('odooly.run.InteractiveClient.get_config',
                                  return_value=env_tuple).start()
-        getpass = mock.patch('odooly.getpass',
+        getpass = mock.patch('odooly.environment.getpass',
                              return_value=self.password).start()
         self.http_request.side_effect = [
             {'result': self._resp_version_info()},
@@ -223,7 +221,7 @@ class TestInteract19(_TestInteract):
             "client.login('gaspard')\n",
             "23 + 19\n",
             EOFError('Finished')]
-        odooly.main()
+        odooly.run.main()
 
         self.assertEqual(sys.ps1, 'demo >>> ')
         self.assertEqual(sys.ps2, '     ... ')

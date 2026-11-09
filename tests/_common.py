@@ -2,7 +2,7 @@ from urllib.request import urljoin
 from unittest import mock, TestCase
 from unittest.mock import ANY, call, sentinel
 
-import odooly
+import odooly.run
 
 type_call = type(call)
 
@@ -38,10 +38,10 @@ class OdooTestCase(TestCase):
         self.http_request = self._patch_http_request()
 
         # Clear the login cache
-        mock.patch.dict('odooly.Env._cache', clear=True).start()
+        mock.patch.dict('odooly.environment.Env._cache', clear=True).start()
 
         # Avoid hanging on getpass
-        mock.patch('odooly.getpass', side_effect=RuntimeError).start()
+        mock.patch('odooly.environment.getpass', side_effect=RuntimeError).start()
 
     def _patch_http_request(self, uid=None, context=None):
         def func(url, *, method='POST', data=None, json=None, headers=None):
@@ -50,7 +50,7 @@ class OdooTestCase(TestCase):
             else:
                 raise odooly.ServerError(url)
             return {'result': result}
-        return mock.patch('odooly.HTTPSession.request', side_effect=func).start()
+        return mock.patch('odooly.http.HTTPSession.request', side_effect=func).start()
 
     def assertMockCalls(self, mock_, expected_calls):
         for idx, expected in enumerate(expected_calls):
@@ -104,7 +104,7 @@ class JsonRpcTestCase(OdooTestCase):
         self.service = self._patch_service()
         if self.server and self.database:
             # create the client
-            self.client = odooly.Client(
+            self.client = odooly.run.InteractiveClient(
                 self.server, self.database, self.user, self.password)
             self.env = self.client.env
             # reset the mock
@@ -113,7 +113,7 @@ class JsonRpcTestCase(OdooTestCase):
     def _patch_service(self):
         def get_svc(server, name, *args, **kwargs):
             return getattr(svcs, name.rsplit('/')[-1])
-        patcher = mock.patch('odooly.Service', side_effect=get_svc)
+        patcher = mock.patch('odooly.client.Service', side_effect=get_svc)
         svcs = patcher.start()
         svcs.stop = patcher.stop
         for svc_name in 'common object database dataset doc web'.split():
@@ -124,7 +124,7 @@ class JsonRpcTestCase(OdooTestCase):
         svcs.object.execute_kw.return_value = self.user_context
         # Patch WebAPI as well
         svcs.database.list.return_value = [self.database]
-        mock.patch('odooly.WebAPI', side_effect=get_svc).start()
+        mock.patch('odooly.client.WebAPI', side_effect=get_svc).start()
         return svcs
 
     def assertCalls(self, *expected_args):

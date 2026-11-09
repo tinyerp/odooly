@@ -37,10 +37,13 @@ Documentation = "https://odooly.readthedocs.org/"
 Repository = "https://github.com/tinyerp/odooly"
 
 [project.scripts]
-odooly = "odooly_run:main"
+odooly = "odooly.run:main"
+
+[project.optional-dependencies]
+requests = ["requests"]
 
 [tool.setuptools]
-py-modules = ["odooly", "odooly_run"]
+packages = ["odooly"]
 platforms = ["any"]
 include-package-data = false
 

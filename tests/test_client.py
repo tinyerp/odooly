@@ -1,7 +1,7 @@
 from unittest import mock
 from unittest.mock import call, sentinel, ANY
 
-import odooly
+import odooly.run
 from ._common import JsonRpcTestCase, OBJ
 
 AUTH = sentinel.AUTH
@@ -53,7 +53,7 @@ class TestServiceJsonRpc(JsonRpcTestCase):
     uid = 22
 
     def _patch_service(self):
-        return mock.patch('odooly.HTTPSession.request', return_value={'result': 'JSON_RESULT'}).start()
+        return mock.patch('odooly.http.HTTPSession.request', return_value={'result': 'JSON_RESULT'}).start()
 
     def _get_client(self):
         proxy = getattr(odooly.Client, '_proxy_%s' % self.protocol)
@@ -67,10 +67,10 @@ class TestServiceJsonRpc(JsonRpcTestCase):
 
     def test_service(self):
         client = self._get_client()
-        svc_alpha = odooly.Service(client, 'alpha', ['beta'])
+        svc_common = odooly.client.Service(client, 'common')
 
-        self.assertIn('alpha', str(svc_alpha.beta))
-        self.assertRaises(AttributeError, getattr, svc_alpha, 'theta')
+        self.assertIn('common', str(svc_common.login))
+        self.assertRaises(AttributeError, getattr, svc_common, 'theta')
         self.assertCalls()
         self.assertOutput('')
 
@@ -78,9 +78,7 @@ class TestServiceJsonRpc(JsonRpcTestCase):
         client = self._get_client()
 
         def get_proxy(name, methods=None):
-            if methods is None:
-                methods = odooly._rpc_methods.get(name, ())
-            return odooly.Service(client, name, methods)
+            return odooly.client.Service(client, name)
 
         self.assertIn('common', str(get_proxy('common').login))
         login = get_proxy('common').login('aaa')
@@ -103,15 +101,15 @@ class TestServiceJsonRpc(JsonRpcTestCase):
         client = odooly.Client(server, 'newdb', 'usr', 'pss')
 
         self.service.return_value = ANY
-        self.assertIsInstance(client.common, odooly.Service)
-        self.assertIsInstance(client._object, odooly.Service)
+        self.assertIsInstance(client.common, odooly.client.Service)
+        self.assertIsInstance(client._object, odooly.client.Service)
 
         # Removed RPC services
         self.assertRaises(AttributeError, getattr, client, 'db')
         self.assertRaises(AttributeError, getattr, client, '_report')
         self.assertRaises(AttributeError, getattr, client, '_wizard')
 
-        self.assertIsInstance(client.database, odooly.WebAPI)
+        self.assertIsInstance(client.database, odooly.client.WebAPI)
         self.assertIn('/web/database', str(client.database.create))
         self.assertIn('/web/database', str(client.database.exist))
 
@@ -147,8 +145,8 @@ class TestCreateClient(JsonRpcTestCase):
     server_version = '14.0'
     server = f'{JsonRpcTestCase.server}/jsonrpc'
     startup_calls = (
-        call(ANY, 'common', ANY),
-        call(ANY, 'object', ANY),
+        call(ANY, 'common'),
+        call(ANY, 'object'),
         'common.version',
         'database.list',
     )
@@ -177,7 +175,7 @@ class TestCreateClient(JsonRpcTestCase):
         self.assertOutput('')
 
     def test_create_getpass(self):
-        getpass = mock.patch('odooly.getpass',
+        getpass = mock.patch('odooly.environment.getpass',
                              return_value='password').start()
         self.service.database.list.return_value = ['database']
         expected_calls = self.startup_calls + (
@@ -216,9 +214,9 @@ class TestCreateClient(JsonRpcTestCase):
 
     def test_create_from_config(self):
         env_tuple = (self.server, 'database', 'usr', None, None)
-        read_config = mock.patch('odooly.Client.get_config',
+        read_config = mock.patch('odooly.run.InteractiveClient.get_config',
                                  return_value=env_tuple).start()
-        getpass = mock.patch('odooly.getpass', return_value='password').start()
+        getpass = mock.patch('odooly.environment.getpass', return_value='password').start()
         self.service.database.list.return_value = ['database']
         expected_calls = self.startup_calls + (
             call.common.login('database', 'usr', 'password'),
@@ -226,7 +224,7 @@ class TestCreateClient(JsonRpcTestCase):
 
         # A: Invalid login
         self.service.common.login.return_value = False
-        self.assertRaises(odooly.Error, odooly.Client.from_config, 'test')
+        self.assertRaises(odooly.Error, odooly.run.InteractiveClient.from_config, 'test')
         self.assertCalls(*expected_calls)
         self.assertEqual(read_config.call_count, 1)
         self.assertEqual(getpass.call_count, 1)
@@ -239,7 +237,7 @@ class TestCreateClient(JsonRpcTestCase):
             call.object.execute_kw('database', 17, 'password', 'res.users', 'context_get', ()),
         )
 
-        client = odooly.Client.from_config('test')
+        client = odooly.run.InteractiveClient.from_config('test')
         self.assertIsInstance(client, odooly.Client)
         self.assertCalls(*expected_calls)
         self.assertEqual(read_config.call_count, 1)
@@ -571,7 +569,7 @@ class TestClientApi(JsonRpcTestCase):
     def test_sudo(self):
         ctx_lang = {'lang': 'it_IT'}
         self.service.object.execute_kw.side_effect = [ctx_lang]
-        getpass = mock.patch('odooly.getpass', side_effect=['xxx', 'ooo']).start()
+        getpass = mock.patch('odooly.environment.getpass', side_effect=['xxx', 'ooo']).start()
         env = self.env(user='guest')
 
         self.service.object.execute_kw.side_effect = [ctx_lang, ctx_lang]

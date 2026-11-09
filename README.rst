@@ -36,12 +36,12 @@ Key features:
 - supports JSON-2 API with Odoo 19 and more recent
 - supports external API JSON-RPC as alternative
 - compatible with Odoo 9 to 21
-- single file ``odooly.py``, no external dependency
 - helpers for ``search``, for data model introspection, etc...
 - simplified syntax for search ``domain``
 - entire API accessible on the ``Client.env`` environment
 - can be imported and used as a library: ``from odooly import Client``
 - supports Python 3.8 and more recent
+- no external dependency, can use without installing
 
 
 
@@ -130,7 +130,7 @@ This is a sample session::
 
 .. note::
 
-   To preserve the commands' history when closing the session, first
-   create an empty file in your home directory::
-
-       ~$ touch ~/.odooly_history
+   Commands' history is preserved when closing the session.  History file
+   can be changed with environment variable ``ODOOLY_HISTORY``, which
+   defaults to ``~/.odooly_history``.  Use an empty value to disable this
+   feature.
