@@ -50,6 +50,7 @@ class InteractiveClient(Client):
     """Connection to an Odoo instance.  Interactive client."""
     _config_file = None
     _saved_config = {}
+    _saved_config_demo = {}
     _globals = None
 
     def __init__(self, server, db=None, user=None, password=None, api_key=None, verbose=False):
@@ -86,15 +87,17 @@ class InteractiveClient(Client):
         See :meth:`InteractiveClient.read_config` for details of the configuration file format.
         """
         assert environment
-        if environment not in cls._saved_config:
+        saved_config = {**cls._saved_config_demo, **cls._saved_config}
+        if environment not in saved_config:
             try:
                 cls._saved_config[environment] = cls.read_config(environment)
             except Exception:
-                envs = [*cls._saved_config]
-                if cls._config_file.exists():
-                    envs += [env for env in cls.read_config() if env not in cls._saved_config]
-                raise Error("No such environment.\nAvailable: " + ", ".join(envs))
-        return cls._saved_config[environment]
+                envs = [env for env in cls.read_config() if env not in saved_config]
+                err_msg = "No such environment.\nAvailable: " + " ".join(envs)
+                if saved_config:
+                    err_msg += "\n  " + " ".join(saved_config)
+                raise Error(err_msg)
+        return saved_config[environment]
 
     @classmethod
     def from_config(cls, environment, user=None, verbose=False):
@@ -129,6 +132,10 @@ class InteractiveClient(Client):
         Return tuple ``(server, db or None, user, password or None, api_key or None)``.
         Without argument, it returns the list of configured environments.
         """
+        if not cls._config_file.exists():
+            if section is None:
+                return []
+            raise FileNotFoundError(cls._config_file)
         with cls._config_file.open() as f:
             (p := ConfigParser()).read_file(f)
         if section is None:
@@ -286,15 +293,22 @@ def get_parser():
         '--api-key', dest='api_key', default=None,
         help='API Key for JSON-2 or JSON-RPC')
     parser.add_argument(
+        '--demo', dest='demo', nargs='?', const="demo",
+        help='connect to demo or runbot server (default: demo, demo.odoo.com)')
+    parser.add_argument(
+        '--test', dest='demo', nargs='?', const="test+e",
+        help='connect to demo or runbot server (default: test+e, on master branch)')
+    parser.add_argument(
         '-v', '--verbose', default=0, action='count',
         help='verbose')
+
     parser.add_argument('--version', action='version', version=__version__)
     return parser
 
 
 def connect_client(args):
-    if args.env:
-        client = InteractiveClient.from_config(args.env, user=args.user, verbose=args.verbose)
+    if (env_name := args.demo or args.env):
+        client = InteractiveClient.from_config(env_name, user=args.user, verbose=args.verbose)
     else:
         if not args.server:
             args.server = ['-c', args.config] if args.config else DEFAULT_URL
@@ -333,12 +347,19 @@ def main(interact=_interact):
     client_class = InteractiveClient
     client_class._config_file = Path.cwd() / args.config
 
+    if args.demo:
+        from ._demo import _retrieve_servers
+
+        client_class._saved_config_demo = _retrieve_servers(user=args.user or "demo")
+
     if not is_interactive_shell:  # Read and execute commands from standard input
         client = connect_client(args)
         exec(compile(sys.stdin.read(), '<stdin>', 'exec'), {'client': client, 'env': client.env})
         return
     if args.list_env:
         print('Available settings:  ' + ' '.join(client_class.read_config()))
+        if args.demo:
+            print(' ' + ' '.join(client_class._saved_config_demo))
         return
 
     # Interactive mode

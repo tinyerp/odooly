@@ -65,12 +65,12 @@ Environments can also be declared in ``odooly.ini``::
     database = odoo
     username = admin
 
-    [demo]
+    [devel]
     server = http://localhost:8069/web
     username = demo
     password = demo
 
-    [demo/jsonrpc]
+    [devel/jsonrpc]
     server = http://localhost:8069/jsonrpc
     username = demo
     password = demo
@@ -83,7 +83,7 @@ Environments can also be declared in ``odooly.ini``::
 Connect to the Odoo server::
 
     ~$ odooly --list
-    ~$ odooly --env demo
+    ~$ odooly --env devel
 
 
 This is a sample session::
