@@ -2,6 +2,16 @@ Changelog
 ---------
 
 
+3.0.x (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* Fix usage like ``odooly https://demo.odoo.com``.
+
+* Fix error when more than one database exists, in non-interactive mode.
+
+* Accept ``--env`` and ``--db`` simultaneously.
+
+
 3.0.0 (2026-11-12)
 ~~~~~~~~~~~~~~~~~~
 

@@ -230,7 +230,7 @@ class Client:
                 if not database:
                     # Database selector page
                     database = self._select_database(dbs)
-                elif dbs and database not in dbs:
+                if dbs and database not in dbs:
                     raise Error(f"Database {database!r} does not exist: {dbs}")
         if database and env.db_name != database:
             if self._session_uid:

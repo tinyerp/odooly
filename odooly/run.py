@@ -100,7 +100,7 @@ class InteractiveClient(Client):
         return saved_config[environment]
 
     @classmethod
-    def from_config(cls, environment, user=None, verbose=False):
+    def from_config(cls, environment, *, user=None, database=None, verbose=False):
         """Create a connection to a defined environment.
 
         See :meth:`InteractiveClient.get_config`
@@ -112,9 +112,9 @@ class InteractiveClient(Client):
         try:
             client = Env._cache[Env, db, server].client
             client.verbose = verbose
-            client.login(user or conf_user, password=password, api_key=api_key)
+            client.login(user or conf_user, password=password, database=database, api_key=api_key)
         except KeyError:
-            client = cls(server, db, user or conf_user,
+            client = cls(server, database or db, user or conf_user,
                          password=password, api_key=api_key, verbose=verbose)
         return client.save(environment, skip=skip_save)
 
@@ -132,7 +132,7 @@ class InteractiveClient(Client):
         Return tuple ``(server, db or None, user, password or None, api_key or None)``.
         Without argument, it returns the list of configured environments.
         """
-        if not cls._config_file.exists():
+        if not cls._config_file or not cls._config_file.is_file():
             if section is None:
                 return []
             raise FileNotFoundError(cls._config_file)
@@ -187,7 +187,7 @@ class InteractiveClient(Client):
         """Connect to another environment and replace the globals()."""
         assert self._is_interactive(), 'Not available'
         if env_name:
-            self.from_config(env_name, user=user, verbose=self.verbose)
+            self.from_config(env_name, user=user, database=database, verbose=self.verbose)
         elif server:
             if not user and self.env.uid:
                 user = self.env.user.login
@@ -244,7 +244,7 @@ def _interact(global_vars, use_pprint=True, usage=USAGE):
                 readline.set_history_length(int(os.getenv('HISTSIZE', 500)))
             # better append instead of replace?
             atexit.register(readline.write_history_file, hist_file)
-        except Exception as exc:
+        except Exception:
             pass  # No history in case of error
 
     if use_pprint:
@@ -279,7 +279,7 @@ def get_parser():
         '--env',
         help='read connection settings from the given section')
     parser.add_argument(
-        '-c', '--config', default=CONF_FILE,
+        '-c', '--config', default=None,
         help=f'specify alternate config file (default: {CONF_FILE})')
     parser.add_argument(
         '--server', default=None,
@@ -308,7 +308,8 @@ def get_parser():
 
 def connect_client(args):
     if (env_name := args.demo or args.env):
-        client = InteractiveClient.from_config(env_name, user=args.user, verbose=args.verbose)
+        client = InteractiveClient.from_config(env_name, user=args.user, database=args.db,
+                                               verbose=args.verbose)
     else:
         if not args.server:
             args.server = ['-c', args.config] if args.config else DEFAULT_URL
@@ -345,7 +346,7 @@ def main(interact=_interact):
     is_interactive_shell = sys.stdin.isatty()
 
     client_class = InteractiveClient
-    client_class._config_file = Path.cwd() / args.config
+    client_class._config_file = Path.cwd() / (args.config or CONF_FILE)
 
     if args.demo:
         from ._demo import _retrieve_servers
