@@ -23,6 +23,8 @@ class _TestInteract(OdooTestCase):
         self.interact = mock.patch('odooly.run._interact', wraps=odooly.run._interact).start()
         self.infunc = mock.patch('code.InteractiveConsole.raw_input').start()
         mock.patch('odooly.run.main.__defaults__', (self.interact,)).start()
+        # OSError: [Errno 25] Inappropriate ioctl for device
+        mock.patch('odooly.run.handle_resize').start()
 
     def _resp_version_info(self):
         [major, minor] = self.server_version.split('.')
