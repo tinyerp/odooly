@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-3.0.x (unreleased)
+3.0.1 (2026-11-13)
 ~~~~~~~~~~~~~~~~~~
 
 * Fix usage like ``odooly https://demo.odoo.com``.
@@ -10,6 +10,9 @@ Changelog
 * Fix error when more than one database exists, in non-interactive mode.
 
 * Accept ``--env`` and ``--db`` simultaneously.
+
+* New environment variable ``ODOOLY_USAGE`` to change or remove message
+  printed when interactive shell is started.
 
 
 3.0.0 (2026-11-12)

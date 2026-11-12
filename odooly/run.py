@@ -372,7 +372,8 @@ def main(interact=_interact):
     }
     if not interact:
         return connect_client(args)._globals
+    usage = os.getenv('ODOOLY_USAGE', USAGE)
     install_colors(client_class._globals)
     install_signal_handler()
-    print(color_repr(USAGE))
-    return interact(connect_client(args)._globals)
+    print(color_repr(usage))
+    return interact(connect_client(args)._globals, usage=usage)
