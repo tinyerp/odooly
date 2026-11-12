@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-3.0.0 (2026-11-11)
+3.0.0 (2026-11-12)
 ~~~~~~~~~~~~~~~~~~
 
 **BREAKING CHANGE**: Project is no longer a single file.  It is reorganized with a traditional
