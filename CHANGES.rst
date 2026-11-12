@@ -16,6 +16,7 @@ package structure.  As a consequence, some import paths have to be adapted in yo
   ``python odooly-3.0.0-py3-none-any.whl/odooly --version``
 * Switch the project to a package structure
 * Build: migrate to pyproject.toml
+* Build: change Web theme for documentation
 
 
 2.6.9 (2026-11-06)

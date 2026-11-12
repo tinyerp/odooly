@@ -21,15 +21,17 @@ should be portable in the application with little effort.
 Client and Services
 -------------------
 
-The :class:`Client` object provides thin wrappers around Odoo Webclient API
+.. module:: odooly.client
+
+Client
+~~~~~~
+
+The :class:`~Client` object provides thin wrappers around Odoo Webclient API
 and RPC services and their methods.  Additional helpers are provided on the
 ``Client.env`` environment, to explore the models and to list or to install
-Odoo add-ons.  Please refer to :class:`Env` documentation below.
-
+Odoo add-ons.  Please refer to :class:`~odooly.environment.Env` documentation below.
 
 .. autoclass:: Client
-
-.. automethod:: Client.from_config
 
 .. automethod:: Client.create_database
 
@@ -39,20 +41,9 @@ Odoo add-ons.  Please refer to :class:`Env` documentation below.
 
 .. automethod:: Client.login
 
-.. automethod:: Client.save
-
-.. automethod:: Client.get_config
-
 .. attribute:: Client.env
 
    Current :class:`Env` environment of the client.
-
-
-.. note::
-
-   In :ref:`interactive mode <interactive-mode>`, a method
-   :attr:`Client.connect(env=None, server=None, database=None, user=None)` exists,
-   to connect to another environment, and recreate the :func:`globals()`.
 
 .. note::
 
@@ -65,7 +56,7 @@ Odoo Webclient API
 ~~~~~~~~~~~~~~~~~~
 
 These HTTP routes were developed for the Odoo Web application.  They are used
-by Odooly to provide high level methods on :class:`Env` and :class:`Model`.
+by Odooly to provide high level methods on :class:`Env` and :class:`odoo.models.Model`.
 The :attr:`~Client.database` endpoint exposes few methods which might be helpful
 for database management.  Use :func:`dir` function to introspect them.
 
@@ -90,6 +81,8 @@ for database management.  Use :func:`dir` function to introspect them.
 .. attribute:: Client.web_webclient
 
    Expose the ``/web/webclient`` :class:`WebAPI`.
+
+.. module:: odooly.service
 
 .. autoclass:: WebAPI
    :members:
@@ -141,6 +134,11 @@ Please refer to `the Odoo documentation`_ for more details.
 
 Environment
 -----------
+
+.. module:: odooly.environment
+
+Env
+~~~
 
 .. autoclass:: Env
    :members: lang, access, models, ref, __getitem__, odoo_env, registry
@@ -246,7 +244,9 @@ Python script or interactively in a Python session.
 Model and Records
 -----------------
 
-The :class:`Env` provides a high level API similar to the Odoo API, which
+.. module:: odooly.models
+
+The :class:`~odooly.environment.Env` provides a high level API similar to the Odoo API, which
 encapsulates objects into `Active Records
 <https://www.martinfowler.com/eaaCatalog/activeRecord.html>`_.
 
@@ -355,7 +355,7 @@ Example: ``client.env['res.company']`` returns a :class:`Model`.
       Return a dictionary of the fields.
 
 .. autoclass:: Record(model, id)
-   :members: read, write, copy, unlink, _send, _external_id, refresh
+   :members: read, write, copy, unlink, _external_id, refresh
    :undoc-members:
 
    .. automethod:: exists()
@@ -386,8 +386,33 @@ Example: ``client.env['res.company']`` returns a :class:`Model`.
       Return a dictionary of the fields.
 
 
+Interactive
+-----------
+
+.. module:: odooly.run
+
+In :ref:`interactive mode <interactive-mode>`, the ``client`` is an instance of
+:class:`InteractiveClient`, a subclass of :class:`Client` with additional helpers.
+Method :attr:`~InteractiveClient.connect()`
+will connect to another environment, and replace the global variables: ``client`` and ``env``
+
+.. autoclass:: InteractiveClient
+
+.. automethod:: InteractiveClient.read_config
+
+.. automethod:: InteractiveClient.from_config
+
+.. automethod:: InteractiveClient.get_config
+
+.. automethod:: InteractiveClient.save
+
+.. automethod:: InteractiveClient.connect
+
+
 Utilities
 ---------
+
+.. module:: odooly.helpers
 
 .. autofunction:: issearchdomain
 
@@ -395,6 +420,4 @@ Utilities
 
 .. autofunction:: format_exception(type, value, tb, limit=None, chain=True)
 
-.. autofunction:: read_config
-
-.. autofunction:: start_odoo_services
+.. autofunction:: odooly.service.start_odoo_services

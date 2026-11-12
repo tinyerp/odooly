@@ -7,8 +7,6 @@
 Odooly - client for Odoo
 ========================
 
-*A versatile tool for Odoo*
-
 The Odooly library communicates with any `Odoo server`_ using the Webclient API.
 If an ``api_key`` is configured, it will use the JSON-2 endpoint with Odoo 19.
 It can also connect through the `deprecated external RPC interface`_ (JSON-RPC).
@@ -28,25 +26,25 @@ The :doc:`tutorial` gives an in-depth look at the capabilities.
 Authentication methods per Odoo version, and per API:
 
 
-============= ============ ========= ========== ========== =========
- Odoo \\ API    Webclient   Public     JSON-2    JSON-RPC   XML-RPC
-============= ============ ========= ========== ========== =========
- 22.0 +       | Login 2FA             API Key     *( both removed )*
-              | Login       no-auth
-------------- ------------ --------- ---------- --------------------
- 19.0 to 21.0 | Login 2FA             API Key   | API Key *(deprecated)*
-              | Login       no-auth             | Login *(deprecated)*
-------------- ------------ --------- ---------- --------------------
- 15.0 to 18.0 | Login 2FA                       | API Key  | API Key
-              | Login       no-auth             | Login    | Login
-------------- ------------ --------- ---------- ---------- ---------
- 14.0                                           | API Key  | API Key
-               Login        no-auth             | Login    | Login
-------------- ------------ --------- ---------- ---------- ---------
- 8.0 to 13.0   Login        no-auth              Login      Login
-------------- ------------ --------- ---------- ---------- ---------
- 6.1 and 7.0   Login        no-auth                         Login
-============= ============ ========= ========== ========== =========
+============= ============== ========= ========== ============ ============
+ Odoo \\ API     Webclient    Public     JSON-2    *JSON-RPC*    *XML-RPC*
+============= ============== ========= ========== ============ ============
+ 22.0 +       | Login 2FA               API Key     *( both removed )*
+              | *or* Login    no-auth
+------------- -------------- --------- ---------- -------------------------
+ 19.0 to 21.0 | Login 2FA               API Key   | API Key *(deprecated)*
+              | *or* Login    no-auth             | Login *(deprecated)*
+------------- -------------- --------- ---------- -------------------------
+ 15.0 to 18.0 | Login 2FA                         | API Key    | API Key
+              | *or* Login    no-auth             | *or* Login | *or* Login
+------------- -------------- --------- ---------- ------------ ------------
+ 14.0                                             | API Key    | API Key
+                 Login        no-auth             | *or* Login | *or* Login
+------------- -------------- --------- ---------- ------------ ------------
+ 8.0 to 13.0     Login        no-auth               Login        Login
+------------- -------------- --------- ---------- ------------ ------------
+ 6.1 and 7.0     Login        no-auth                            Login
+============= ============== ========= ========== ============ ============
 
 .. note:: So called Public API is available without authentication. For
           example ``/web/webclient/version_info``.  The ``/web/database/*``

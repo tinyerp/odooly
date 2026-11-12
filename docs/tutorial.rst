@@ -122,13 +122,13 @@ Default password is ``"admin"``.
    Create an ``odooly.ini`` file in the current directory to declare all our
    environments.  Example::
 
-       [demo]
+       [devel]
        server = http://localhost:8069/web
        database = demo
        username = joe
 
-   Then we connect to any environment with ``odooly --env demo`` or switch
-   during an interactive session with ``client.connect('demo')``.
+   Then we connect to any environment with ``odooly --env devel`` or switch
+   during an interactive session with ``client.connect('devel')``.
 
 
 Clone a database
@@ -160,7 +160,7 @@ Find the users
 --------------
 
 We have created the database ``"demo"`` for the tests.
-We are connected to this database as ``'admin'``.
+We are connected to this database as ``"admin"``.
 
 Where is the table for the users?
 
@@ -203,7 +203,7 @@ the details.
      'type': 'many2one'}
     >>> #
 
-Let's examine the ``'admin'`` user in details.
+Let's examine the ``"admin"`` user in details.
 
 .. sourcecode:: pycon
 
