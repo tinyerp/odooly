@@ -42,10 +42,9 @@ def _retrieve_servers(url=RUNBOT_URL, regex=RUNBOT_REGEX, user=None, headers=RUN
     test_servers = collections.defaultdict(set)
     overview = HTTPSession().request(url, method='GET', headers=headers)
     builds = re.findall(regex, overview, re.DOTALL)
-    if not builds:
-        if os.getenv("ODOOLY_DEBUG"):
-            fdump = Path.cwd() / "runbot_odoo_com.html"
-            fdump.write_text(overview)
+    if not builds and os.getenv("ODOOLY_DEBUG"):
+        fdump = Path.cwd() / "runbot_odoo_com.html"
+        fdump.write_text(overview)
         raise SystemExit(f"Could not parse content of {RUNBOT_HOST}:\n  check here \"{fdump}\"")
     for edition, domain, build, ver in builds:
         suffix = "+e" if edition == "Enterprise" else ""
