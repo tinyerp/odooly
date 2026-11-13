@@ -73,9 +73,18 @@ class OdooTestCase(TestCase):
                         'Content-Type': 'application/json',
                         'X-Odoo-Database': self.database,
                     }
-                    expected_calls[idx] = call(f"{server}{expected[0]}", json=expected[1], headers=headers)
+                    expected_calls[idx] = call(
+                        f"{server}{expected[0]}",
+                        json=expected[1],
+                        headers=headers,
+                    )
                 elif expected[0].startswith('/web/'):
-                    jsonrpc_params = {'jsonrpc': '2.0', 'method': 'call', 'params': expected[1], 'id': ANY}
+                    jsonrpc_params = {
+                        'jsonrpc': '2.0',
+                        'method': 'call',
+                        'params': expected[1],
+                        'id': ANY,
+                    }
                     expected_calls[idx] = call(f"{server}{expected[0]}", json=jsonrpc_params)
         self.assertMockCalls(self.http_request, expected_calls)
 

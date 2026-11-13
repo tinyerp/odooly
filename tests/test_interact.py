@@ -233,10 +233,12 @@ class TestInteract19(_TestInteract):
         self.assertEqual(sys.ps1, 'demo >>> ')
         self.assertEqual(sys.ps2, '     ... ')
         expected_calls = self.startup_calls + (
-            ('/web/session/authenticate', {'db': 'database', 'login': 'gaspard', 'password': 'password'}),
+            ('/web/session/authenticate',
+             {'db': 'database', 'login': 'gaspard', 'password': 'password'}),
             ('/json/2/res.users/context_get', {}),
             call(f'{self.server}doc/res.device.json', method='GET'),
-            ('/web/session/authenticate', {'db': 'database', 'login': 'gaspard', 'password': 'password'}),
+            ('/web/session/authenticate',
+             {'db': 'database', 'login': 'gaspard', 'password': 'password'}),
         )
         self.assertRequests(*expected_calls)
         self.assertEqual(getpass.call_count, 2)

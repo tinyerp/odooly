@@ -156,8 +156,8 @@ class TestCreateClient(JsonRpcTestCase):
         self.service.common.login.return_value = 1
 
         s_context = '{"lang": "en_US", "tz": "Europe/Zurich"}'
-        key_1 = b"\0\0\0\1" + bytes.fromhex(f'{hash("{}")%2**32:08x}')
-        key_2 = b"\0\0\0\1" + bytes.fromhex(f'{hash(s_context)%2**32:08x}')
+        key_1 = b"\0\0\0\1" + bytes.fromhex(f'{hash("{}") % 2**32:08x}')
+        key_2 = b"\0\0\0\1" + bytes.fromhex(f'{hash(s_context) % 2**32:08x}')
         client = odooly.Client(self.server, 'newdb', 'usr', 'pss')
         expected_calls = self.startup_calls + (
             call.common.login('newdb', 'usr', 'pss'),

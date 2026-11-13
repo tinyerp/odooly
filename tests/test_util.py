@@ -152,8 +152,10 @@ class TestUtils(TestCase):
             "'duration': datetime.timedelta(days=3, seconds=42, microseconds=200000)}]}"
         )
         expected = {
-            'create_date': dt_.datetime(2001, 12, 31, 23, 59, 0, tzinfo=dt_.timezone(dt_.timedelta(seconds=19800))),
-            'write_date': dt_.datetime(2024, 2, 29, 1, 1, 1, tzinfo=dt_.timezone.utc),
+            'create_date': dt_.datetime(2001, 12, 31, 23, 59, 0,
+                                        tzinfo=dt_.timezone(dt_.timedelta(seconds=19800))),
+            'write_date': dt_.datetime(2024, 2, 29, 1, 1, 1,
+                                       tzinfo=dt_.timezone.utc),
             'duration': dt_.timedelta(days=3, seconds=42, microseconds=200000)
         }
         self.assertEqual(literal_eval(result), {'result': [expected]})
@@ -163,7 +165,8 @@ class TestUtils(TestCase):
         readfmt = partial(dummy._parse_format, browse=False)
 
         # Helper for 'read' methods
-        (fields, fmt) = readfmt('a {color} elephant enters {location[1]}.\n\n{firstname!r} has left')
+        (fields, fmt) = readfmt('a {color} elephant enters {location[1]}.\n\n'
+                                '{firstname!r} has left')
         self.assertEqual(fields, ['color', 'location', 'firstname'])
 
     def test_printer(self):
