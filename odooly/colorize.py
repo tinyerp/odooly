@@ -4,7 +4,7 @@ import os
 import re
 
 __all__ = ["color_bold", "color_comment", "color_json", "color_python", "color_repr",
-           "decolor", "install_colors", "THEME"]
+           "decolor", "setup_colors", "THEME"]
 
 KEYWORDS = {*keyword.kwlist}
 J_SPECIAL = {'false', 'null', 'true'}
@@ -155,7 +155,7 @@ def _init_colors():
         return result
 
 
-def install_colors(global_vars):
+def setup_colors(global_vars):
     """Set functions to color output."""
     global THEME, _bold, _comment, _python
 

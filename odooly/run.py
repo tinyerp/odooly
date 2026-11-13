@@ -11,7 +11,7 @@ from . import __doc__, __version__
 from .client import Client
 from .environment import ADMIN_USER, DEMO_USER, Env
 from .helpers import format_exception
-from .colorize import color_bold, color_repr, install_colors
+from .colorize import color_bold, color_repr, setup_colors
 from .exceptions import Error
 from .printer import Printer, convert_to_width, pp, set_output_width
 
@@ -269,6 +269,22 @@ def _interact(global_vars, use_pprint=True, usage=USAGE):
     run(console) if use_pyrepl else console.interact('', '')
 
 
+def handle_resize(signum, frame):
+    term = os.get_terminal_size()
+    if not term.columns:
+        return
+    client = InteractiveClient._globals.get('client')
+    if client and client.verbose:
+        client.verbose = term.columns
+    set_output_width(term.columns)
+
+
+def setup_signal_handler():
+    assert InteractiveClient._is_interactive()
+    signal.signal(signal.SIGWINCH, handle_resize)
+    signal.raise_signal(signal.SIGWINCH)
+
+
 def get_parser():
     parser = argparse.ArgumentParser(description='Interact with Odoo')
     parser.add_argument('args', nargs='*', help='URL of the server')
@@ -334,22 +350,6 @@ def connect_client(args):
     return client
 
 
-def handle_resize(signum, frame):
-    term = os.get_terminal_size()
-    if not term.columns:
-        return
-    client = InteractiveClient._globals.get('client')
-    if client and client.verbose:
-        client.verbose = term.columns
-    set_output_width(term.columns)
-
-
-def install_signal_handler():
-    assert InteractiveClient._is_interactive()
-    signal.signal(signal.SIGWINCH, handle_resize)
-    signal.raise_signal(signal.SIGWINCH)
-
-
 def main(interact=_interact):
     """Configure client, and decide if interactive.
 
@@ -389,7 +389,7 @@ def main(interact=_interact):
     if not interact:
         return connect_client(args)._globals
     usage = os.getenv('ODOOLY_USAGE', USAGE)
-    install_colors(client_class._globals)
-    install_signal_handler()
+    setup_colors(client_class._globals)
+    setup_signal_handler()
     print(color_repr(usage))
     return interact(connect_client(args)._globals, usage=usage)

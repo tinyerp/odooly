@@ -25,8 +25,8 @@ from pathlib import Path
 
 from odooly import __version__
 from odooly._demo import _retrieve_servers, RUNBOT_HOST
-from odooly.colorize import install_colors
-from odooly.run import InteractiveClient as Client, install_signal_handler, _interact
+from odooly.colorize import setup_colors
+from odooly.run import InteractiveClient as Client, setup_signal_handler, _interact
 
 
 def main():
@@ -55,8 +55,8 @@ def main():
         "__doc__": __doc__,
         "Client": Client,
     }
-    install_colors(Client._globals)
-    install_signal_handler()
+    setup_colors(Client._globals)
+    setup_signal_handler()
 
     if version.startswith('http'):
         print(f"Connect to {version} ...")
