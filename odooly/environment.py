@@ -13,6 +13,7 @@ from .models import Model, Record
 __all__ = ["Env", "ADMIN_USER", "SYSTEM_USER"]
 
 ADMIN_USER = 'admin'
+DEMO_USER = 'demo'
 SYSTEM_USER = '__system__'
 
 _pending_state = ('state', 'not in',

@@ -2,6 +2,13 @@ Changelog
 ---------
 
 
+3.0.x (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* When ``--demo`` or ``--test`` is used, it takes precedence
+  over local configuration, if two environments have the same name.
+
+
 3.0.3 (2026-11-13)
 ~~~~~~~~~~~~~~~~~~
 

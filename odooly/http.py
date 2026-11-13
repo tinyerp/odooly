@@ -84,7 +84,7 @@ class HTTPSession:
             if result and status_code in {401, 403, 404, 422, 500}:
                 # Unauthorized, Forbidden, NotFound, UnprocessableContent, InternalServerError
                 if isinstance(result, str):
-                    lines = re.findall(r'>([^>\n]+)<', result) or (status_code, result)
+                    lines = re.findall(r'>([^\n]+)<', result) or (status_code, result)
                     result = {'name': exc.__class__.__name__, 'debug': None,
                               'arguments': (f'{lines[0]} - {lines[-1]}',)}
                 raise ServerError({'code': status_code, 'data': result})

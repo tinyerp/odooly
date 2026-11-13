@@ -2,7 +2,7 @@ import os.path
 import sys
 
 # Support running without installing, from wheel file:
-# python odooly-2.7.0-py3-none-any.whl/odooly --help
+# python odooly-3.0.4-py3-none-any.whl/odooly --help
 
 _dir = os.path.dirname(__file__)
 _wheel_dir = os.path.dirname(_dir)

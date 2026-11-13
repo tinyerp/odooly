@@ -9,7 +9,7 @@ from pathlib import Path
 
 from . import __doc__, __version__
 from .client import Client
-from .environment import ADMIN_USER, Env
+from .environment import ADMIN_USER, DEMO_USER, Env
 from .helpers import format_exception
 from .colorize import color_bold, color_repr, install_colors
 from .exceptions import Error
@@ -86,7 +86,7 @@ class InteractiveClient(Client):
         See :meth:`InteractiveClient.read_config` for details of the configuration file format.
         """
         assert environment
-        saved_config = {**cls._saved_config_demo, **cls._saved_config}
+        saved_config = {**cls._saved_config, **cls._saved_config_demo}
         if environment in saved_config:
             return saved_config[environment]
         try:
@@ -283,7 +283,7 @@ def get_parser():
         help=f'specify alternate config file (default: {CONF_FILE})')
     parser.add_argument(
         '--server', default=None,
-        help=f'full URL of the server')
+        help='full URL of the server')
     parser.add_argument('-d', '--db', default=None, help='database')
     parser.add_argument('-u', '--user', default=None, help='username')
     parser.add_argument(
@@ -307,6 +307,8 @@ def get_parser():
 
 
 def connect_client(args):
+    # Argument 'args' is argparse Namespace with mandatory attributes:
+    #   args, env, config, server, db, user, password, api_key, demo, verbose
     if (env_name := args.demo or args.env):
         kwargs = {
             "user": args.user,
@@ -334,7 +336,7 @@ def connect_client(args):
 
 def handle_resize(signum, frame):
     term = os.get_terminal_size()
-    if not InteractiveClient._is_interactive() or not term.columns:
+    if not term.columns:
         return
     client = InteractiveClient._globals.get('client')
     if client and client.verbose:
@@ -343,6 +345,7 @@ def handle_resize(signum, frame):
 
 
 def install_signal_handler():
+    assert InteractiveClient._is_interactive()
     signal.signal(signal.SIGWINCH, handle_resize)
     signal.raise_signal(signal.SIGWINCH)
 
@@ -361,7 +364,7 @@ def main(interact=_interact):
     if args.demo:
         from ._demo import _retrieve_servers
 
-        client_class._saved_config_demo = _retrieve_servers(user=args.user or "demo")
+        client_class._saved_config_demo = _retrieve_servers(user=args.user or DEMO_USER)
     if args.list_env:
         print('Available settings:  ' + ' '.join(client_class.read_config()))
         if args.demo:
