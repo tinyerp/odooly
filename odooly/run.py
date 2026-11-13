@@ -1,10 +1,12 @@
 import argparse
 import atexit
+import builtins
 import os
 import shlex
 import signal
 import sys
 from configparser import ConfigParser
+from contextlib import contextmanager
 from pathlib import Path
 
 from . import __doc__, __version__
@@ -24,23 +26,20 @@ Usage (some commands):
     env[name].keys()                # List field names of the model
     env[name].fields(names=None)    # Return details for the fields
     env[name].field(name)           # Return details for the field
-    env[name].browse(ids=())
-    env[name].search(domain)
+    env[name].browse([id1, id2])
+    env[name].search(domain)        # Return a RecordList
     env[name].search(domain, offset=0, limit=None, order=None)
-                                    # Return a RecordList
-
     rec = env[name].get(domain)     # Get the Record matching domain
     rec.some_field                  # Return the value of this field
-    rec.read(fields=None)           # Return values for the fields
+    rec.read("{field1} - {field2}") # Format values for the fields
 
     client.login(user)              # Login with another user
     client.connect(env_name)        # Connect to another env.
     client.connect(server=None)     # Connect to another server
     env.models(name)                # List models matching pattern
     env.modules(name)               # List modules matching pattern
-    env.install(module1, module2, ...)
+    env.install(module1, ...)       # Install or upgrade the modules
     env.upgrade(module1, module2, ...)
-                                    # Install or upgrade the modules
     env.upgrade_cancel()            # Reset failed upgrade/install
 """
 
@@ -177,7 +176,7 @@ class InteractiveClient(Client):
             return super().login(user, password=password, database=database, api_key=api_key)
         try:
             register = super().login(user, password=password, database=database, api_key=api_key)
-        except Error as exc:
+        except (Error, EOFError, KeyboardInterrupt) as exc:
             print(exc)
             register = 'client' not in self._globals
         # Register the globals()
@@ -212,9 +211,17 @@ class InteractiveClient(Client):
         return cls._globals is not None
 
 
-def _interact(global_vars, use_pprint=True, usage=USAGE):
-    import builtins
+@contextmanager
+def except_handler(error_class=Exception):
+    try:
+        yield
+    except error_class as exc:
+        msg = ''.join(format_exception(exc.__class__, exc, None, chain=False))
+        print(color_bold(color_repr(msg.rstrip())))
+        raise sys.exit(1)
 
+
+def _interact(global_vars, use_pprint=True, usage=USAGE):
     if use_pyrepl := not os.getenv("PYTHON_BASIC_REPL"):
         try:
             from _pyrepl.main import CAN_USE_PYREPL as use_pyrepl
@@ -247,25 +254,11 @@ def _interact(global_vars, use_pprint=True, usage=USAGE):
         except Exception:
             pass  # No history in case of error
 
-    if use_pprint:
-        def displayhook(value, _printer=pp, _builtins=builtins):
-            # Pretty-format the output
-            if value is not None:
-                _printer(value)
-                _builtins._ = value
-        sys.displayhook = displayhook
-
-    def excepthook(exc_type, exc, tb):
-        # Print readable errors
-        msg = ''.join(format_exception(exc_type, exc, tb, chain=False, **exfmt))
-        print(color_repr(msg.rstrip()))
-    sys.excepthook = excepthook
-
     builtins.usage = type('Usage', (), {'__call__': lambda s: print(usage),
                                         '__repr__': lambda s: usage})()
 
     console = Console(global_vars, filename="<stdin>")
-    exfmt = {"colorize": console.can_colorize} if use_pyrepl else {}
+    setup_displayhook(use_pprint=use_pprint, colorize=use_pyrepl and console.can_colorize)
     run(console) if use_pyrepl else console.interact('', '')
 
 
@@ -283,6 +276,24 @@ def setup_signal_handler():
     assert InteractiveClient._is_interactive()
     signal.signal(signal.SIGWINCH, handle_resize)
     signal.raise_signal(signal.SIGWINCH)
+
+
+def setup_displayhook(use_pprint=True, colorize=True):
+    exfmt = {"colorize": True} if colorize else {}
+
+    if use_pprint:
+        def displayhook(value, _printer=pp, _builtins=builtins):
+            # Pretty-format the output
+            if value is not None:
+                _printer(value)
+                _builtins._ = value
+        sys.displayhook = displayhook
+
+    def excepthook(exc_type, exc, tb):
+        # Print readable errors
+        msg = ''.join(format_exception(exc_type, exc, tb, chain=False, **exfmt))
+        print(color_repr(msg.rstrip()))
+    sys.excepthook = excepthook
 
 
 def get_parser():
@@ -331,7 +342,8 @@ def connect_client(args):
             "database": args.db,
             "verbose": args.verbose,
         }
-        client = InteractiveClient.from_config(env_name, **kwargs)
+        with except_handler():
+            client = InteractiveClient.from_config(env_name, **kwargs)
     else:
         if args.server:
             server = args.server
@@ -346,7 +358,8 @@ def connect_client(args):
             "api_key": args.api_key,
             "verbose": args.verbose,
         }
-        client = InteractiveClient(server, args.db, args.user or ADMIN_USER, **kwargs)
+        with except_handler():
+            client = InteractiveClient(server, args.db, args.user or ADMIN_USER, **kwargs)
     return client
 
 
