@@ -1,5 +1,5 @@
 """Odoo client library and command line tool"""
-__version__ = '3.0.1'
+__version__ = '3.0.2'
 
 from .client import Client
 from .environment import Env

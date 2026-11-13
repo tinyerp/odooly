@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-3.0.x (unreleased)
+3.0.2 (2026-11-13)
 ~~~~~~~~~~~~~~~~~~
 
 * Remove implicit connection to localhost when argument is missing.
