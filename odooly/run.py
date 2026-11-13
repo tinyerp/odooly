@@ -87,16 +87,17 @@ class InteractiveClient(Client):
         """
         assert environment
         saved_config = {**cls._saved_config_demo, **cls._saved_config}
-        if environment not in saved_config:
-            try:
-                cls._saved_config[environment] = cls.read_config(environment)
-            except Exception:
-                envs = [env for env in cls.read_config() if env not in saved_config]
-                err_msg = "No such environment.\nAvailable: " + " ".join(envs)
-                if saved_config:
-                    err_msg += "\n  " + " ".join(saved_config)
-                raise Error(err_msg)
-        return saved_config[environment]
+        if environment in saved_config:
+            return saved_config[environment]
+        try:
+            cls._saved_config[environment] = cls.read_config(environment)
+        except Exception:
+            envs = [env for env in cls.read_config() if env not in saved_config]
+            err_msg = "No such environment.\nAvailable: " + " ".join(envs)
+            if saved_config:
+                err_msg += "\n  " + " ".join(saved_config)
+            raise Error(err_msg)
+        return cls._saved_config[environment]
 
     @classmethod
     def from_config(cls, environment, *, user=None, database=None, verbose=False):

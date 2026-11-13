@@ -2,6 +2,12 @@ Changelog
 ---------
 
 
+3.0.3 (2026-11-13)
+~~~~~~~~~~~~~~~~~~
+
+* Fix: read configured environments in ``odooly.ini``
+
+
 3.0.2 (2026-11-13)
 ~~~~~~~~~~~~~~~~~~
 
