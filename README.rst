@@ -4,11 +4,11 @@ Odooly, a versatile tool for Odoo
 
 Install with `uv <https://docs.astral.sh/uv/#installation>`_::
 
-    uv tool install -U odooly
+    uv tool install -U odooly[requests]
 
 Or with Pip::
 
-    pip install -U odooly
+    pip install -U odooly[requests]
 
 As an alternative, ``uv`` can invoke Odooly without installing::
 
@@ -40,8 +40,9 @@ Key features:
 - simplified syntax for search ``domain``
 - entire API accessible on the ``Client.env`` environment
 - can be imported and used as a library: ``from odooly import Client``
+- no external dependency: ``requests`` is optional
+- can use without installing: ``python path/to/odooly.whl/odooly --help``
 - supports Python 3.8 and more recent
-- no external dependency, can use without installing
 
 
 

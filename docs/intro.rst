@@ -12,11 +12,11 @@ Installation
 Download and install the `latest release
 <https://pypi.org/project/Odooly>`__ from PyPI::
 
-    uv tool install -U odooly
+    uv tool install -U odooly[requests]
 
 Or::
 
-    pip install -U odooly
+    pip install -U odooly[requests]
 
 As an alternative, ``uv`` can invoke Odooly without installing::
 
