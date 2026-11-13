@@ -2,6 +2,14 @@ Changelog
 ---------
 
 
+3.0.x (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* Remove implicit connection to localhost when argument is missing.
+
+* Honor ``--list`` even when standard input is not a terminal.
+
+
 3.0.1 (2026-11-13)
 ~~~~~~~~~~~~~~~~~~
 

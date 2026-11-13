@@ -17,7 +17,6 @@ from .printer import Printer, convert_to_width, pp, set_output_width
 
 CONF_FILE = 'odooly.ini'
 HIST_FILE = '~/.odooly_history'
-DEFAULT_URL = 'http://localhost:8069/'
 
 USAGE = """\
 Usage (some commands):
@@ -279,11 +278,11 @@ def get_parser():
         '--env',
         help='read connection settings from the given section')
     parser.add_argument(
-        '-c', '--config', default=None,
+        '-c', '--config', default=None, type=Path,
         help=f'specify alternate config file (default: {CONF_FILE})')
     parser.add_argument(
         '--server', default=None,
-        help=f'full URL of the server (default: {DEFAULT_URL})')
+        help=f'full URL of the server')
     parser.add_argument('-d', '--db', default=None, help='database')
     parser.add_argument('-u', '--user', default=None, help='username')
     parser.add_argument(
@@ -308,17 +307,27 @@ def get_parser():
 
 def connect_client(args):
     if (env_name := args.demo or args.env):
-        client = InteractiveClient.from_config(env_name, user=args.user, database=args.db,
-                                               verbose=args.verbose)
+        kwargs = {
+            "user": args.user,
+            "database": args.db,
+            "verbose": args.verbose,
+        }
+        client = InteractiveClient.from_config(env_name, **kwargs)
     else:
-        if not args.server:
-            args.server = ['-c', args.config] if args.config else DEFAULT_URL
-            if args.args:
-                args.server = args.server + args.args if args.config else ' '.join(args.args)
-        if not args.user:
-            args.user = ADMIN_USER
-        client = InteractiveClient(args.server, args.db, args.user, password=args.password,
-                                   api_key=args.api_key, verbose=args.verbose)
+        if args.server:
+            server = args.server
+        elif not args.config:
+            server = ' '.join(args.args)
+        elif args.args:
+            server = ['-c', args.config] + args.args
+        else:
+            server = ['-c', args.config]
+        kwargs = {
+            "password": args.password,
+            "api_key": args.api_key,
+            "verbose": args.verbose,
+        }
+        client = InteractiveClient(server, args.db, args.user or ADMIN_USER, **kwargs)
     return client
 
 
@@ -342,8 +351,8 @@ def main(interact=_interact):
 
     If it is not interactive, execute script received on standard input.
     """
-    args = get_parser().parse_args()
-    is_interactive_shell = sys.stdin.isatty()
+    aparser = get_parser()
+    args = aparser.parse_args()
 
     client_class = InteractiveClient
     client_class._config_file = Path.cwd() / (args.config or CONF_FILE)
@@ -352,15 +361,18 @@ def main(interact=_interact):
         from ._demo import _retrieve_servers
 
         client_class._saved_config_demo = _retrieve_servers(user=args.user or "demo")
-
-    if not is_interactive_shell:  # Read and execute commands from standard input
-        client = connect_client(args)
-        exec(compile(sys.stdin.read(), '<stdin>', 'exec'), {'client': client, 'env': client.env})
-        return
     if args.list_env:
         print('Available settings:  ' + ' '.join(client_class.read_config()))
         if args.demo:
             print(' ' + ' '.join(client_class._saved_config_demo))
+        return
+    if not (args.args or args.server or args.config or args.env or args.demo):
+        aparser.error("missing argument")
+
+    is_interactive_shell = sys.stdin.isatty()
+    if not is_interactive_shell:  # Read and execute commands from standard input
+        client = connect_client(args)
+        exec(compile(sys.stdin.read(), '<stdin>', 'exec'), {'client': client, 'env': client.env})
         return
 
     # Interactive mode
