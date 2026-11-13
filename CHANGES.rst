@@ -8,6 +8,8 @@ Changelog
 * When ``--demo`` or ``--test`` is used, it takes precedence
   over local configuration, if two environments have the same name.
 
+* Catch and print early error on connection.
+
 
 3.0.3 (2026-11-13)
 ~~~~~~~~~~~~~~~~~~
