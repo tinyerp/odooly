@@ -56,23 +56,20 @@ On login, it prints few lines about the commands available.
         env[name].keys()                # List field names of the model
         env[name].fields(names=None)    # Return details for the fields
         env[name].field(name)           # Return details for the field
-        env[name].browse(ids=())
-        env[name].search(domain)
+        env[name].browse([id1, id2])
+        env[name].search(domain)        # Return a RecordList
         env[name].search(domain, offset=0, limit=None, order=None)
-                                        # Return a RecordList
-
         rec = env[name].get(domain)     # Get the Record matching domain
         rec.some_field                  # Return the value of this field
-        rec.read(fields=None)           # Return values for the fields
+        rec.read("{field1} - {field2}") # Format values for the fields
 
         client.login(user)              # Login with another user
         client.connect(env_name)        # Connect to another env.
         client.connect(server=None)     # Connect to another server
         env.models(name)                # List models matching pattern
         env.modules(name)               # List modules matching pattern
-        env.install(module1, module2, ...)
+        env.install(module1, ...)       # Install or upgrade the modules
         env.upgrade(module1, module2, ...)
-                                        # Install or upgrade the modules
         env.upgrade_cancel()            # Reset failed upgrade/install
 
 And it confirms that the default database is not available::
