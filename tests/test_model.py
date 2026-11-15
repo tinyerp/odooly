@@ -164,8 +164,11 @@ class TestModel(TestCase):
         self.assertOutput('')
 
     def test_access(self):
-        self.assertTrue(self.env['foo.bar'].access())
-        self.assertCalls(OBJ('ir.model.access', 'check', 'foo.bar', 'read'))
+        self.assertTrue(self.env['foo.bar'].has_access())
+        if float(self.server_version) < 18.0:
+            self.assertCalls(OBJ('ir.model.access', 'check', 'foo.bar', 'read'))
+        else:
+            self.assertCalls(OBJ('foo.bar', 'has_access', [], 'read'))
         self.assertOutput('')
 
     def test_search(self):

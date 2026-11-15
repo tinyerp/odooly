@@ -5,6 +5,12 @@ Changelog
 3.0.x (unreleased)
 ~~~~~~~~~~~~~~~~~~
 
+* Rename method ``Model.access`` to :meth:`Model.has_access` to align with
+  new method of Odoo 18.  For Odoo >= 18, method is also available on
+  :class:`Record` and :class:`RecordList`.
+
+* Add ``Record/RecordList`` method ``has_access`` to the known base methods.
+
 * When ``--demo`` or ``--test`` is used, it takes precedence
   over local configuration, if two environments have the same name.
 

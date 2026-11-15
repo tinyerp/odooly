@@ -3,7 +3,7 @@ import os
 from urllib.parse import urljoin
 
 from .exceptions import ServerError
-from .helpers import base_method_params, format_params, memoize
+from .helpers import format_params, memoize
 from .http import HTTPSession
 from .models import Id1, Ids, Model
 
@@ -23,6 +23,29 @@ _rpc_methods = {
     'common': ['login', 'authenticate', 'version'],
     'object': ['execute', 'execute_kw'],
 }
+# Base model
+_model_methods = [
+    ('action_archive', ['ids']),
+    ('action_unarchive', ['ids']),
+    ('copy', ['ids', 'default']),
+    ('create', ['vals_list']),
+    ('get_external_id', ['ids']),
+    ('get_metadata', ['ids']),
+    ('has_access', ['ids', 'operation']),
+    ('read', ['ids', 'fields', 'load']),
+    ('search', ['domain', 'offset', 'limit', 'order']),
+    ('search_count', ['domain', 'limit']),
+    ('search_read', ['domain', 'fields', 'offset', 'limit', 'order']),
+    ('unlink', ['ids']),
+    ('write', ['ids', 'vals']),
+]
+
+
+def get_base_method_params(client):
+    method_params = [*_model_methods]
+    if client.version_info < 18.0:
+        assert method_params.pop(6)[0] == 'has_access'
+    return method_params
 
 
 def start_odoo_services(options=None, appname=None):
@@ -164,6 +187,7 @@ class Json2:
             'X-Odoo-Database': database or '',
         }
         self._printer = client._printer
+        self._base_method_params = dict(get_base_method_params(client))
         self.reset()
 
     def doc(self, model):
@@ -175,7 +199,7 @@ class Json2:
         return model_doc
 
     def reset(self):
-        self._method_params = {'base': dict(base_method_params)}
+        self._method_params = {'base': self._base_method_params}
 
     def _methods(self, model):
         if model not in self._method_params:

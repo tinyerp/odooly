@@ -1,7 +1,7 @@
 import re
 from string import Formatter
 
-from .helpers import base_method_params, issearchdomain, memoize,  partial, searchargs
+from .helpers import issearchdomain, memoize,  partial, searchargs
 
 __all__ = ["BaseModel", "BaseRecord", "Id1", "Ids", "Model", "Record", "RecordList"]
 
@@ -109,16 +109,20 @@ class Model(BaseModel):
         try:
             method_params = self._parse_doc_methods(self._doc)
         except Exception:
-            method_params = base_method_params
+            method_params = self.env._base_method_params
         return {key: args for (key, args) in method_params if name in key}
 
-    def access(self, mode="read"):
+    def has_access(self, mode="read"):
         """Check if the user has access to this model.
 
         Optional argument `mode` is the access mode to check.  Valid values
         are ``read``, ``write``, ``create`` and ``unlink``. If omitted,
         the ``read`` mode is checked.  Return a boolean.
         """
+        return self.env.has_access(self._name, mode)
+
+    def access(self, mode="read"):
+        # Deprecated, raise Error: Method was renamed 'has_access'
         return self.env.access(self._name, mode)
 
     def browse(self, ids=()):

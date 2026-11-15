@@ -141,7 +141,7 @@ Env
 ~~~
 
 .. autoclass:: Env
-   :members: lang, access, models, ref, __getitem__, odoo_env, registry
+   :members: lang, has_access, models, ref, __getitem__, odoo_env, registry
    :undoc-members:
 
    .. attribute:: db_name
@@ -262,7 +262,7 @@ Example: ``client.env['res.company']`` returns a :class:`Model`.
 
    .. automethod:: field
 
-   .. automethod:: access
+   .. automethod:: has_access
 
    .. automethod:: search(domain, offset=0, limit=None, order=None)
 

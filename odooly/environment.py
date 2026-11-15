@@ -7,7 +7,7 @@ from . import __version__
 from .colorize import color_bold
 from .exceptions import Error, ServerError
 from .helpers import issearchdomain, literal_eval, memoize, partial, searchargs
-from .service import Json2
+from .service import Json2, get_base_method_params
 from .models import Model, Record
 
 __all__ = ["Env", "ADMIN_USER", "SYSTEM_USER"]
@@ -152,6 +152,7 @@ class Env:
                 self._doc('res.device')
             except ServerError:
                 self._doc = None
+        self._base_method_params = get_base_method_params(self.client)
         prev_protocol = getattr(getattr(self, '_execute_kw', 0), '_protocol_name', ...)
         if self.client._object:  # RPC endpoint if available
             self._execute_kw = env_auth(self.client._object.execute_kw)
@@ -361,7 +362,7 @@ class Env:
             res = [resdic.get(id_, False) for id_ in order_ids]
         return (res or [None])[0] if single_id else res
 
-    def access(self, model_name, mode="read"):
+    def has_access(self, model_name, mode="read"):
         """Check if the user has access to this model.
 
         Optional argument `mode` is the access mode to check.  Valid values
@@ -369,10 +370,16 @@ class Env:
         the ``read`` mode is checked.  Return a boolean.
         """
         try:
-            self.execute('ir.model.access', 'check', model_name, mode)
-            return True
+            if self.client.version_info < 18.0:
+                self.execute('ir.model.access', 'check', model_name, mode)
+                return True
+            return self.execute(model_name, 'has_access', [], mode)
         except Exception:
             return False
+
+    def access(self, model_name, mode="read"):
+        # Deprecated
+        raise Error("Method was renamed 'has_access' to align with Odoo >= 18.0")
 
     def _models_get(self, name, check, transient):
         if name not in self._model_names:

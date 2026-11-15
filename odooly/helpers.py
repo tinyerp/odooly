@@ -18,20 +18,6 @@ _term_re = re.compile(
     r'(?![?!=<>])\s*(.+)')
 _cause_message = ("\nThe above exception was the direct cause "
                   "of the following exception:\n\n")
-base_method_params = [
-    ('action_archive', ['ids']),
-    ('action_unarchive', ['ids']),
-    ('copy', ['ids', 'default']),
-    ('create', ['vals_list']),
-    ('get_external_id', ['ids']),
-    ('get_metadata', ['ids']),
-    ('read', ['ids', 'fields', 'load']),
-    ('search', ['domain', 'offset', 'limit', 'order']),
-    ('search_count', ['domain', 'limit']),
-    ('search_read', ['domain', 'fields', 'offset', 'limit', 'order']),
-    ('unlink', ['ids']),
-    ('write', ['ids', 'vals']),
-]
 
 
 def memoize(inst, attr, value, doc_values=None):

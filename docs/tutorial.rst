@@ -307,25 +307,25 @@ Among these 140 objects, some of them are ``read-only``, others are
 .. sourcecode:: pycon
 
     >>> # Read-only models
-    >>> len([m for m in all_models if not env[m].access('write')])
+    >>> len([m for m in all_models if not env[m].has_access('write')])
     116
     >>> #
     >>> # Writable but cannot delete
-    >>> [m for m in all_models if env[m].access('write') and not env[m].access('unlink')]
+    >>> [m for m in all_models if env[m].has_access('write') and not env[m].has_access('unlink')]
     ['base.language.export',
      'base.partner.merge.automatic.wizard',
      'base_import.import',
      'res.users.identitycheck']
     >>> #
     >>> # Unreadable models
-    >>> len([m for m in all_models if not env[m].access('read')])
+    >>> len([m for m in all_models if not env[m].has_access('read')])
     94
     >>> #
     >>> # Now print the number of entries in all (readable) models
     >>> for m in all_models:
     ...     if m == 'res.users.apikeys.show':
     ...         continue  # This one returns an error
-    ...     mcount = env[m].access() and env[m].search_count()
+    ...     mcount = env[m].has_access('read') and env[m].search_count()
     ...     if not mcount:
     ...         continue
     ...     print('%4d  %s' % (mcount, m))

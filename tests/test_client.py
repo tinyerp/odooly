@@ -465,8 +465,11 @@ class TestClientApi(JsonRpcTestCase):
         self.assertOutput('')
 
     def test_access(self):
-        self.assertTrue(self.env.access('foo.bar'))
-        self.assertCalls(OBJ('ir.model.access', 'check', 'foo.bar', 'read'))
+        self.assertTrue(self.env.has_access('foo.bar'))
+        if float(self.server_version) < 18.0:
+            self.assertCalls(OBJ('ir.model.access', 'check', 'foo.bar', 'read'))
+        else:
+            self.assertCalls(OBJ('foo.bar', 'has_access', [], 'read'))
         self.assertOutput('')
 
     def test_execute_kw(self):
@@ -574,8 +577,8 @@ class TestClientApi(JsonRpcTestCase):
 
         self.service.object.execute_kw.side_effect = [ctx_lang, ctx_lang]
         self.service.common.login.side_effect = [1]
-        self.assertTrue(env.sudo().access('res.users', 'write'))
-        self.assertFalse(env.access('res.users', 'write'))
+        self.assertTrue(env.sudo().has_access('res.users', 'write'))
+        self.assertFalse(env.has_access('res.users', 'write'))
 
         expected_calls = [
             call.common.login('database', 'guest', 'xxx'),
@@ -584,11 +587,18 @@ class TestClientApi(JsonRpcTestCase):
             call.common.login('database', 'admin', 'ooo'),
             ('object.execute_kw', self.database, 1, 'ooo', 'res.users', 'context_get', ()),
             call.doc._request('res.device'),
-            ('object.execute_kw', self.database, 1, 'ooo', 'ir.model.access', 'check', ('res.users', 'write'), {'context': ctx_lang}),
-            ('object.execute_kw', self.database, 4, 'passwd', 'ir.model.access', 'check', ('res.users', 'write'), {'context': ctx_lang}),
+            ('object.execute_kw', self.database, 1, 'ooo', 'res.users', 'has_access', ([], 'write'), {'context': ctx_lang}),
+            ('object.execute_kw', self.database, 4, 'passwd', 'res.users', 'has_access', ([], 'write'), {'context': ctx_lang}),
         ]
         if float(self.server_version) < 19.0:
             del expected_calls[4]
+            if float(self.server_version) < 18.0:
+                expected_calls[-2:] = [
+                    ('object.execute_kw', self.database, 1, 'ooo',
+                     'ir.model.access', 'check', ('res.users', 'write'), {'context': ctx_lang}),
+                    ('object.execute_kw', self.database, 4, 'passwd',
+                     'ir.model.access', 'check', ('res.users', 'write'), {'context': ctx_lang}),
+                ]
         self.assertCalls(*expected_calls)
         self.assertEqual(getpass.mock_calls,
                          [call("Password for 'guest': "), call("Password for 'admin': ")])
