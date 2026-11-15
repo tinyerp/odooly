@@ -29,7 +29,7 @@ Authentication methods per Odoo version, and per API:
 ============= ============== ========= ========== ============ ============
  Odoo \\ API     Webclient    Public     JSON-2    *JSON-RPC*    *XML-RPC*
 ============= ============== ========= ========== ============ ============
- 22.0 +       | Login 2FA               API Key     *( both removed )*
+ 22.0 +       | Login 2FA               API Key
               | *or* Login    no-auth
 ------------- -------------- --------- ---------- -------------------------
  19.0 to 21.0 | Login 2FA               API Key   | API Key *(deprecated)*
