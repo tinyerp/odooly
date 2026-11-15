@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-3.0.x (unreleased)
+3.0.4 (2026-11-15)
 ~~~~~~~~~~~~~~~~~~
 
 * Rename method ``Model.access`` to :meth:`Model.has_access` to align with
