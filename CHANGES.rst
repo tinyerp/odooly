@@ -2,6 +2,12 @@ Changelog
 ---------
 
 
+3.0.x (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* Skip offline runbot instance.
+
+
 3.0.4 (2026-11-15)
 ~~~~~~~~~~~~~~~~~~
 
