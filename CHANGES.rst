@@ -5,6 +5,8 @@ Changelog
 3.0.x (unreleased)
 ~~~~~~~~~~~~~~~~~~
 
+* Add ``expiration_date`` to API key, for Odoo >= 18.
+
 * Interactive mode: method ``Client.load_test_servers`` to retrieve
   list of Runbot and Demo test servers later on.
 

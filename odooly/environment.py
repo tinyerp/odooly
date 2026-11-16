@@ -15,6 +15,7 @@ __all__ = ["Env", "ADMIN_USER", "SYSTEM_USER"]
 ADMIN_USER = 'admin'
 DEMO_USER = 'demo'
 SYSTEM_USER = '__system__'
+DEFAULT = object()
 
 _pending_state = ('state', 'not in',
                   ['uninstallable', 'uninstalled', 'installed'])
@@ -576,14 +577,24 @@ class Env:
             if exc.args[0]['code'] != 100:
                 raise
 
-    def generate_api_key(self):
+    def generate_api_key(self, expiration_date=DEFAULT):
         """Generate an API Key and configure environment to use it.
+
+        For Odoo >= 18, argument `expiration_date` has format YYYY-MM-DD or None
+        for a persistent key.  Default expiration date is tomorrow.
 
         Caution: API Key is not saved. It can be set in the
         configuration: ``api_key = ...``.
         """
         assert self.client.version_info >= 14.0, f'Not supported: Odoo {self.client.version_info}'
         key_vals = {'name': f'Created by Odooly {__version__}'}
+        if self.client.version_info < 18.0:
+            if expiration_date and expiration_date is not DEFAULT:
+                print("API Key cannot expire.  Expiration date is supported with Odoo >= 18")
+        elif not expiration_date:
+            key_vals['expiration_date'] = None
+        elif expiration_date is not DEFAULT:
+            key_vals['expiration_date'] = str(datetime.strptime(expiration_date, '%Y-%m-%d'))
         wiz_model = self._get("res.users.apikeys.description", transient=True)
         res = wiz_model.create(key_vals).make_key()
         self.user._invalidate_cache()
