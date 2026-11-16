@@ -195,7 +195,7 @@ class Env:
     @property
     def odoo_env(self):
         """Return a server Environment."""
-        return self.client._server.api.Environment(self.cr, self.uid, self.context)
+        return self.cr and self.client._server.api.Environment(self.cr, self.uid, self.context)
 
     @property
     def cr(self):
@@ -205,6 +205,8 @@ class Env:
     @property
     def registry(self):
         """Return the environment's registry."""
+        if isinstance(self.client._server, str):
+            raise Error("Not available")
         return self.client._server._get_pool(self.db_name)
 
     def __call__(self, user=None, password=None, api_key=None, context=None):
