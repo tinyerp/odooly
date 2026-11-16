@@ -32,8 +32,8 @@ RUNBOT_URL = f"https://{RUNBOT_HOST}/"
 RUNBOT_HEADERS = {"Cookie": "trigger_display_1=1-122"}
 RUNBOT_REGEX = (
     # (<Community or Enterprise>, <domain>, <build number>, <Odoo version>)
-    r"<span>([CE]\w+) Run</span>.{,200}<build-options-dropdown.{,400}"
-    r" data-domain=.((\d+)-([^.]+).runbot\d+.odoo.com). "
+    r"<span>([CE]\w+) Run</span>.{,200}<build-options-dropdown.{,200}"
+    r" data-global_state=.running. .{,100} data-domain=.((\d+)-([^.]+).runbot\d+.odoo.com). "
 )
 ODOO_SERVERS = {"demo": "https://demo.odoo.com/"}
 
