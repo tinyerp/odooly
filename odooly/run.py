@@ -153,6 +153,14 @@ class InteractiveClient(Client):
             env.get('api_key'),
         )
 
+    @classmethod
+    def load_test_servers(cls, user=None):
+        """Load test servers from runbot.odoo.com, and add demo.odoo.com"""
+        if not cls._saved_config_demo:
+            from ._demo import _retrieve_servers
+
+            cls._saved_config_demo = _retrieve_servers(user=user or DEMO_USER)
+
     def _select_database(self, db_list, limit=20):
         database = super()._select_database(db_list)
         if database or not db_list or not self._is_interactive():
@@ -377,9 +385,7 @@ def main(interact=_interact):
     client_class._config_file = Path.cwd() / (args.config or CONF_FILE)
 
     if args.demo:
-        from ._demo import _retrieve_servers
-
-        client_class._saved_config_demo = _retrieve_servers(user=args.user or DEMO_USER)
+        client_class.load_test_servers(user=args.user)
     if args.list_env:
         print('Available settings:  ' + ' '.join(client_class.read_config()))
         if args.demo:

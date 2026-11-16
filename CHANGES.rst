@@ -5,6 +5,9 @@ Changelog
 3.0.x (unreleased)
 ~~~~~~~~~~~~~~~~~~
 
+* Interactive mode: method ``Client.load_test_servers`` to retrieve
+  list of Runbot and Demo test servers later on.
+
 * Skip offline runbot instance.
 
 

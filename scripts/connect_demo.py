@@ -24,13 +24,12 @@ import argparse
 from pathlib import Path
 
 from odooly import __version__
-from odooly._demo import _retrieve_servers, RUNBOT_HOST
 from odooly.colorize import setup_colors
 from odooly.run import InteractiveClient as Client, setup_signal_handler, _interact
 
 
 def main():
-    parser = argparse.ArgumentParser(description=f"Connect to {RUNBOT_HOST} or demo.odoo.com.")
+    parser = argparse.ArgumentParser(description="Connect to runbot.odoo.com or demo.odoo.com.")
     parser.add_argument('env', nargs='?', default='demo', metavar='ENV', help='environment')
     parser.add_argument('-u', '--user', default='demo', help='\'demo\' or \'admin\'')
     parser.add_argument('-d', '--db', default=None, help='database')
@@ -44,8 +43,8 @@ def main():
     if args.config:
         Client._config_file = Path.cwd() / args.config
 
-    Client._saved_config_demo = _retrieve_servers(user=args.user)
-    all_envs = {*Client._saved_config_demo, *Client.read_config()}
+    Client.load_test_servers(user=args.user)
+    all_envs = {*Client.read_config(), *Client._saved_config_demo}
 
     # Interactive mode
     Client.connect.__doc__ = __doc__
