@@ -8,6 +8,9 @@ Changelog
 * Interactive mode: method ``Client.load_test_servers`` to retrieve
   list of Runbot and Demo test servers later on.
 
+* Do not print traceback when accessing ``Env.cr`` and related
+  properties.
+
 * Skip offline runbot instance.
 
 
