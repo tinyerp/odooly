@@ -121,7 +121,8 @@ class WebAPI:
             snt = [f'POST {self._endpoint}/{path}'] + format_params(params)
         with self._printer as log:
             log.print_sent(' '.join(snt))
-            log.print_recv(repr(res := self._dispatch(path, params)))
+            res = self._dispatch(path, params)
+            log.print_recv(repr(res))
         return res
 
 
@@ -135,7 +136,6 @@ class Service:
     which should be exposed on this endpoint.  Use ``dir(...)`` on the
     instance to list them.
     """
-    _methods = ()
 
     def __init__(self, client, endpoint):
         self._dispatch = client._proxy(endpoint)
@@ -164,7 +164,8 @@ class Service:
                 return self._dispatch(name, args)
             with self._printer as log:
                 log.print_sent(f"{self._endpoint}.{name}({sanitize(args)})")
-                log.print_recv(repr(res := self._dispatch(name, args)))
+                res = self._dispatch(name, args)
+                log.print_recv(repr(res))
             return res
         return memoize(self, name, wrapper)
 

@@ -498,9 +498,12 @@ class Env:
             print(f"  {mod['state']}\t{mod['name']}")
 
         # Confirm?
+        errored = False
         if not quiet and any(mod['id'] not in sel.ids for mod in mods):
-            assert self.client._is_interactive(), "Cannot continue"
-            if not (ans := input('Confirm? [y/N] ')) or ans[:1].lower() != 'y':
+            if not self.client._is_interactive():
+                button = 'cancel'
+                errored = True
+            elif not (ans := input('Confirm? [y/N] ')) or ans[:1].lower() != 'y':
                 button = 'cancel'
 
         if button == 'cancel':
@@ -514,6 +517,8 @@ class Env:
                     self.execute('ir.module.module', 'button_upgrade_cancel', installed)
             else:  # Odoo >= 19
                 self.execute('ir.module.module', 'button_reset_state')
+            if errored:
+                raise Error("Cannot continue")
         else:
             # Apply scheduled upgrades
             self.execute('base.module.upgrade', 'upgrade_module', [])
