@@ -52,12 +52,17 @@ package structure.  As a consequence, some import paths have to be adapted in yo
 
 * Enable coloring for older Python versions.
   Use ``NO_COLOR=1`` to opt-out.
+
 * Enable commands' history by default.  Can be changed with environment
   variable ``ODOOLY_HISTFILE``.
+
 * Support running wheel file without installing:
   ``python odooly-3.0.0-py3-none-any.whl/odooly --version``
+
 * Switch the project to a package structure.
+
 * Build: migrate to pyproject.toml.
+
 * Build: change Web theme for documentation.
 
 
@@ -71,6 +76,7 @@ package structure.  As a consequence, some import paths have to be adapted in yo
 ~~~~~~~~~~~~~~~~~~
 
 * Document usage with ``uv``.
+
 * Fix ``color_py`` for Python 3.15.
 
 

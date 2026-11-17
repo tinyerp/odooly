@@ -216,6 +216,8 @@ def except_handler(error_class=Exception):
     try:
         yield
     except error_class as exc:
+        if os.getenv("ODOOLY_DEBUG"):
+            raise
         msg = ''.join(format_exception(exc.__class__, exc, None, chain=False))
         print(color_bold(color_repr(msg.rstrip())))
         raise sys.exit(1)
