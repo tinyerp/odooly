@@ -80,6 +80,8 @@ class HTTPSession:
             with self._request(url, method=method, data=data, json=json, headers=headers) as resp:
                 return resp if method == 'HEAD' else self._parse_response(resp)
         except OSError as exc:
+            if os.getenv('ODOO_DEBUG'):
+                raise
             status_code, result = self._parse_error(exc)
             if result and status_code in {401, 403, 404, 422, 500}:
                 # Unauthorized, Forbidden, NotFound, UnprocessableContent, InternalServerError
