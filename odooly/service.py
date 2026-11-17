@@ -89,9 +89,7 @@ class WebAPI:
     Argument `client` is the connected Client.
     Argument `endpoint` is the name of the service
     (examples: ``"web/database"``, ``"web/session"``).
-    Argument `methods` is the list of methods which should be
-    exposed on this endpoint.  Use ``dir(...)`` on the
-    instance to list them.
+    Use ``dir(...)`` on the instance to list its methods.
     """
     _methods = ()
 
@@ -135,9 +133,8 @@ class Service:
     The connected endpoints are exposed on the Client instance.
     The `client` argument is the connected Client.
     The `endpoint` argument is the name of the service
-    (examples: ``"object"``, ``"common"``).  The `methods` is the list of methods
-    which should be exposed on this endpoint.  Use ``dir(...)`` on the
-    instance to list them.
+    (examples: ``"object"``, ``"common"``).
+    Use ``dir(...)`` on the instance to list its methods.
     """
 
     def __init__(self, client, endpoint):
