@@ -2,6 +2,7 @@ import re
 from string import Formatter
 
 from .helpers import issearchdomain, memoize,  partial, searchargs
+from .report import render_pdf
 
 __all__ = ["BaseModel", "BaseRecord", "Id1", "Ids", "Model", "Record", "RecordList"]
 
@@ -584,6 +585,15 @@ class BaseRecord(BaseModel):
             return True
         self._invalidate_cache()
         return self._execute('unlink', self.ids)
+
+    def render_pdf(self, report_name=None, data=None):
+        """Render a PDF report for the record(s).
+
+        Arguments are optional.
+        `report_name` is the technical name of the report.
+        `data` is a dictionary used to generate the report.
+        """
+        return render_pdf(report_name, self, data=data)
 
 
 class RecordList(BaseRecord):

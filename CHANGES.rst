@@ -7,6 +7,9 @@ Changelog
 
 * Add ``Client.report`` endpoint to generate and download reports.
 
+* Add :meth:`Record.render_pdf` method to select and generate a report.
+  Method is also available on :class:`RecordList`.
+
 * Add ``expiration_date`` to API key, for Odoo >= 18.
 
 * Interactive mode: method ``Client.load_test_servers`` to retrieve

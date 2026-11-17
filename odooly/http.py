@@ -2,7 +2,7 @@ import io
 import json
 import os
 import re
-from urllib.parse import urlencode
+from urllib.parse import unquote, urlencode
 
 from . import __version__
 from .exceptions import ServerError
@@ -27,6 +27,15 @@ if not requests:
     from urllib.request import HTTPCookieProcessor, HTTPSHandler, Request, build_opener
 
 
+def extract_filename(response, default=None):
+    # This is RFC6266.  In practice, Odoo returns one of the two, depending on its version:
+    #   Content-Disposition: attachment; filename=some_report.pdf
+    #   Content-Disposition: attachment; filename*=UTF-8''some%20report.pdf
+    content_disposition = response.headers.get('content-disposition', '')
+    found = re.search(r"filename\*?=(?:UTF-8'')?(\S+)", content_disposition)
+    return unquote(found.group(1)) if found else default
+
+
 class HTTPSession:
     if requests:  # requests.Session
         def __init__(self):
@@ -46,7 +55,9 @@ class HTTPSession:
                 return resp.json()
             if 'text' in content_type:
                 return resp.text
-            return io.BytesIO(resp.content)
+            rfile = io.BytesIO(resp.content)
+            rfile.name = extract_filename(resp)
+            return rfile
 
         def _parse_error(self, err):
             resp = err.response
@@ -79,7 +90,9 @@ class HTTPSession:
                 return json.load(resp)
             if 'text' in content_type:
                 return resp.read().decode()
-            return io.BytesIO(resp.read())
+            rfile = io.BytesIO(resp.read())
+            rfile.name = extract_filename(resp)
+            return rfile
 
         def _parse_error(self, err):
             return (err.code, self._parse_response(err)) if hasattr(err, 'code') else (0, 0)
