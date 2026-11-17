@@ -7,6 +7,11 @@ Changelog
 
 * Ensure that a Web session is active for PDF rendering.
 
+* Do not print a traceback when aborting ``render_pdf`` on
+  user prompt.
+
+* Add support for ``render_pdf`` for Odoo 9 and 10. Not tested.
+
 
 3.0.5 (2026-11-17)
 ~~~~~~~~~~~~~~~~~~

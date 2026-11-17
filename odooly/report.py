@@ -24,7 +24,10 @@ def render_pdf(report_name, records, data=None):
     """Render a PDF report for the record(s)."""
     env = records.env._ensure_session()
     is_interactive = env.client._is_interactive()
-    ir_actions_report = env._get('ir.actions.report', False)
+    if env.client.version_info < 11.0:  # Odoo 9 and 10
+        ir_actions_report = env._get('ir.actions.report.xml', False)
+    else:
+        ir_actions_report = env._get('ir.actions.report', False)
     report = None
     if report_name:
         domain = [("model", "=", records._name), ("report_name", "like", report_name)]
@@ -36,7 +39,10 @@ def render_pdf(report_name, records, data=None):
         domain = [
             ("model", "=", records._name),
             ("report_type", "in", ("qweb-html", "qweb-pdf")),
+            ("binding_model_id", "!=", False),
         ]
+        if env.client.version_info < 11.0:
+            del domain[-1]
         limit = 20
         reports = ir_actions_report.search(domain)
         descriptions = reports[:limit].read("{name}    ({report_name} `{report_type}`)")
@@ -51,6 +57,8 @@ def render_pdf(report_name, records, data=None):
             try:
                 report = reports[int(ans) - 1]
                 break
+            except (KeyboardInterrupt, EOFError):
+                return
             except Exception:
                 pass
     if not report:
