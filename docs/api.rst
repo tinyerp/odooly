@@ -66,6 +66,10 @@ for database management.  Use :func:`dir` function to introspect them.
 
    Example: :meth:`Client.database.list` method.
 
+.. attribute:: Client.report
+
+   Expose the ``/report`` :class:`WebAPI`.
+
 .. attribute:: Client.web
 
    Expose the root ``/web`` :class:`WebAPI`.

@@ -16,6 +16,7 @@ _web_methods = {
     'web/dataset': ['call_button', 'call_kw'],
     'web/session': ['authenticate', 'check', 'destroy', 'get_lang_list', 'get_session_info'],
     'web/webclient': ['version_info'],
+    'report': ['barcode', 'download', 'html', 'pdf', 'text'],
 }
 
 # RPC methods
@@ -117,10 +118,12 @@ class WebAPI:
             return self._dispatch(path, params)
         if self._endpoint == '/doc':
             snt = [f'GET /doc/{path}.json']
+        elif self._endpoint == '/report':
+            snt = [f'GET /report/{path}']
         else:
-            snt = [f'POST {self._endpoint}/{path}'] + format_params(params)
+            snt = [f'POST {self._endpoint}/{path}']
         with self._printer as log:
-            log.print_sent(' '.join(snt))
+            log.print_sent(' '.join(snt + format_params(params or {})))
             res = self._dispatch(path, params)
             log.print_recv(repr(res))
         return res

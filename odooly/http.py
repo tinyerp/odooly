@@ -1,3 +1,4 @@
+import io
 import json
 import os
 import re
@@ -40,8 +41,12 @@ class HTTPSession:
             return resp.raise_for_status() or resp
 
         def _parse_response(self, resp):
-            is_json = 'json' in resp.headers.get('content-type', '')
-            return resp.json() if is_json else resp.text
+            content_type = resp.headers.get('content-type', '')
+            if 'json' in content_type:
+                return resp.json()
+            if 'text' in content_type:
+                return resp.text
+            return io.BytesIO(resp.content)
 
         def _parse_error(self, err):
             resp = err.response
@@ -69,8 +74,12 @@ class HTTPSession:
             return self._session.open(Request(url, data=data, headers=headers, method=method))
 
         def _parse_response(self, resp):
-            is_json = 'json' in resp.headers.get('content-type', '')
-            return json.load(resp) if is_json else resp.read().decode()
+            content_type = resp.headers.get('content-type', '')
+            if 'json' in content_type:
+                return json.load(resp)
+            if 'text' in content_type:
+                return resp.read().decode()
+            return io.BytesIO(resp.read())
 
         def _parse_error(self, err):
             return (err.code, self._parse_response(err)) if hasattr(err, 'code') else (0, 0)
