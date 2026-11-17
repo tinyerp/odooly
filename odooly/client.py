@@ -77,13 +77,11 @@ class Client:
         if isinstance(server, str):
             self.web = WebAPI(self, 'web')
             self.web.doc = WebAPI(self, 'doc')._request  # Odoo 19
-
-            def get_web_api(name):
-                return WebAPI(self, f'web/{name}')
-            self.database = get_web_api('database')
-            self.web_dataset = get_web_api('dataset')
-            self.web_session = get_web_api('session')
-            self.web_webclient = get_web_api('webclient')
+            self.database = WebAPI(self, 'web/database')
+            self.report = WebAPI(self, 'report')
+            self.web_dataset = WebAPI(self, 'web/dataset')
+            self.web_session = WebAPI(self, 'web/session')
+            self.web_webclient = WebAPI(self, 'web/webclient')
         else:
             self.web = None
 
@@ -134,6 +132,10 @@ class Client:
         if name == 'doc':
             def dispatch_web(model, params):
                 return self._http.request(urljoin(self._server, f"doc/{model}.json"), method='GET')
+        elif name == 'report':
+            def dispatch_web(path, params):
+                return self._http.request(
+                    urljoin(self._server, f"{name}/{path}"), data=params, method='GET')
         elif name == 'web/database':
             def dispatch_web(method, params):
                 if method != 'list':
