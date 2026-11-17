@@ -334,6 +334,10 @@ Example: ``client.env['res.company']`` returns a :class:`Model`.
 
    .. automethod:: with_context([context][, **overrides])
 
+   .. method:: render_pdf([report_name][, data=None])
+
+      Same as :meth:`Record.render_pdf` method.
+
    .. method:: get_metadata()
 
       Same as :meth:`Record.get_metadata` method.
@@ -363,6 +367,8 @@ Example: ``client.env['res.company']`` returns a :class:`Model`.
    :undoc-members:
 
    .. automethod:: exists()
+
+   .. automethod:: render_pdf([report_name][, data=None])
 
    .. method:: get_metadata(details=True)
 

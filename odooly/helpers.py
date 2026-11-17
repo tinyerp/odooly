@@ -61,6 +61,14 @@ def literal_eval(expression):
     return _convert(node.body)
 
 
+def secure_filename(name):
+    if not name:
+        return "output.dat"
+    filename = re.sub(r'[/\\]', ' ', name)
+    filename = "_".join(filename.split()).rstrip('._')
+    return filename
+
+
 def format_params(params, hide=('passw', 'pwd')):
     secret = {key: ... for key in params if any(sub in key for sub in hide)}
     return [f'{key}={v!r}' if v != ... else f'{key}=*'
