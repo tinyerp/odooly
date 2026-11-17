@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-3.0.x (unreleased)
+3.0.5 (2026-11-17)
 ~~~~~~~~~~~~~~~~~~
 
 * Add ``Client.report`` endpoint to generate and download reports.
