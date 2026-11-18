@@ -66,6 +66,8 @@ def render_pdf(report_name, records, data=None):
         # Use report_download in order to have a specific filename
         report_url = f"/report/pdf/{report.report_name}{ids}?{urlencode(params)}"
         result = env.client.report.download(data=json.dumps([report_url, 'qweb-pdf']))
+    if not hasattr(result, "read"):
+        return result
     if not result.name:
         result.name = f"{report.name}.pdf"
 

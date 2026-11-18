@@ -1,3 +1,4 @@
+import html
 import io
 import json
 import os
@@ -36,6 +37,11 @@ def extract_filename(response, default=None):
     return unquote(found.group(1)) if found else default
 
 
+def unescape(text):
+    # When /report/download hits an AccessError, it can return JSON encoded with HTML entities
+    return html.unescape(text) if text[:3] == '{&#' else text
+
+
 class HTTPSession:
     if requests:  # requests.Session
         def __init__(self):
@@ -54,7 +60,7 @@ class HTTPSession:
             if 'json' in content_type:
                 return resp.json()
             if 'text' in content_type:
-                return resp.text
+                return unescape(resp.text)
             rfile = io.BytesIO(resp.content)
             rfile.name = extract_filename(resp)
             return rfile
@@ -89,7 +95,7 @@ class HTTPSession:
             if 'json' in content_type:
                 return json.load(resp)
             if 'text' in content_type:
-                return resp.read().decode()
+                return unescape(resp.read().decode())
             rfile = io.BytesIO(resp.read())
             rfile.name = extract_filename(resp)
             return rfile
@@ -102,12 +108,12 @@ class HTTPSession:
             with self._request(url, method=method, data=data, json=json, headers=headers) as resp:
                 return resp if method == 'HEAD' else self._parse_response(resp)
         except OSError as exc:
-            if os.getenv('ODOO_DEBUG'):
-                raise
             status_code, result = self._parse_error(exc)
             if result and status_code in {401, 403, 404, 422, 500}:
                 # Unauthorized, Forbidden, NotFound, UnprocessableContent, InternalServerError
                 if isinstance(result, str):
+                    if os.getenv('ODOO_DEBUG'):
+                        print(result)
                     lines = re.findall(r'>([^\n]+)<', result) or (status_code, result)
                     result = {'name': exc.__class__.__name__, 'debug': None,
                               'arguments': (f'{lines[0]} - {lines[-1]}',)}
