@@ -304,13 +304,17 @@ class Env:
             print("Security Control - PASSED")
         return result
 
-    def _call_kw(self, model, method, args, kw=None):
+    def _ensure_session(self):
         if self.uid != self.client._session_uid:
             password = self._cache_get('auth')[self.user.login][1]
             if self.user.login == SYSTEM_USER and not password:
                 self.client._authenticate_system()
             else:
-                self.client._authenticate_session(self.db_name, self.user.login, password)
+                self.session_authenticate(password=password)
+        return self
+
+    def _call_kw(self, model, method, args, kw=None):
+        self._ensure_session()
         if method in {'create', 'write', 'unlink'} and self.client._use_call_button:
             return self.client.web_dataset.call_button(
                 model=model, method=method, args=args, kwargs=kw or {})

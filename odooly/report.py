@@ -22,7 +22,7 @@ def ask_filename(filename):
 
 def render_pdf(report_name, records, data=None):
     """Render a PDF report for the record(s)."""
-    env = records.env
+    env = records.env._ensure_session()
     is_interactive = env.client._is_interactive()
     ir_actions_report = env._get('ir.actions.report', False)
     report = None
