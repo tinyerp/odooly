@@ -1,9 +1,10 @@
 import json
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from urllib.parse import urlencode
 
 from .exceptions import Error
-from .helpers import secure_filename
+from .helpers import open_with_default_app, secure_filename
 
 
 def ask_filename(filename):
@@ -80,8 +81,17 @@ def render_pdf(report_name, records, data=None):
         result.name = f"{report.name}.pdf"
 
     ans = input('Save? [Y/n] ') if is_interactive else 'n'
-    if ans and ans[:1].lower() != 'y':
-        return result
-    fpath = ask_filename(result.name)
-    fpath.write_bytes(result.getvalue())
-    return fpath
+    result_path = (not ans or ans[:1].lower() == 'y') and ask_filename(result.name)
+    if result_path:
+        result_path.write_bytes(result.getvalue())
+    ans = input(f'Open "{(result_path or result).name}"? [Y/n] ') if is_interactive else 'n'
+    if not ans or ans[:1].lower() == 'y':
+        if result_path:
+            open_with_default_app(result_path)
+        else:
+            with NamedTemporaryFile(suffix=".pdf", delete_on_close=False) as fobj:
+                fobj.write(result.getvalue())
+                fobj.close()
+                open_with_default_app(fobj.name)
+                input('Press Enter to continue')
+    return result_path or result

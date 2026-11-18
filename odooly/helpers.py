@@ -1,7 +1,10 @@
 import _ast
 import datetime
 import functools
+import os
 import re
+import shutil
+import subprocess
 import traceback
 
 from .exceptions import Error, ServerError
@@ -157,3 +160,13 @@ class partial(functools.partial):
     def __repr__(self):
         # Hide arguments
         return f"{self.__class__.__name__}({self.func!r}, ...)"
+
+
+def open_with_default_app(filepath):
+    """Open a file using the default OS application."""
+    if shutil.which('xdg-open'):  # Linux
+        subprocess.run(['xdg-open', filepath])
+    elif hasattr(os, 'startfile'):  # Windows
+        os.startfile(filepath)
+    else:  # Darwin
+        subprocess.run(['open', filepath])

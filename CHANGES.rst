@@ -5,6 +5,8 @@ Changelog
 3.0.x (unreleased)
 ~~~~~~~~~~~~~~~~~~
 
+* Propose to open PDF report after rendering.
+
 * Ensure that a Web session is active for PDF rendering.
 
 * Do not print a traceback when aborting ``render_pdf`` on
