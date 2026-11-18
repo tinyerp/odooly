@@ -194,7 +194,7 @@ class Model(BaseModel):
             values, nb = [self._unbrowse_values(vals) for vals in values], len(values)
         new_ids = self._execute('create', values)
         if not new_ids and self.env.client._use_call_button:
-            return self.search([], order='id DESC', limit=nb)
+            return self.search([("create_uid", "=", self.env.uid)], order='id DESC', limit=nb)
         return self.browse(new_ids)
 
     def read(self, *params, **kwargs):
