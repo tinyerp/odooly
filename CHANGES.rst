@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-3.0.x (unreleased)
+3.0.6 (2026-11-18)
 ~~~~~~~~~~~~~~~~~~
 
 * Propose to open PDF report after rendering.
