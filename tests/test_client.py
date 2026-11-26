@@ -1,8 +1,9 @@
-from unittest import mock
+from http.cookiejar import Cookie
+from unittest import mock, TestCase
 from unittest.mock import call, sentinel, ANY
 
 import odooly.run
-from ._common import JsonRpcTestCase, OBJ
+from ._common import JsonRpcTestCase, OdooTestCase, OBJ
 
 AUTH = sentinel.AUTH
 ID1, ID2 = 4001, 4002
@@ -170,7 +171,7 @@ class TestCreateClient(JsonRpcTestCase):
             {(odooly.Env, 'newdb', self.server): odooly.Env(client, 'newdb'),
              (key_1, 'newdb', self.server): client.env(context={}),
              (key_2, 'newdb', self.server): client.env,
-             ('auth', 'newdb', self.server): {'usr': (1, 'pss')},
+             ('auth', 'newdb', self.server): {'usr': (1, 'pss', None)},
              ('model_names', 'newdb', self.server): {'res.users': False}})
         self.assertOutput('')
 
@@ -203,7 +204,7 @@ class TestCreateClient(JsonRpcTestCase):
         self.service.database.list.return_value = ['database']
         self.assertFalse(odooly.Env._cache)
         mock.patch.dict(odooly.Env._cache,
-                        {('auth', 'database', self.server): {'usr': (1, 'password')}}).start()
+                        {('auth', 'database', self.server): {'usr': (1, 'password', None)}}).start()
 
         client = odooly.Client(self.server, 'database', 'usr')
         self.assertIsInstance(client, odooly.Client)
@@ -626,3 +627,296 @@ class TestClientApi18(TestClientApi):
 class TestClientApi19(TestClientApi):
     """Test the Client API for Odoo 19."""
     server_version = '19.0'
+
+
+class TestSharedSession(OdooTestCase):
+    """Test the Client with the session_id of a browser session."""
+    server = f'{OdooTestCase.server}/'
+    database, user, uid = 'prod', 'jdoe@example.com', 7
+    session_info = {'uid': uid, 'username': user, 'db': database,
+                    'user_context': {'lang': 'en_US'}, 'is_system': True}
+
+    def _patch_http_request(self):
+        self.requests = []
+        self.sessions = {'BROWSER': self.session_info}
+        return mock.patch('odooly.http.HTTPSession.request', autospec=True,
+                          side_effect=self._fake_odoo).start()
+
+    def _fake_odoo(self, http, url, *, method='POST', data=None, json=None, headers=None):
+        path = url[len(self.server) - 1:]
+        cookies = {c.name: c.value for c in http._cookies}
+        self.requests.append((path, cookies.get('session_id')))
+        session = self.sessions.get(cookies.get('session_id'))
+        expired = {'code': 100, 'message': 'Odoo Session Expired', 'data': {}}
+        if method == 'HEAD':
+            return mock.Mock(url=url)
+        if path == '/web/become':
+            # Like Odoo 17: the session itself becomes Superuser
+            if session.get('is_system'):
+                self.sessions[cookies['session_id']] = {
+                    'uid': 1, 'username': '__system__', 'db': self.database}
+            return 'odoo.__session_info__ = {"uid": 1};'
+        if path == '/web/webclient/version_info':
+            return {'result': {'server_version': '17.0+e'}}
+        if path == '/web/database/list':
+            return {'error': {'code': 200, 'message': 'Access Denied', 'data': {}}}
+        if path == '/web/session/get_session_info':
+            return {'result': session} if session else {'error': expired}
+        if path == '/web/session/authenticate':
+            assert json['params']['password'] == 'admin'
+            self.sessions['OWN'] = {'uid': 2, 'username': 'admin', 'db': self.database,
+                                    'is_system': True}
+            http.set_cookie(url, 'session_id', 'OWN')
+            return {'result': {'uid': 2, 'user_context': {}}}
+        if path == '/web/session/destroy':
+            self.sessions.pop(cookies.get('session_id'), None)
+            return {'result': None}
+        if path.startswith('/web/dataset/call_kw/'):
+            if not session:
+                return {'error': expired}
+            results = {
+                'ir.model/fields_get': {},
+                'ir.model/search_read': [{'model': 'res.partner'}],
+                'res.partner/search': [session['uid']],
+            }
+            return {'result': results[path[21:]]}
+        raise AssertionError(f'Unexpected request {path}')
+
+    def test_login_session(self):
+        client = odooly.Client(self.server, session_id='BROWSER')
+
+        self.assertEqual(client.env.uid, self.uid)
+        self.assertEqual(client.env.user.login, self.user)
+        self.assertEqual(client.env.db_name, self.database)
+        self.assertEqual(client.env.context, {'lang': 'en_US'})
+        self.assertEqual(client.env.session_info, self.session_info)
+        self.assertEqual(client.env._cache_get('auth')[self.user], (self.uid, None, 'BROWSER'))
+        self.assertEqual(self.requests, [
+            ('', None),  # HEAD request
+            ('/web/webclient/version_info', None),
+            ('/web/session/get_session_info', 'BROWSER'),
+        ])
+        self.assertEqual(client.env['res.partner'].search([]).ids, [self.uid])
+        self.assertEqual(self.requests[-1], ('/web/dataset/call_kw/res.partner/search', 'BROWSER'))
+        self.assertOutput('')
+
+    def test_login_session_invalid(self):
+        with self.assertRaisesRegex(odooly.Error, 'Invalid or expired session'):
+            odooly.Client(self.server, session_id='WRONG')
+        self.assertEqual(self.requests[-1], ('/web/session/get_session_info', 'WRONG'))
+
+        client = odooly.Client(self.server)
+        with self.assertRaisesRegex(odooly.Error, "bound to database 'prod'"):
+            client.login(None, session_id='BROWSER', database='other')
+        self.assertFalse([*client._http._cookies])
+        self.assertIsNone(client.env.uid)
+
+        with self.assertRaisesRegex(odooly.Error, "bound to user 'jdoe@example.com'"):
+            client.login('admin', session_id='BROWSER')
+        self.assertFalse([*client._http._cookies])
+        self.assertIsNone(client.env.uid)
+        self.assertOutput('')
+
+    def test_switch_user(self):
+        client = odooly.Client(self.server, self.database, session_id='BROWSER')
+        shared_env = client.env
+
+        # Password login does not reuse the shared session
+        client.login('admin', 'admin')
+        self.assertEqual(self.requests[-1], ('/web/session/authenticate', None))
+        self.assertEqual(client.env['res.partner'].search([]).ids, [2])
+        self.assertEqual(self.requests[-1][1], 'OWN')
+
+        # Back to the shared session
+        self.assertEqual(shared_env['res.partner'].search([]).ids, [self.uid])
+        self.assertEqual(self.requests[-1][1], 'BROWSER')
+        self.assertEqual(client.login(self.user), self.uid)
+        # Attached again through Env.session_authenticate
+        self.assertOutput(f"Session authenticated for {self.user!r}\n")
+
+        # Back to the password user: its session is reused
+        self.requests.clear()
+        self.assertEqual(client.login('admin'), 2)
+        self.assertEqual(client.env['res.partner'].search([]).ids, [2])
+        self.assertEqual(self.requests, [
+            ('/web/session/get_session_info', 'OWN'),
+            ('/web/dataset/call_kw/res.partner/search', 'OWN'),
+        ])
+        self.assertOutput('')
+
+    def test_destroy_own_session(self):
+        client = odooly.Client(self.server, self.database, 'admin', 'admin')
+        env = client.env
+        self.assertEqual(env.context, {})
+        self.assertEqual(env['res.partner'].search([]).ids, [2])
+        env.session_destroy()
+        self.assertNotIn('OWN', self.sessions)
+        self.assertOutput('')
+
+        # Authenticate again with the password, the destroyed session is not reused
+        self.requests.clear()
+        self.assertEqual(env['res.partner'].search([]).ids, [2])
+        self.assertEqual(self.requests, [
+            ('/web/session/get_session_info', 'OWN'),
+            ('/web/session/authenticate', None),
+            ('/web/dataset/call_kw/res.partner/search', 'OWN'),
+        ])
+        self.assertEqual(env._cache_get('auth')['admin'], (2, 'admin', 'OWN'))
+        self.assertNotIn('__session_id', env.session_info)
+        self.assertOutput("Session authenticated for 'admin'\n")
+
+    def test_sudo_own_session(self):
+        client = odooly.Client(self.server, self.database, 'admin', 'admin')
+        admin_env = client.env
+        self.assertEqual(client.env.sudo('__system__').uid, 1)
+        self.assertEqual(self.sessions['OWN']['username'], '__system__')
+
+        # The environment authenticates again with the password
+        self.requests.clear()
+        self.assertEqual(admin_env['res.partner'].search([]).ids, [2])
+        self.assertEqual(self.requests[:2], [
+            ('/web/session/get_session_info', 'OWN'),
+            ('/web/session/authenticate', None),
+        ])
+        self.assertEqual(self.requests[-1], ('/web/dataset/call_kw/res.partner/search', 'OWN'))
+        self.assertOutput("Session authenticated for 'admin'\n")
+        # Become Superuser again: the fake server reuses the id 'OWN' for the
+        # new session, so the saved Superuser session id is stale
+        self.sessions['OWN']['is_system'] = True
+        self.assertEqual(client.env.sudo('__system__').uid, 1)
+        self.assertOutput("Session authenticated for 'admin'\n")
+
+        # The session is now Superuser: authenticate again with the password
+        self.requests.clear()
+        self.assertEqual(client.login('admin'), 2)
+        self.assertEqual(self.requests, [
+            ('/web/session/get_session_info', 'OWN'),
+            ('/web/session/authenticate', None),
+        ])
+        self.assertEqual(self.sessions['OWN']['username'], 'admin')
+        self.assertOutput('')
+
+    def test_sudo_shared_session(self):
+        client = odooly.Client(self.server, self.database, session_id='BROWSER')
+        shared_env = client.env
+        client.login('admin', 'admin')
+        self.assertEqual(client.env['res.partner'].search([]).ids, [2])
+
+        # sudo() starts from the session of shared_env, and warns about the browser
+        system_env = shared_env.sudo()
+        self.assertEqual(system_env.uid, 1)
+        self.assertIn(('/web/become', 'BROWSER'), self.requests)
+        self.assertEqual(self.sessions['BROWSER']['username'], '__system__')
+        self.assertEqual(self.sessions['OWN']['username'], 'admin')
+        self.assertOutput(f"Session authenticated for {self.user!r}\n"
+                          "Session is now Superuser.  To undo: env.session_destroy()\n")
+
+        # The Superuser session is reused, without /web/become again
+        self.assertEqual(client.env['res.partner'].search([]).ids, [2])
+        self.requests.clear()
+        self.assertEqual(system_env['res.partner'].search([]).ids, [1])
+        self.assertEqual(self.requests, [
+            ('/web/session/get_session_info', 'BROWSER'),
+            ('/web/dataset/call_kw/res.partner/search', 'BROWSER'),
+        ])
+
+        # The shared user cannot go back to its session
+        with self.assertRaisesRegex(odooly.Error, "Session of 'jdoe@example.com' is now Superuser"):
+            client.login(self.user)
+
+        # Undo: terminate the session
+        shared_env.session_destroy()
+        self.assertNotIn('BROWSER', self.sessions)
+        self.assertIn('OWN', self.sessions)
+        with self.assertRaisesRegex(odooly.Error, 'Superuser session is terminated'):
+            system_env['res.partner'].search([]).ids
+        self.assertOutput("Session authenticated for 'admin'\n")
+
+    def test_destroy_session_of_env(self):
+        client = odooly.Client(self.server, self.database, session_id='BROWSER')
+        shared_env = client.env
+        client.login('admin', 'admin')
+        admin_env = client.env
+        self.assertEqual(shared_env['res.partner'].search([]).ids, [self.uid])
+
+        # The BROWSER session is attached, but OWN is terminated
+        admin_env.session_destroy()
+        self.assertEqual(set(self.sessions), {'BROWSER'})
+        self.assertEqual(self.requests[-2:], [
+            ('/web/session/get_session_info', 'OWN'),
+            ('/web/session/destroy', 'OWN'),
+        ])
+        admin_env.session_destroy()  # Already terminated
+        self.assertEqual(set(self.sessions), {'BROWSER'})
+        self.assertOutput(f"Session authenticated for {self.user!r}\n")
+
+    def test_destroy_shared_session(self):
+        mock.patch('odooly.environment.getpass', side_effect=EOFError).start()
+        client = odooly.Client(self.server, self.database, session_id='BROWSER')
+        env = client.env
+
+        self.assertIsNone(env.session_destroy())
+        self.assertNotIn('BROWSER', self.sessions)
+        self.assertFalse([*client._http._cookies])
+        self.assertOutput('')
+
+        # The browser is logged out: a password is needed
+        self.assertRaises(EOFError, env._get, 'res.partner')
+        self.assertEqual(self.requests[-1], ('/web/session/get_session_info', 'BROWSER'))
+        paths = {path for (path, sid) in self.requests}
+        self.assertFalse(paths & {'/web/session/authenticate', '/web/login', '/web/become'})
+
+    def test_connect_client(self):
+        args = odooly.run.get_parser().parse_args([self.server, '--session-id', 'BROWSER'])
+        client = odooly.run.connect_client(args)
+        self.assertEqual(client.env.uid, self.uid)
+        self.assertEqual(client.env.user.login, self.user)
+
+        args = odooly.run.get_parser().parse_args(
+            [self.server, '-u', 'admin', '--session-id', 'BROWSER'])
+        with self.assertRaises(SystemExit):
+            odooly.run.connect_client(args)
+        self.assertIn("Session is bound to user 'jdoe@example.com'", self.stdout.popvalue())
+        self.assertOutput('')
+
+    def test_from_config(self):
+        env_tuple = (self.server, self.database, 'jdoe', None, None)
+        mock.patch('odooly.run.InteractiveClient.get_config', return_value=env_tuple).start()
+
+        client = odooly.run.InteractiveClient.from_config('prod', session_id='BROWSER')
+        self.assertEqual(client.env.uid, self.uid)
+        self.assertEqual(client.env.name, 'prod')
+        self.assertEqual(client._saved_config['prod'][2], self.user)
+        self.assertOutput('')
+
+
+class TestHTTPSessionCookie(TestCase):
+
+    def test_set_cookie(self):
+        http = odooly.http.HTTPSession()
+        http.set_cookie('https://odoo.example.com/web', 'session_id', 'abc')
+        http.set_cookie('https://odoo.example.com/web', 'session_id', 'xyz')
+        http.set_cookie('http://localhost:8069/web', 'session_id', 'loc')
+        self.assertEqual(sorted((c.domain, c.value) for c in http._cookies),
+                         [('localhost.local', 'loc'), ('odoo.example.com', 'xyz')])
+
+        http.set_cookie('https://odoo.example.com/web', 'session_id', None)
+        http.set_cookie('https://odoo.example.com/web', 'session_id', None)
+        self.assertEqual([c.value for c in http._cookies], ['loc'])
+
+    def test_get_cookie(self):
+        http = odooly.http.HTTPSession()
+        self.assertIsNone(http.get_cookie('https://odoo.example.com/web', 'session_id'))
+
+        # A cookie with another path is ignored, like in set_cookie
+        http._cookies.set_cookie(Cookie(
+            0, 'session_id', 'other', None, False, 'odoo.example.com', False, False,
+            '/odoo', True, False, None, True, None, None, {}))
+        self.assertIsNone(http.get_cookie('https://odoo.example.com/web', 'session_id'))
+
+        http.set_cookie('https://odoo.example.com/web', 'session_id', 'abc')
+        http.set_cookie('http://localhost:8069/web', 'session_id', 'loc')
+        self.assertEqual(http.get_cookie('https://odoo.example.com/', 'session_id'), 'abc')
+        self.assertEqual(http.get_cookie('http://localhost:8069/', 'session_id'), 'loc')
+        self.assertIsNone(http.get_cookie('https://odoo.example.com/', 'other'))
+        self.assertIsNone(http.get_cookie('https://example.com/', 'session_id'))

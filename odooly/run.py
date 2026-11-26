@@ -51,10 +51,12 @@ class InteractiveClient(Client):
     _saved_config_demo = {}
     _globals = None
 
-    def __init__(self, server, db=None, user=None, password=None, api_key=None, verbose=False):
+    def __init__(self, server, db=None, user=None, password=None, api_key=None, session_id=None,
+                 verbose=False):
         self._printer = Printer()
         self.verbose = verbose
-        super().__init__(server, db=db, user=user, password=password, api_key=api_key)
+        super().__init__(server, db=db, user=user, password=password, api_key=api_key,
+                         session_id=session_id)
 
     @property
     def verbose(self):
@@ -99,13 +101,17 @@ class InteractiveClient(Client):
         return cls._saved_config[environment]
 
     @classmethod
-    def from_config(cls, environment, *, user=None, database=None, verbose=False):
+    def from_config(cls, environment, *, user=None, database=None, session_id=None,
+                    verbose=False):
         """Create a connection to a defined environment.
 
         See :meth:`InteractiveClient.get_config`
         Return a connected :class:`InteractiveClient`.
         """
         (server, db, conf_user, password, api_key) = cls.get_config(environment)
+        if session_id:  # Reuse a Webclient session
+            client = cls(server, database or db or None, session_id=session_id, verbose=verbose)
+            return client.save(environment)
         if skip_save := user and user != conf_user:
             password = None
         try:
@@ -178,12 +184,24 @@ class InteractiveClient(Client):
             except Exception:
                 pass
 
-    def login(self, user, password=None, database=None, api_key=None):
+    def login(self, user, password=None, database=None, api_key=None, session_id=None):
         """Switch `user` and (optionally) `database`."""
         if not self._is_interactive():
-            return super().login(user, password=password, database=database, api_key=api_key)
+            return super().login(
+                user,
+                password=password,
+                database=database,
+                api_key=api_key,
+                session_id=session_id,
+            )
         try:
-            register = super().login(user, password=password, database=database, api_key=api_key)
+            register = super().login(
+                user,
+                password=password,
+                database=database,
+                api_key=api_key,
+                session_id=session_id,
+            )
         except (Error, EOFError, KeyboardInterrupt) as exc:
             print(exc)
             register = 'client' not in self._globals
@@ -330,6 +348,9 @@ def get_parser():
         '--api-key', dest='api_key', default=None,
         help='API Key for JSON-2 or JSON-RPC')
     parser.add_argument(
+        '--session-id', dest='session_id', default=None,
+        help='reuse the "session_id" cookie of a browser session (e.g. OAuth login)')
+    parser.add_argument(
         '--demo', dest='demo', nargs='?', const="demo",
         help='connect to demo or runbot server (default: demo, demo.odoo.com)')
     parser.add_argument(
@@ -350,6 +371,7 @@ def connect_client(args):
         kwargs = {
             "user": args.user,
             "database": args.db,
+            "session_id": args.session_id,
             "verbose": args.verbose,
         }
         with except_handler():
@@ -366,10 +388,13 @@ def connect_client(args):
         kwargs = {
             "password": args.password,
             "api_key": args.api_key,
+            "session_id": args.session_id,
             "verbose": args.verbose,
         }
         with except_handler():
-            client = InteractiveClient(server, args.db, args.user or ADMIN_USER, **kwargs)
+            # With a session_id, the user is optional: it must match the session
+            user = args.user or (None if args.session_id else ADMIN_USER)
+            client = InteractiveClient(server, args.db, user, **kwargs)
     return client
 
 

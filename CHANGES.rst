@@ -2,6 +2,26 @@ Changelog
 ---------
 
 
+3.0.x (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* Add argument ``session_id`` to :class:`Client` and :meth:`Client.login`
+  to reuse an authenticated browser session, with its ``session_id``
+  cookie.  It is useful when password login is disabled, for example with
+  OAuth sign-in.  Command line option ``--session-id``.
+
+* Reuse the Webclient session of each user, when switching user or
+  environment, instead of authenticating again.  When switching database,
+  the previous session is not terminated anymore.
+
+* :meth:`Env.session_destroy` terminates the session of its environment,
+  instead of the current session.
+
+* The Superuser environment reuses its session.  When this session is
+  terminated, it raises an error, instead of switching another session to
+  Superuser.  Call :meth:`Env.sudo` again.
+
+
 3.0.6 (2026-11-18)
 ~~~~~~~~~~~~~~~~~~
 

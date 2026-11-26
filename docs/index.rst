@@ -9,6 +9,7 @@ Odooly - client for Odoo
 
 The Odooly library communicates with any `Odoo server`_ using the Webclient API.
 If an ``api_key`` is configured, it will use the JSON-2 endpoint with Odoo 19.
+If a ``session_id`` is provided, it will reuse this browser session (e.g. OAuth sign-in).
 It can also connect through the `deprecated external RPC interface`_ (JSON-RPC).
 
 It provides both a :ref:`fully featured low-level API <client-and-services>`,
@@ -49,6 +50,13 @@ Authentication methods per Odoo version, and per API:
 .. note:: So called Public API is available without authentication. For
           example ``/web/webclient/version_info``.  The ``/web/database/*``
           endpoints are public, although they require the Master password as argument.
+
+.. note:: As an alternative to Login, the Webclient API accepts the ``session_id``
+          cookie of a browser session, with :meth:`Client.login` or the
+          ``--session-id`` command line option.  It is useful when password login is
+          disabled, for example with OAuth sign-in.  The session is shared: Odooly
+          does not log out, unless :meth:`Env.session_destroy` is called.
+          :meth:`Env.sudo` turns the browser session into a Superuser session.
 
 
 Contents:

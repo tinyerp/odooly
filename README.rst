@@ -87,6 +87,17 @@ Connect to the Odoo server::
     ~$ odooly --env devel
 
 
+When password login is disabled (e.g. OAuth sign-in), login in the browser
+and reuse the value of its ``session_id`` cookie (in the browser developer
+tools, under *Application > Cookies* or *Storage > Cookies*)::
+
+    ~$ odooly --env devel --session-id 0123456789abcdef
+
+The browser session is shared: Odooly does not log out, unless
+``env.session_destroy()`` is called.  Note that ``env.sudo()`` turns
+the browser session into a Superuser session, until it is terminated.
+
+
 This is a sample session::
 
     >>> env['res.users']

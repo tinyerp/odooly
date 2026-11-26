@@ -97,20 +97,56 @@ class Env:
     def __repr__(self):
         return f"<Env '{self.user.login if self.uid else ''}@{self.db_name}'>"
 
+    @classmethod
+    def _ask_password(cls, user):
+        return getpass(f"Password for '{color_bold(user)}': ")
+
+    def _reuse_session(self, login, session_id, password=None):
+        """Attach the session `session_id`, if it is still valid for `login`."""
+        info = self.client._load_session(session_id)
+        if info and (
+            info['username'] != login or
+            (self.db_name and info['db'] != self.db_name)
+        ):
+            # The session has changed, e.g. with /web/become
+            self.client._set_session(None)
+            if info['username'] == SYSTEM_USER and not password:
+                # A browser session cannot be restored without a new sign-in
+                raise Error(f"Error: Session of {login!r} is now Superuser.  "
+                            "Log out with session_destroy()")
+            info = None
+        return info
+
     def _check_user_password(self, user, password, api_key):
         if self.client._object and not self.db_name:
             raise Error('Error: Not connected')
         assert isinstance(user, str) and user
-        if user == SYSTEM_USER and self.uid and not password:
-            info = self.client._authenticate_system()
-            return info['uid'], password, info
         # Read from cache
         auth_cache = self._cache_get('auth', dict)
-        (uid, pwcache) = auth_cache.get(user) or (None, None)
+        (uid, pwcache, session_id) = auth_cache.get(user) or (None, None, None)
         password = password or pwcache
+        if session_id:
+            # Saved session: attach again, if it is still valid
+            if session_info := self._reuse_session(user, session_id, password):
+                auth_cache[user] = (session_info['uid'], password, session_id)
+                return session_info['uid'], password, session_info
+            if not password and user != SYSTEM_USER:
+                print(f"Session expired for {user!r}")
+        if user == SYSTEM_USER and self.uid and not password:
+            # Become Superuser from the session of this environment
+            self._ensure_session()
+            session_id = self.client._get_session_id()
+            info = self.client._authenticate_system()
+            if session_id:
+                # Cache the Superuser session, for reuse and session_destroy()
+                auth_cache[SYSTEM_USER] = (info['uid'], None, session_id)
+                (__, pw, sid) = auth_cache.get(self.user.login) or (None, None, None)
+                if sid == session_id and not pw:
+                    print("Session is now Superuser.  To undo: env.session_destroy()")
+            return info['uid'], password, info
         # Ask for password
         if not password and not api_key:
-            password = getpass(f"Password for '{color_bold(user)}': ")
+            password = self._ask_password(user)
         if not self.client._object:
             try:  # Standard Web or JSON-2 authentication
                 info = self.client._authenticate(self.db_name, user, password, api_key)
@@ -120,11 +156,8 @@ class Env:
                     raise Error('Error: Database does not exist')
                 raise
         else:  # Login through RPC Service (deprecated)
-            if not uid:
-                uid = self.client.common.login(self.db_name, user, api_key or password)
-            if uid:
-                args = self.db_name, uid, api_key or password, 'res.users', 'context_get', ()
-                info = {'uid': uid, 'user_context': self.client._object.execute_kw(*args)}
+            info = self.client._authenticate_rpc(self.db_name, uid, user, api_key or password)
+            uid = info['uid']
         if not uid:  # Failed
             if user in auth_cache:
                 del auth_cache[user]
@@ -138,8 +171,10 @@ class Env:
         if not self.uid:
             # Cache the unauthenticated Env and the client
             self._cache_set(Env, self)
-        # Update credentials in cache
-        auth_cache[user] = uid, password
+        # Update credentials in cache, with the Webclient session if any
+        # (after JSON-2 or JSON-RPC login, the cookie can belong to another user)
+        session_id = self.client._get_session_id() if uid == self.client._session_uid else None
+        auth_cache[user] = uid, password, session_id
         return uid, password, info
 
     def set_api_key(self, api_key, store=True):
@@ -282,7 +317,7 @@ class Env:
         result = None
         while not result:
             try:
-                password = password or getpass(f"Password for '{color_bold(self.user.login)}': ")
+                password = password or self._ask_password(self.user.login)
             except (KeyboardInterrupt, EOFError):
                 print()
                 raise Error("Security Control - FAILED")
@@ -306,11 +341,14 @@ class Env:
 
     def _ensure_session(self):
         if self.uid != self.client._session_uid:
-            password = self._cache_get('auth')[self.user.login][1]
+            auth_cache = self._cache_get('auth')
+            (__, password, session_id) = auth_cache.get(self.user.login) or (None, None, None)
             if self.user.login == SYSTEM_USER and not password:
-                self.client._authenticate_system()
+                if not (session_id and self._reuse_session(SYSTEM_USER, session_id)):
+                    self.client._set_session(None)
+                    raise Error("Error: Superuser session is terminated")
             else:
-                self.session_authenticate(password=password)
+                self.session_authenticate(password=password, session_id=session_id)
         return self
 
     def _call_kw(self, model, method, args, kw=None):
@@ -548,16 +586,25 @@ class Env:
         """Press button ``Cancel Upgrade/Install/Uninstall``."""
         return self._upgrade((), button='cancel', quiet=True)
 
-    def session_authenticate(self, login=None, password=None):
+    def session_authenticate(self, login=None, password=None, session_id=None):
         """Create a Webclient session for current user."""
         if not login:
             login = self.user.login
-        params = {
-            'db': self.db_name,
-            'login': login,
-            'password': password or getpass(f"Password for '{color_bold(login)}': "),
-        }
-        self.session_info = self.client._authenticate_session(**params)
+        # Reuse the session, if it is still valid
+        info = session_id and self._reuse_session(login, session_id, password)
+        if not info:
+            params = {
+                'db': self.db_name,
+                'login': login,
+                'password': password or self._ask_password(login),
+            }
+            info = self.client._authenticate_session(**params)
+            # Update the session in cache
+            auth_cache = self._cache_get('auth', dict)
+            if info.get('uid') and login in auth_cache:
+                (uid, pw) = auth_cache[login][:2]
+                auth_cache[login] = (uid, pw, self.client._get_session_id())
+        self.session_info = info
         # When database name is discovered, copy cached data
         if (
             not self.db_name and
@@ -572,14 +619,27 @@ class Env:
         print(f'Session authenticated for {login!r}' if self.session_info['uid'] else 'Failed')
 
     def session_destroy(self):
-        """Terminate current Webclient session."""
-        self.client._session_uid = None
+        """Terminate the Webclient session of this environment.
+
+        A browser session is terminated too: the browser is logged out.
+        """
+        auth = self.uid and self._cache_get('auth', dict).get(self.user.login)
+        session_id = auth and auth[2]
+        if session_id:
+            if session_id != self.client._get_session_id():
+                # Attach the session of this environment, even if it changed (/web/become)
+                if not self.client._load_session(session_id):
+                    return  # Already terminated
+        elif self.uid != self.client._session_uid:
+            return  # The current session belongs to another environment
         try:
             return self.client.web_session.destroy()
         except ServerError as exc:
             # Ignore: odoo.http.SessionExpiredException
             if exc.args[0]['code'] != 100:
                 raise
+        finally:
+            self.client._set_session(None)
 
     def generate_api_key(self, expiration_date=DEFAULT):
         """Generate an API Key and configure environment to use it.

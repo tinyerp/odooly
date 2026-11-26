@@ -34,17 +34,20 @@ class Client:
     The `db` is the name of the database and the `user` should exist in the
     table ``res.users``.  If the `password` is not provided, it will be
     asked on login.
+
+    As an alternative, the `session_id` of an authenticated Webclient
+    session can be provided.
     """
     _use_call_button = False
     _printer = None
 
-    def __init__(self, server, db=None, user=None, password=None, api_key=None):
+    def __init__(self, server, db=None, user=None, password=None, api_key=None, session_id=None):
         self._http = HTTPSession()
-        self._session_uid = None
+        self._session_uid = self._session_info = None
         self._set_services(server, db)
         self.env = Env(self)
-        if user:  # Try to login
-            self.login(user, password=password, api_key=api_key, database=db)
+        if user or session_id:  # Try to login
+            self.login(user, password=password, api_key=api_key, database=db, session_id=session_id)
 
     def _set_services(self, server, db):
         if isinstance(server, list):
@@ -153,6 +156,37 @@ class Client:
     def __repr__(self):
         return f"<Client '{self._server}?db={self.env.db_name or ''}'>"
 
+    def _set_session(self, session_info, session_id=None):
+        """Set the ``session_id`` HTTP cookie and the uid of the current session."""
+        self._http.set_cookie(self._server, 'session_id', session_id)
+        self._session_uid = session_info and session_info['uid']
+        self._session_info = session_info
+
+    def _get_session_id(self):
+        """Return the ``session_id`` HTTP cookie of the current session."""
+        return self._http.get_cookie(self._server, 'session_id')
+
+    def _load_session(self, session_id):
+        """Attach an authenticated Webclient session, and return its info.
+
+        The `session_id` is the value of the ``session_id`` cookie.
+        Return None if the session is invalid or expired.
+        """
+        if not self.web:
+            return
+        if self._session_info and session_id == self._get_session_id():
+            session_info = self._session_info
+            self._session_info = None
+            return session_info
+        self._http.set_cookie(self._server, 'session_id', session_id)
+        try:
+            session_info = self.web_session.get_session_info()
+        except ServerError:  # odoo.http.SessionExpiredException
+            self._set_session(None)
+            return
+        self._set_session(session_info, session_id)
+        return session_info
+
     def _authenticate(self, db, login, password, api_key):
         if api_key and not password and self.version_info >= 19.0:
             json2_api = Json2(self, db, api_key)
@@ -165,6 +199,7 @@ class Client:
         return info
 
     def _authenticate_session(self, db, login, password):
+        self._set_session(None)  # Do not authenticate on the shared session
         info = {'uid': None}
         try:
             if db:
@@ -210,20 +245,53 @@ class Client:
     def _authenticate_system(self):
         __, session_info = self._request_parse('/web/become')
         self._session_uid = session_info.get('uid')
+        self._session_info = None  # The session has changed
         if self._session_uid != 1:
             raise Error("Cannot become Superuser")
+        return session_info
+
+    def _authenticate_rpc(self, db, uid, login, password):
+        # The password is asked by Env._check_user_password, which caches it
+        if not uid:
+            uid = self.common.login(db, login, password)
+        session_info = {'uid': uid}
+        if uid:
+            args = db, uid, password, 'res.users', 'context_get', ()
+            session_info['user_context'] = self._object.execute_kw(*args)
         return session_info
 
     def _select_database(self, db_list):
         return db_list[0] if len(db_list) == 1 else None
 
-    def login(self, user, password=None, database=None, api_key=None):
+    def login(self, user, password=None, database=None, api_key=None, session_id=None):
         """Switch `user` and (optionally) `database`.
 
         If the `password` is not available, it will be asked.
+
+        As an alternative, the `session_id` of an authenticated Webclient
+        session can be provided: it is the value of the ``session_id``
+        cookie of a browser session.  Use it when the password login is
+        disabled, for example when the user signs in with OAuth.
+        The session is shared with the browser: Odooly does not authenticate
+        again on this session, and it does not log out, unless
+        :meth:`Env.session_destroy` is called.  Note that :meth:`Env.sudo`
+        turns the browser session into a Superuser session.
+        The `user` and the `database` are optional: if provided, they must
+        match the session.
         """
         env = self.env
-        if not env.db_name or (database and env.db_name != database):
+        session_info = None
+        if session_id:  # Reuse a Webclient session
+            if not (session_info := self._load_session(session_id)):
+                raise Error("Error: Invalid or expired session")
+            if database and database != session_info['db']:
+                self._set_session(None)
+                raise Error(f"Error: Session is bound to database {session_info['db']!r}")
+            if user and user != session_info['username']:
+                self._set_session(None)
+                raise Error(f"Error: Session is bound to user {session_info['username']!r}")
+            (user, database) = (session_info['username'], session_info['db'])
+        if not session_id and (not env.db_name or (database and env.db_name != database)):
             try:
                 dbs = self.database.list()
             except Exception:
@@ -235,9 +303,13 @@ class Client:
                 if dbs and database not in dbs:
                     raise Error(f"Database {database!r} does not exist: {dbs}")
         if database and env.db_name != database:
-            if self._session_uid:
-                env.session_destroy()
+            if env.db_name and self._session_uid and not session_info:
+                self._set_session(None)  # Do not reuse the session on another database
             env = Env(self, database)
+        if session_info:
+            # Saved like any other session: Env._check_user_password reuses it
+            auth_cache = env._cache_get('auth', dict)
+            auth_cache[user] = (session_info['uid'], None, session_id)
         try:
             self.env = env(user=user, password=password, api_key=api_key)
         except Exception:
