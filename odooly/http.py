@@ -142,7 +142,7 @@ class HTTPSession:
             if result and status_code in {401, 403, 404, 422, 500}:
                 # Unauthorized, Forbidden, NotFound, UnprocessableContent, InternalServerError
                 if isinstance(result, str):
-                    if os.getenv('ODOO_DEBUG'):
+                    if os.getenv('ODOOLY_DEBUG'):
                         print(result)
                     lines = re.findall(r'>([^\n]+)<', result) or (status_code, result)
                     result = {'name': exc.__class__.__name__, 'debug': None,

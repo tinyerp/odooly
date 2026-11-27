@@ -3,7 +3,7 @@ from unittest import mock, TestCase
 from unittest.mock import call, sentinel, ANY
 
 import odooly.run
-from ._common import JsonRpcTestCase, OdooTestCase, OBJ
+from ._common import JsonRpcTestCase, OdooTestCase, OBJ, PseudoFile
 
 AUTH = sentinel.AUTH
 ID1, ID2 = 4001, 4002
@@ -927,3 +927,30 @@ class TestHTTPSessionCookie(TestCase):
         self.assertEqual(http.get_cookie('http://localhost:8069/', 'session_id'), 'loc')
         self.assertIsNone(http.get_cookie('https://odoo.example.com/', 'other'))
         self.assertIsNone(http.get_cookie('https://example.com/', 'session_id'))
+
+
+class TestHTTPSessionError(TestCase):
+
+    def test_html_error_page(self):
+        # Werkzeug error page
+        page = ('<!doctype html>\n<html lang=en>\n<title>404 Not Found</title>\n'
+                '<h1>Not Found</h1>\n<p>The requested URL was not found on the server.</p>\n')
+        http = odooly.http.HTTPSession()
+        mock.patch.object(http, '_request', side_effect=OSError).start()
+        mock.patch.object(http, '_parse_error', return_value=(404, page)).start()
+        stdout = mock.patch('sys.stdout', new=PseudoFile()).start()
+        self.addCleanup(mock.patch.stopall)
+
+        with self.assertRaises(odooly.ServerError) as cm:
+            http.request('http://odoo.example.com/report/pdf/missing')
+        self.assertEqual(cm.exception.args[0], {'code': 404, 'data': {
+            'name': 'OSError', 'debug': None,
+            'arguments': ('404 Not Found - The requested URL was not found on the server.',)}})
+        self.assertEqual(stdout.popvalue(), '')
+
+        # The HTML page is printed with ODOOLY_DEBUG
+        # Not started: Python 3.8 'mock.patch.stopall()' does not stop 'patch.dict'
+        with mock.patch.dict('os.environ', {'ODOOLY_DEBUG': '1'}), \
+                self.assertRaises(odooly.ServerError):
+            http.request('http://odoo.example.com/report/pdf/missing')
+        self.assertEqual(stdout.popvalue(), page + '\n')
