@@ -255,7 +255,9 @@ class Env:
             (uid, user, session) = (self.uid, self.user, self.session_info)
         else:
             return self
-        env_key = bytes.fromhex(f"{uid:08x}{hash(json.dumps(context, sort_keys=1)) % 2**32:08x}")
+        # Odoo >= 20 returns a read-only mapping in local mode
+        context_hash = hash(json.dumps(context, sort_keys=1, default=dict))
+        env_key = bytes.fromhex(f"{uid:08x}{context_hash % 2**32:08x}")
         if (env := self._cache_get(env_key)) is None:
             env = self._configure(uid, user, password, api_key, context, session)
             env._cache_set(env_key, env)
