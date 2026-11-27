@@ -5,6 +5,8 @@ Changelog
 3.0.x (unreleased)
 ~~~~~~~~~~~~~~~~~~
 
+* Local mode is fixed and tested with Odoo 11.0 and later.
+
 * Fix local mode with Odoo 19: import ``odoo.http``, which initializes
   Odoo and loads the services.
 
