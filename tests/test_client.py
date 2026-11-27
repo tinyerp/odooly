@@ -605,6 +605,13 @@ class TestClientApi(JsonRpcTestCase):
                          [call("Password for 'guest': "), call("Password for 'admin': ")])
         self.assertOutput('')
 
+    def test_local_only(self):
+        # Env.cr, Env.odoo_env and with_odoo() need the local mode
+        for func in (lambda: self.env.cr, lambda: self.env.odoo_env,
+                     lambda: self.env['res.users'].browse(1).with_odoo()):
+            with self.assertRaisesRegex(odooly.Error, 'Not available'):
+                func()
+
     def test_obsolete_methods(self):
         self.assertRaises(AttributeError, getattr, self.env, 'exec_workflow')
         self.assertRaises(AttributeError, getattr, self.env, 'render_report')
