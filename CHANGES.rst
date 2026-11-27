@@ -5,7 +5,8 @@ Changelog
 3.0.x (unreleased)
 ~~~~~~~~~~~~~~~~~~
 
-* Fix local mode with Odoo 19: import the ``odoo`` sub-packages.
+* Fix local mode with Odoo 19: import ``odoo.http``, which initializes
+  Odoo and loads the services.
 
 * Fix ``with_odoo()`` for a :class:`Record` and for a lazy
   :class:`RecordList`: they return the Odoo recordset.
@@ -19,9 +20,6 @@ Changelog
 
 * Clear error in local mode, for features which need a Webclient session:
   Superuser, :meth:`Env.session_authenticate` and ``render_pdf``.
-
-* When the password is changed for a known user, check it again with
-  JSON-RPC and local mode.
 
 * :meth:`InteractiveClient.from_config` switches back to the database of
   the environment, when the client is reused.
