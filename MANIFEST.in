@@ -1,0 +1,5 @@
+include CHANGES.rst
+graft docs
+prune docs/_build
+graft tests
+global-exclude *.py[co] .readthedocs.yaml
