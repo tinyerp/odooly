@@ -9,21 +9,20 @@ import odooly.run
 from odooly.service import LocalDatabase
 
 from ._common import OdooTestCase
+from ._fake_odoo import MASTER_PWD, FakeOdoo, OdooException
 
 OPTIONS = ['-c', '/etc/odoo/odoo.conf']
-MASTER_PWD = 'master'
 
 
 class _TestLocal(OdooTestCase):
-    """Fake 'odoo' package, with the RPC services used by odooly."""
+    """Fake 'odoo' package, with the RPC services of the fake Odoo server."""
     server = None
     version_info = None
-    databases = ('db1', 'db2')
-    users = {'admin': (2, 'admin'), 'demo': (6, 'demo')}
 
     def setUp(self):
         super().setUp()
-        self.databases = [*self.databases]
+        self.odoo_server = FakeOdoo(f'{self.version_info[0]}.0', databases=['db1', 'db2'])
+        self.databases = self.odoo_server.databases
         self.odoo = self._fake_odoo()
         mock.patch('odooly.service.atexit.register').start()
         self.putenv = mock.patch('odooly.service.os.putenv').start()
@@ -80,45 +79,15 @@ class _TestLocal(OdooTestCase):
         module.drop = mock.Mock(side_effect=drop)
 
     def _dispatch_rpc(self, service, method, params):
-        if service == 'common':
-            if method == 'version':
-                return {'server_version': f'{self.version_info[0]}.0'}
-            assert method == 'login'
-            (db, login, password) = params
-            (uid, user_password) = self.users.get(login, (False, None))
-            return uid if (db in self.databases and password == user_password) else False
-        if service == 'db':
-            if self.version_info >= (20,):
-                raise ValueError(f"Invalid service name: {service}")
-            if method == 'list':
-                return [*self.databases]
-            if params[0] != MASTER_PWD:
-                raise Exception('Access Denied')  # Raw odoo.exceptions.AccessDenied
-            # Signatures, with the master password: 'phone' since 12.0,
-            # 'neutralize_database' since 16.0
-            max_args = {
-                'create_database': 7 if self.version_info < (12,) else 8,
-                'duplicate_database': 3 if self.version_info < (16,) else 4,
-                'drop': 2,
-            }
-            assert len(params) <= max_args[method], f"Too many arguments: {method}{params}"
-            if method == 'create_database':
-                self.databases.append(params[1])
-            elif method == 'duplicate_database':
-                self.databases.append(params[2])
-            elif method == 'drop':
-                self.databases.remove(params[1])
-            return True
-        assert (service, method) == ('object', 'execute_kw')
-        (db, uid, password, model, method, args) = params[:6]
-        results = {
-            ('res.users', 'context_get'): self._context({'lang': 'en_US', 'tz': 'Europe/Zurich'}),
-            ('ir.model', 'fields_get'): {},
-            ('ir.model', 'search_read'): [{'model': 'res.users', 'transient': False}],
-            ('res.users', 'search_count'): len(self.users),
-            ('res.users', 'search'): [uid for (uid, __) in self.users.values()],
-        }
-        return results[model, method]
+        if service == 'db' and self.version_info >= (20,):
+            raise ValueError(f"Invalid service name: {service}")
+        try:
+            result = self.odoo_server.rpc(service, method, params)
+        except OdooException as exc:
+            raise Exception(*exc.args)  # Raw odoo.exceptions.AccessDenied
+        if method == 'execute_kw' and params[3:5] == ('res.users', 'context_get'):
+            return self._context(result)
+        return result
 
     def _context(self, context):
         # Odoo >= 20 returns a read-only mapping
@@ -170,7 +139,8 @@ class _TestLocal(OdooTestCase):
             expected.remove(('db', 'list'))  # odoo.modules.db.list_dbs()
             self.odoo.modules.db.list_dbs.assert_called_once_with()
         self.assertEqual(self.rpc_calls(), expected)
-        self.assertEqual(client.env.context, {'lang': 'en_US', 'tz': 'Europe/Zurich'})
+        admin = self.odoo_server.users['admin']
+        self.assertEqual(client.env.context, self.odoo_server.context(admin, 2))
         self.assertOutput('')
 
     def test_select_database(self):

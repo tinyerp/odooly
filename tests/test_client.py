@@ -3,7 +3,8 @@ from unittest import mock, TestCase
 from unittest.mock import call, sentinel, ANY
 
 import odooly.run
-from ._common import JsonRpcTestCase, OdooTestCase, OBJ, PseudoFile
+from ._common import FakeOdooTestCase, JsonRpcTestCase, OdooTestCase, OBJ, PseudoFile
+from ._fake_odoo import FakeOdoo, FakeUser
 
 AUTH = sentinel.AUTH
 ID1, ID2 = 4001, 4002
@@ -636,58 +637,27 @@ class TestClientApi19(TestClientApi):
     server_version = '19.0'
 
 
-class TestSharedSession(OdooTestCase):
+class TestSharedSession(FakeOdooTestCase):
     """Test the Client with the session_id of a browser session."""
-    server = f'{OdooTestCase.server}/'
+    server_version = '17.0'
     database, user, uid = 'prod', 'jdoe@example.com', 7
-    session_info = {'uid': uid, 'username': user, 'db': database,
-                    'user_context': {'lang': 'en_US'}, 'is_system': True}
 
-    def _patch_http_request(self):
-        self.requests = []
-        self.sessions = {'BROWSER': self.session_info}
-        return mock.patch('odooly.http.HTTPSession.request', autospec=True,
-                          side_effect=self._fake_odoo).start()
+    def fake_odoo(self):
+        server = FakeOdoo(self.server_version, databases=['prod'], list_db=False, users=[
+            FakeUser(2, 'admin', 'admin', is_system=True, context={'lang': 'en_US'}),
+            FakeUser(self.uid, self.user, is_system=True, context={'lang': 'en_US'}),
+        ])
+        # The browser session, and a predictable id for the password session
+        server.sessions['BROWSER'] = {'uid': self.uid, 'login': self.user, 'db': self.database}
+        server.session_names['admin'] = 'OWN'
+        # Show which user executes the search
+        server.methods['res.partner', 'search'] = lambda user, args, kwargs: [user.uid]
+        return server
 
-    def _fake_odoo(self, http, url, *, method='POST', data=None, json=None, headers=None):
-        path = url[len(self.server) - 1:]
-        cookies = {c.name: c.value for c in http._cookies}
-        self.requests.append((path, cookies.get('session_id')))
-        session = self.sessions.get(cookies.get('session_id'))
-        expired = {'code': 100, 'message': 'Odoo Session Expired', 'data': {}}
-        if method == 'HEAD':
-            return mock.Mock(url=url)
-        if path == '/web/become':
-            # Like Odoo 17: the session itself becomes Superuser
-            if session.get('is_system'):
-                self.sessions[cookies['session_id']] = {
-                    'uid': 1, 'username': '__system__', 'db': self.database}
-            return 'odoo.__session_info__ = {"uid": 1};'
-        if path == '/web/webclient/version_info':
-            return {'result': {'server_version': '17.0+e'}}
-        if path == '/web/database/list':
-            return {'error': {'code': 200, 'message': 'Access Denied', 'data': {}}}
-        if path == '/web/session/get_session_info':
-            return {'result': session} if session else {'error': expired}
-        if path == '/web/session/authenticate':
-            assert json['params']['password'] == 'admin'
-            self.sessions['OWN'] = {'uid': 2, 'username': 'admin', 'db': self.database,
-                                    'is_system': True}
-            http.set_cookie(url, 'session_id', 'OWN')
-            return {'result': {'uid': 2, 'user_context': {}}}
-        if path == '/web/session/destroy':
-            self.sessions.pop(cookies.get('session_id'), None)
-            return {'result': None}
-        if path.startswith('/web/dataset/call_kw/'):
-            if not session:
-                return {'error': expired}
-            results = {
-                'ir.model/fields_get': {},
-                'ir.model/search_read': [{'model': 'res.partner'}],
-                'res.partner/search': [session['uid']],
-            }
-            return {'result': results[path[21:]]}
-        raise AssertionError(f'Unexpected request {path}')
+    def setUp(self):
+        super().setUp()
+        self.sessions = self.odoo_server.sessions
+        self.requests = self.odoo_server.requests
 
     def test_login_session(self):
         client = odooly.Client(self.server, session_id='BROWSER')
@@ -695,8 +665,9 @@ class TestSharedSession(OdooTestCase):
         self.assertEqual(client.env.uid, self.uid)
         self.assertEqual(client.env.user.login, self.user)
         self.assertEqual(client.env.db_name, self.database)
-        self.assertEqual(client.env.context, {'lang': 'en_US'})
-        self.assertEqual(client.env.session_info, self.session_info)
+        self.assertEqual(client.env.context, {'lang': 'en_US', 'uid': self.uid})
+        self.assertEqual(client.env.session_info,
+                         self.odoo_server.session_info(self.sessions['BROWSER']))
         self.assertEqual(client.env._cache_get('auth')[self.user], (self.uid, None, 'BROWSER'))
         self.assertEqual(self.requests, [
             ('', None),  # HEAD request
@@ -754,7 +725,7 @@ class TestSharedSession(OdooTestCase):
     def test_destroy_own_session(self):
         client = odooly.Client(self.server, self.database, 'admin', 'admin')
         env = client.env
-        self.assertEqual(env.context, {})
+        self.assertEqual(env.context, {'lang': 'en_US', 'uid': 2})
         self.assertEqual(env['res.partner'].search([]).ids, [2])
         env.session_destroy()
         self.assertNotIn('OWN', self.sessions)
@@ -776,7 +747,7 @@ class TestSharedSession(OdooTestCase):
         client = odooly.Client(self.server, self.database, 'admin', 'admin')
         admin_env = client.env
         self.assertEqual(client.env.sudo('__system__').uid, 1)
-        self.assertEqual(self.sessions['OWN']['username'], '__system__')
+        self.assertEqual(self.sessions['OWN']['uid'], 1)  # Superuser
 
         # The environment authenticates again with the password
         self.requests.clear()
@@ -789,7 +760,6 @@ class TestSharedSession(OdooTestCase):
         self.assertOutput("Session authenticated for 'admin'\n")
         # Become Superuser again: the fake server reuses the id 'OWN' for the
         # new session, so the saved Superuser session id is stale
-        self.sessions['OWN']['is_system'] = True
         self.assertEqual(client.env.sudo('__system__').uid, 1)
         self.assertOutput("Session authenticated for 'admin'\n")
 
@@ -800,7 +770,7 @@ class TestSharedSession(OdooTestCase):
             ('/web/session/get_session_info', 'OWN'),
             ('/web/session/authenticate', None),
         ])
-        self.assertEqual(self.sessions['OWN']['username'], 'admin')
+        self.assertEqual(self.sessions['OWN']['uid'], 2)
         self.assertOutput('')
 
     def test_sudo_shared_session(self):
@@ -813,8 +783,8 @@ class TestSharedSession(OdooTestCase):
         system_env = shared_env.sudo()
         self.assertEqual(system_env.uid, 1)
         self.assertIn(('/web/become', 'BROWSER'), self.requests)
-        self.assertEqual(self.sessions['BROWSER']['username'], '__system__')
-        self.assertEqual(self.sessions['OWN']['username'], 'admin')
+        self.assertEqual(self.sessions['BROWSER']['uid'], 1)  # Superuser
+        self.assertEqual(self.sessions['OWN']['uid'], 2)
         self.assertOutput(f"Session authenticated for {self.user!r}\n"
                           "Session is now Superuser.  To undo: env.session_destroy()\n")
 
