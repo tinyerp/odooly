@@ -2,6 +2,13 @@ Changelog
 ---------
 
 
+3.0.x (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* Fix ``with_odoo()`` for a :class:`Record` and for a lazy
+  :class:`RecordList`: they return the Odoo recordset.
+
+
 3.0.7 (2026-11-27)
 ~~~~~~~~~~~~~~~~~~
 
