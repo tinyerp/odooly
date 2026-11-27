@@ -8,6 +8,9 @@ Changelog
 * Fix local mode with Odoo 19: import ``odoo.http``, which initializes
   Odoo and loads the services.
 
+* Support local mode with Odoo 20: RPC router, and database management
+  with ``odoo.modules.db``.
+
 * Fix ``with_odoo()`` for a :class:`Record` and for a lazy
   :class:`RecordList`: they return the Odoo recordset.
 

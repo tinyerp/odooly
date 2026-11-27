@@ -33,6 +33,8 @@ class _TestLocal(OdooTestCase):
         names = ['odoo', 'odoo.api', 'odoo.http', 'odoo.modules', 'odoo.modules.registry',
                  'odoo.release', 'odoo.service', 'odoo.service.common', 'odoo.service.db',
                  'odoo.service.model', 'odoo.sql_db', 'odoo.tools']
+        if self.version_info >= (20,):
+            names += ['odoo.http.router', 'odoo.modules.db']
         modules = {name: types.ModuleType(name) for name in names}
         for name, module in modules.items():
             if '.' in name:
@@ -45,9 +47,37 @@ class _TestLocal(OdooTestCase):
         # A new cursor for each call
         odoo.modules.registry.Registry.return_value.cursor.side_effect = mock.Mock
         odoo.api.Environment = mock.MagicMock(name='Environment')
-        odoo.http.dispatch_rpc = mock.Mock(side_effect=self._dispatch_rpc)
+        self.rpc = mock.Mock(name='dispatch_rpc', side_effect=self._dispatch_rpc)
+        if self.version_info < (20,):
+            odoo.http.dispatch_rpc = self.rpc
+        else:  # Odoo 20: the router, and the "db" service is replaced
+            odoo.http.router.dispatch_rpc = self.rpc
+            self._fake_modules_db(odoo.modules.db)
         mock.patch.dict('sys.modules', modules).start()
         return odoo
+
+    def _fake_modules_db(self, module):
+        """Odoo 20: database management functions, with their signatures."""
+        def verify_admin_password(passwd):
+            if passwd != MASTER_PWD:
+                raise Exception('Access Denied')  # Raw odoo.exceptions.AccessDenied
+
+        def create(db_name, *, demo, user_login='admin', user_password, lang,
+                   country_code=None, phone=None):
+            self.databases.append(db_name)
+
+        def duplicate(db_original_name, db_name, *, neutralize_database=False):
+            self.databases.append(db_name)
+
+        def drop(db_name):
+            self.databases.remove(db_name)
+
+        module.verify_db_management_enabled = mock.Mock()
+        module.verify_admin_password = mock.Mock(side_effect=verify_admin_password)
+        module.list_dbs = mock.Mock(side_effect=lambda: [*self.databases])
+        module.create = mock.Mock(side_effect=create)
+        module.duplicate = mock.Mock(side_effect=duplicate)
+        module.drop = mock.Mock(side_effect=drop)
 
     def _dispatch_rpc(self, service, method, params):
         if service == 'common':
@@ -58,6 +88,8 @@ class _TestLocal(OdooTestCase):
             (uid, user_password) = self.users.get(login, (False, None))
             return uid if (db in self.databases and password == user_password) else False
         if service == 'db':
+            if self.version_info >= (20,):
+                raise ValueError(f"Invalid service name: {service}")
             if method == 'list':
                 return [*self.databases]
             if params[0] != MASTER_PWD:
@@ -80,7 +112,7 @@ class _TestLocal(OdooTestCase):
         assert (service, method) == ('object', 'execute_kw')
         (db, uid, password, model, method, args) = params[:6]
         results = {
-            ('res.users', 'context_get'): {'lang': 'en_US', 'tz': 'Europe/Zurich'},
+            ('res.users', 'context_get'): self._context({'lang': 'en_US', 'tz': 'Europe/Zurich'}),
             ('ir.model', 'fields_get'): {},
             ('ir.model', 'search_read'): [{'model': 'res.users', 'transient': False}],
             ('res.users', 'search_count'): len(self.users),
@@ -88,11 +120,15 @@ class _TestLocal(OdooTestCase):
         }
         return results[model, method]
 
+    def _context(self, context):
+        # Odoo >= 20 returns a read-only mapping
+        return types.MappingProxyType(context) if self.version_info >= (20,) else context
+
     def rpc_calls(self):
         """Return (service, method, db, login or uid[, model, method]) of the RPC calls."""
         calls = [(c.args[0], c.args[1], *c.args[2][:2], *c.args[2][3:5])
-                 for c in self.odoo.http.dispatch_rpc.mock_calls]
-        self.odoo.http.dispatch_rpc.reset_mock()
+                 for c in self.rpc.mock_calls]
+        self.rpc.reset_mock()
         return calls
 
     def test_start_odoo_services(self):
@@ -100,6 +136,10 @@ class _TestLocal(OdooTestCase):
         self.assertIs(client._server, self.odoo)
         self.odoo.tools.config.parse_config.assert_called_once_with(OPTIONS)
         self.assertIs(self.odoo._get_pool, self.odoo.modules.registry.Registry)
+        if self.version_info < (20,):
+            self.assertIs(self.odoo._dispatch_rpc, self.odoo.http.dispatch_rpc)
+        else:
+            self.assertFalse(hasattr(self.odoo.http, 'dispatch_rpc'))
         self.assertEqual(self.putenv.mock_calls, [mock.call('TZ', 'UTC'),
                                                   mock.call('PGAPPNAME', 'odooly')])
         # Odoo < 15: reset the environments
@@ -119,13 +159,18 @@ class _TestLocal(OdooTestCase):
         self.assertEqual(client.env.uid, 2)
         self.assertEqual(client.env._execute_kw._protocol_name, 'Odoo')
         self.assertEqual(client.env['res.users'].search_count([]), 2)
-        self.assertEqual(self.rpc_calls(), [
+        expected = [
             ('common', 'version'),
             ('db', 'list'),
             ('common', 'login', 'db1', 'admin'),
             ('object', 'execute_kw', 'db1', 2, 'res.users', 'context_get'),
             ('object', 'execute_kw', 'db1', 2, 'res.users', 'search_count'),
-        ])
+        ]
+        if self.version_info >= (20,):
+            expected.remove(('db', 'list'))  # odoo.modules.db.list_dbs()
+            self.odoo.modules.db.list_dbs.assert_called_once_with()
+        self.assertEqual(self.rpc_calls(), expected)
+        self.assertEqual(client.env.context, {'lang': 'en_US', 'tz': 'Europe/Zurich'})
         self.assertOutput('')
 
     def test_select_database(self):
@@ -158,15 +203,26 @@ class _TestLocal(OdooTestCase):
         client.clone_database(MASTER_PWD, 'db5')
         client.drop_database(MASTER_PWD, 'db3')
         self.assertEqual(self.databases, ['db1', 'db2', 'db4', 'db5'])
-        db_calls = [c.args[1:] for c in self.odoo.http.dispatch_rpc.mock_calls
-                    if c.args[0] == 'db' and c.args[1] != 'list']
-        self.assertEqual(db_calls, [
-            # Optional arguments are not sent, for old versions
-            ('create_database', (MASTER_PWD, 'db3', False, 'en_US', 'admin', 'admin')),
-            ('create_database', (MASTER_PWD, 'db4', False, 'en_US', 'admin', 'admin', 'CH')),
-            ('duplicate_database', (MASTER_PWD, 'db4', 'db5')),
-            ('drop', (MASTER_PWD, 'db3')),
-        ])
+        if self.version_info < (20,):
+            db_calls = [c.args[1:] for c in self.rpc.mock_calls
+                        if c.args[0] == 'db' and c.args[1] != 'list']
+            self.assertEqual(db_calls, [
+                # Optional arguments are not sent, for old versions
+                ('create_database', (MASTER_PWD, 'db3', False, 'en_US', 'admin', 'admin')),
+                ('create_database', (MASTER_PWD, 'db4', False, 'en_US', 'admin', 'admin', 'CH')),
+                ('duplicate_database', (MASTER_PWD, 'db4', 'db5')),
+                ('drop', (MASTER_PWD, 'db3')),
+            ])
+        else:  # Odoo 20: odoo.modules.db
+            mdb = self.odoo.modules.db
+            user = {'demo': False, 'lang': 'en_US', 'user_password': 'admin', 'user_login': 'admin'}
+            self.assertEqual(mdb.create.mock_calls, [mock.call('db3', **user),
+                                                     mock.call('db4', **user, country_code='CH')])
+            self.assertEqual(mdb.duplicate.mock_calls,
+                             [mock.call('db4', 'db5', neutralize_database=False)])
+            self.assertEqual(mdb.drop.mock_calls, [mock.call('db3')])
+            self.assertEqual(mdb.verify_admin_password.mock_calls, [mock.call(MASTER_PWD)] * 4)
+            self.assertEqual(mdb.verify_db_management_enabled.call_count, 4)
         self.assertEqual(client.env.db_name, 'db5')
 
         # Odoo exceptions are not converted
@@ -182,8 +238,12 @@ class _TestLocal(OdooTestCase):
             self.assertNotIn('db3', self.databases)
         else:
             client.clone_database(MASTER_PWD, 'db3', neutralize_database=True)
-            self.odoo.http.dispatch_rpc.assert_any_call(
-                'db', 'duplicate_database', (MASTER_PWD, 'db1', 'db3', True))
+            if self.version_info < (20,):
+                self.rpc.assert_any_call(
+                    'db', 'duplicate_database', (MASTER_PWD, 'db1', 'db3', True))
+            else:
+                self.odoo.modules.db.duplicate.assert_called_once_with(
+                    'db1', 'db3', neutralize_database=True)
         self.assertOutput('')
 
     def test_verbose_hides_passwords(self):
@@ -305,6 +365,11 @@ class TestLocal18(_TestLocal):
 
 class TestLocal19(_TestLocal):
     version_info = (19, 0, 0, 'final', 0, '')
+
+
+class TestLocal20(_TestLocal):
+    """Odoo 20: the RPC router, without the 'db' service."""
+    version_info = (20, 0, 0, 'final', 0, '')
 
 
 del _TestLocal

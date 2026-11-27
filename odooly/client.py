@@ -122,7 +122,7 @@ class Client:
         return resp.get('result')
 
     def _proxy_odoo(self, name):
-        return partial(self._server.http.dispatch_rpc, name)
+        return partial(self._server._dispatch_rpc, name)
     _proxy_odoo._protocol_name = 'Odoo'
 
     def _proxy_jsonrpc(self, name):
