@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-3.0.x (unreleased)
+3.0.7 (2026-11-27)
 ~~~~~~~~~~~~~~~~~~
 
 * Add argument ``session_id`` to :class:`Client` and :meth:`Client.login`
