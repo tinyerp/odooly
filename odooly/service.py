@@ -50,6 +50,33 @@ def get_base_method_params(client):
     return method_params
 
 
+def _router_dispatch_rpc():
+    """Odoo >= 20: the RPC dispatcher, with the "db" service which was removed."""
+    import odoo.http.router
+    import odoo.modules.db as db
+
+    def dispatch_rpc(service_name, method, params):
+        if service_name != 'db':
+            return odoo.http.router.dispatch_rpc(service_name, method, params)
+        if method == 'list':
+            return db.list_dbs()
+        (master_pwd, name, *args) = params
+        db.verify_db_management_enabled()
+        db.verify_admin_password(master_pwd)
+        if method == 'create_database':
+            keys = ('demo', 'lang', 'user_password', 'user_login', 'country_code', 'phone')
+            db.create(name, **dict(zip(keys, args)))
+        elif method == 'duplicate_database':
+            (new_name, *neutralize) = args
+            db.duplicate(name, new_name, neutralize_database=bool(neutralize and neutralize[0]))
+        elif method == 'drop':
+            db.drop(name)
+        else:
+            raise KeyError(f"Method not found: {method}")
+        return True
+    return dispatch_rpc
+
+
 def start_odoo_services(options=None, appname=None):
     """Initialize Odoo services.
 
@@ -71,11 +98,9 @@ def start_odoo_services(options=None, appname=None):
         odoo.tools.config.parse_config(options or [])
         if odoo.release.version_info < (15,):
             odoo.api.Environment.reset()
-        elif odoo.release.version_info > (19, 2):
-            import odoo.http.router
-            odoo.http.dispatch_rpc = odoo.http.router.dispatch_rpc
 
         odoo._get_pool = odoo.modules.registry.Registry
+        odoo._dispatch_rpc = getattr(odoo.http, 'dispatch_rpc', None) or _router_dispatch_rpc()
 
         def close_all():
             for db in odoo._get_pool.registries.keys():
