@@ -267,7 +267,7 @@ class TestInteractWeb19(_TestInteract, FakeOdooTestCase):
             FakeUser(17, 'usr', 'passwd'),
             FakeUser(51, 'gaspard', 'gaspard'),
         ])
-        server.models = ['ir.model', 'res.users']  # Without 'res.company'
+        del server.models['res.company']
         return server
 
     def test_no_database(self):
@@ -331,6 +331,8 @@ class TestInteractWeb19(_TestInteract, FakeOdooTestCase):
             ('/doc/res.device.json', 'SID1'),
             ('/web/dataset/call_kw/ir.model/fields_get', 'SID1'),
             ('/web/dataset/call_kw/ir.model/search_read', 'SID1'),
+            # Not allowed for a user since Odoo 15: use the model selector
+            ('/web/dataset/call_kw/ir.model/get_available_models', 'SID1'),
             # Wrong password for 'gaspard'
             ('/web/session/authenticate', None),
         ])

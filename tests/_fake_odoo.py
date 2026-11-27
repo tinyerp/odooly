@@ -4,6 +4,7 @@ It covers the Web API (Webclient), JSON-2, the documentation endpoints and
 JSON-RPC.  The same services are used for the local mode, through a fake
 ``odoo`` package.  The behaviour depends on the Odoo version.
 """
+import io
 import itertools
 import json as _json
 from types import SimpleNamespace
@@ -25,6 +26,8 @@ def odoo_error(name, message, code=200):
 
 
 ACCESS_DENIED = odoo_error('odoo.exceptions.AccessDenied', 'Access Denied')
+ACCESS_ERROR = odoo_error('odoo.exceptions.AccessError', 'You are not allowed to access this')
+PDF = b'%PDF-1.4 fake'
 SESSION_EXPIRED = odoo_error('odoo.http.SessionExpiredException', 'Session expired', code=100)
 
 
@@ -76,11 +79,35 @@ class FakeOdoo:
         self._sid = itertools.count(1)
         # Model methods: {(model, method): func(user, args, kwargs)}
         self.methods = {}
+        # Denied access: {(login, model, mode)}
+        self.denied = set()
+        report_model = self.report_model()
         self.records = {
             'res.users': {u.uid: {'id': u.uid, 'login': u.login} for u in self.users.values()},
-            'res.partner': {1: {'id': 1, 'name': 'My Company'}},
+            'res.partner': {1: {'id': 1, 'name': 'My Company'}, 3: {'id': 3, 'name': 'Bob'}},
+            report_model: {
+                rid: {'id': rid, 'name': name, 'model': 'res.partner', 'report_name': report_name,
+                      'report_type': report_type, 'binding_model_id': binding}
+                for (rid, name, report_name, report_type, binding) in [
+                    # Like 'account.report_invoice[_with_payments]'
+                    (1, 'Partner Card', 'base.partner_card', 'qweb-pdf', 85),
+                    (2, 'Partner Sheet', 'base.partner_sheet', 'qweb-html', 85),
+                    (3, 'Partner Card Logo', 'base.partner_card_logo', 'qweb-pdf', False),
+                ]
+            },
         }
-        self.models = ['ir.model', 'res.company', 'res.partner', 'res.users']
+        if self.version_info < (11,):  # No 'binding_model_id' on 'ir.actions.report.xml'
+            for record in self.records[report_model].values():
+                del record['binding_model_id']
+        # Models: {name: (transient, abstract)}
+        self.models = {name: (False, False) for name in [
+            'ir.model', 'res.company', 'res.partner', 'res.users', report_model]}
+        self.models.update({'base.language.install': (True, False), 'mail.thread': (False, True)})
+        self.report_requests = []
+
+    def report_model(self):
+        """Odoo 9 and 10: 'ir.actions.report.xml'."""
+        return 'ir.actions.report' if self.version_info >= (11,) else 'ir.actions.report.xml'
 
     # --- Helpers -------------------------------------------------------------
 
@@ -127,20 +154,69 @@ class FakeOdoo:
             return func(user, args, kwargs)
         if (model, method) == ('res.users', 'context_get'):
             return self.context(user, user.uid)
-        if (model, method) == ('ir.model', 'fields_get'):
-            return {}
-        if (model, method) == ('ir.model', 'search_read'):
-            return [{'model': name, 'transient': False} for name in self.models]
+        if model == 'ir.model':
+            return self.call_ir_model(user, method, args)
+        if (model, method) == ('ir.model.access', 'check'):  # Odoo < 18
+            if (user.login, args[0], args[1]) in self.denied:
+                raise OdooException(ACCESS_ERROR)
+            return True
+        if method == 'has_access' and self.version_info >= (18,):
+            mode = kwargs.get('operation') or args[1]
+            return (user.login, model, mode) not in self.denied
         records = self.records.get(model, {})
+        if method == 'fields_get':
+            keys = {key for rec in records.values() for key in rec} | {'id', 'display_name'}
+            return {key: {'type': 'char', 'string': key} for key in sorted(keys)}
         if method == 'search':
-            return [*records]
+            return self.search(records, args[0] if args else kwargs.get('domain', []))
+        if method == 'search_read':
+            ids = self.search(records, args[0] if args else kwargs.get('domain', []))
+            return [records[i] for i in ids]
         if method == 'search_count':
-            return len(records)
+            return len(self.search(records, args[0] if args else []))
         if method == 'read':
             return [records[i] for i in args[0] if i in records]
-        if method == 'has_access':
-            return True
         raise OdooException(odoo_error('AttributeError', f'{model}.{method}'))
+
+    def call_ir_model(self, user, method, args):
+        """Access to 'ir.model': for admin only, since Odoo 15."""
+        if method == 'fields_get':
+            keys = ['id', 'display_name', 'model', 'name', 'transient']
+            if self.version_info >= (19,):
+                keys.append('abstract')
+            return {key: {'type': 'char', 'string': key} for key in keys}
+        if method == 'get_available_models' and self.version_info >= (16,):
+            # Web add-on: valid models for the model selector
+            return [{'model': name, 'display_name': name}
+                    for (name, (transient, abstract)) in sorted(self.models.items())
+                    if not transient and not abstract]
+        if method == 'search_read':
+            if self.version_info >= (15,) and not user.is_system:
+                raise OdooException(ACCESS_ERROR)
+            records = {}
+            for (idx, (name, (transient, abstract))) in enumerate(sorted(self.models.items())):
+                records[idx + 1] = {'id': idx + 1, 'model': name, 'transient': transient}
+                if self.version_info >= (19,):
+                    records[idx + 1]['abstract'] = abstract
+            return [records[i] for i in self.search(records, args[0] if args else [])]
+        raise OdooException(odoo_error('AttributeError', f'ir.model.{method}'))
+
+    def search(self, records, domain):
+        """Search the records, with a simple domain."""
+        fields = {key for rec in records.values() for key in rec}
+        result = []
+        for (rid, rec) in records.items():
+            for (field, op, value) in domain:
+                if field not in fields:
+                    raise OdooException(odoo_error('ValueError', f'Invalid field {field!r}'))
+                if not {
+                    '=': lambda v: v == value, '!=': lambda v: v != value,
+                    'in': lambda v: v in value, 'like': lambda v: value in str(v),
+                }[op](rec.get(field)):
+                    break
+            else:
+                result.append(rid)
+        return result
 
     def model_doc(self, model):
         return {'model': model, 'methods': {'context_get': {'parameters': {}, 'api': ['model']}}}
@@ -249,6 +325,8 @@ class FakeOdoo:
     def http_page(self, http, url, path, query, data, sid):
         """HTTP routes (HTML pages, doc), with the session info in the page."""
         session = self.sessions.get(sid)
+        if path.startswith('/report/'):
+            return self.report(path, data, session)
         if path.startswith('/doc/') and path.endswith('.json'):
             if self.version_info < (19,) or not session:
                 raise http_error(404, 'Not Found')
@@ -280,6 +358,26 @@ class FakeOdoo:
                 return self.page(self.session_info(session))
             return self.page({'uid': None})
         raise http_error(404, 'Not Found')
+
+    def report(self, path, data, session):
+        """Routes /report/download and /report/pdf/<report_name>/<ids>."""
+        self.report_requests.append((path, data))
+        if not session or not session['uid']:
+            raise http_error(403, 'Forbidden')
+        if path == '/report/download':
+            [url, report_type] = _json.loads(data['data'])
+            report_path = urlsplit(url).path
+        else:
+            report_path = path
+        [report_name, *ids] = report_path[len('/report/pdf/'):].split('/')
+        reports = self.records[self.report_model()].values()
+        report = next((r for r in reports if r['report_name'] == report_name), None)
+        if report is None:
+            raise http_error(404, 'Not Found')
+        rfile = io.BytesIO(PDF)
+        # Only /report/download sets the filename (Content-Disposition)
+        rfile.name = f"{report['name']}.pdf" if path == '/report/download' else None
+        return rfile
 
     def page(self, session_info, extra='', frontend=False):
         if frontend and self.version_info < (18,) and session_info.get('uid'):

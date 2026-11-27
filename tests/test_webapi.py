@@ -2,12 +2,17 @@
 
 Versions with the same behaviour are tested with the most recent one.
 """
+import json
+import tempfile
+from pathlib import Path
 from unittest import mock
+from urllib.parse import parse_qs, urlsplit
 
 import odooly
+import odooly.run
 
 from ._common import FakeOdooTestCase
-from ._fake_odoo import FakeOdoo, FakeUser
+from ._fake_odoo import PDF, FakeOdoo, FakeUser
 
 API_KEY = 'apikey0123'
 TOTP = '123456'
@@ -57,7 +62,7 @@ class _TestWebApi(FakeOdooTestCase):
     def test_call_kw(self):
         client = odooly.Client(self.server, self.database, 'demo', 'demo')
         self.odoo_server.requests.clear()
-        self.assertEqual(client.env['res.partner'].search([]).ids, [1])
+        self.assertEqual(client.env['res.partner'].search([]).ids, [1, 3])
         self.assertEqual(self.odoo_server.requests[-1],
                          ('/web/dataset/call_kw/res.partner/search', 'SID1'))
         self.assertOutput('')
@@ -97,6 +102,19 @@ class _TestWebApi(FakeOdooTestCase):
         self.assertEqual(self.getpass_2fa.call_count, 3)
         self.assertOutput('Verification failed\n' * 3)
 
+    def test_has_access(self):
+        self.odoo_server.denied.add(('demo', 'res.users', 'write'))
+        client = odooly.Client(self.server, self.database, 'demo', 'demo')
+        self.assertTrue(client.env['res.users'].has_access('read'))
+        self.assertFalse(client.env['res.users'].has_access('write'))
+        if float(self.server_version) < 18.0:
+            self.assertEqual(self.odoo_server.paths()[-1],
+                             '/web/dataset/call_kw/ir.model.access/check')
+        else:
+            self.assertEqual(self.odoo_server.paths()[-1],
+                             '/web/dataset/call_kw/res.users/has_access')
+        self.assertOutput('')
+
     def test_api_key(self):
         if not self.json2:
             # The Web API does not accept an API key: use JSON-RPC
@@ -111,8 +129,13 @@ class _TestWebApi(FakeOdooTestCase):
         self.assertEqual(client.env._execute_kw._protocol_name, 'JSON-2')
         # No Webclient session
         self.assertNotIn('/web/session/authenticate', self.odoo_server.paths())
-        self.assertEqual(client.env['res.partner'].search([]).ids, [1])
+        self.assertEqual(client.env['res.partner'].search([]).ids, [1, 3])
         self.assertEqual(self.odoo_server.paths()[-1], '/json/2/res.partner/search')
+        # has_access with JSON-2
+        self.odoo_server.denied.add(('admin', 'res.users', 'unlink'))
+        self.assertTrue(client.env['res.users'].has_access('write'))
+        self.assertFalse(client.env['res.users'].has_access('unlink'))
+        self.assertEqual(self.odoo_server.paths()[-1], '/json/2/res.users/has_access')
         self.assertOutput('')
 
 
@@ -140,4 +163,161 @@ class TestWebApi21(_TestWebApi):
     json2 = True
 
 
-del _TestWebApi
+class _TestModels(FakeOdooTestCase):
+    """Test Env.models(), for an admin and for a user."""
+    database = 'database'
+    # Expected behaviour, per version
+    user_models = 'all'     # Models for a user: 'all', None, or 'model selector'
+    abstract = True         # Abstract models are listed
+
+    def fake_odoo(self):
+        return FakeOdoo(self.server_version, databases=[self.database])
+
+    def all_models(self):
+        models = ['ir.model', 'mail.thread', 'res.company', 'res.partner', 'res.users',
+                  self.odoo_server.report_model()]
+        return sorted(models if self.abstract else set(models) - {'mail.thread'})
+
+    def test_models_admin(self):
+        env = odooly.Client(self.server, self.database, 'admin', 'admin').env
+        self.assertEqual(env.models(), self.all_models())
+        self.assertEqual(env.models('res.'), ['res.company', 'res.partner', 'res.users'])
+        self.assertEqual(env.models(transient=True), ['base.language.install'])
+        self.assertNotIn('/web/dataset/call_kw/ir.model/get_available_models',
+                         self.odoo_server.paths())
+        self.assertOutput('')
+
+    def test_models_user(self):
+        env = odooly.Client(self.server, self.database, 'demo', 'demo').env
+        if self.user_models == 'all':
+            self.assertEqual(env.models(), self.all_models())
+            self.assertEqual(env.models(transient=True), ['base.language.install'])
+        elif self.user_models is None:
+            # Odoo 15: a user cannot read 'ir.model', only the models known by odooly
+            self.assertEqual(env.models(), ['ir.model', 'res.users'])
+            # Without the list of models, the model name is not checked
+            self.assertEqual(env['res.partner'].search([]).ids, [1, 3])
+            self.assertEqual(env['res.partnerX']._name, 'res.partnerX')
+        else:
+            # Only the models of the model selector: no transient, no abstract
+            self.assertEqual(env.models(), sorted(set(self.all_models()) - {'mail.thread'}))
+            self.assertEqual(env.models(transient=True), [])
+            self.assertEqual(self.odoo_server.paths()[-1],
+                             '/web/dataset/call_kw/ir.model/get_available_models')
+        self.assertOutput('')
+
+
+class TestModels14(_TestModels):
+    """Odoo 9 to 14: a user can read 'ir.model'."""
+    server_version = '14.0'
+
+
+class TestModels15(_TestModels):
+    """Odoo 15: a user cannot read 'ir.model'."""
+    server_version = '15.0'
+    user_models = None
+
+
+class TestModels18(_TestModels):
+    """Odoo 16 to 18: 'get_available_models', for a user."""
+    server_version = '18.0'
+    user_models = 'model selector'
+
+
+class TestModels21(_TestModels):
+    """Odoo 19 to 21: abstract models are not listed."""
+    server_version = '21.0'
+    user_models = 'model selector'
+    abstract = False
+
+
+class _TestReport(FakeOdooTestCase):
+    """Test render_pdf(), with the Web API."""
+    database = 'database'
+
+    def fake_odoo(self):
+        return FakeOdoo(self.server_version, databases=[self.database])
+
+    def setUp(self):
+        super().setUp()
+        self.env = odooly.Client(self.server, self.database, 'admin', 'admin').env
+        self.report_model = self.odoo_server.report_model()
+
+    def test_render_pdf_record(self):
+        result = self.env['res.partner'].browse(1).render_pdf('base.partner_card_logo')
+        self.assertEqual((result.name, result.getvalue()), ('Partner Card Logo.pdf', PDF))
+        self.assertIn(f'/web/dataset/call_kw/{self.report_model}/search',
+                      self.odoo_server.paths())
+        # A single record: /report/download, for the filename
+        [(path, data)] = self.odoo_server.report_requests
+        self.assertEqual(path, '/report/download')
+        [url, report_type] = json.loads(data['data'])
+        self.assertEqual(report_type, 'qweb-pdf')
+        self.assertEqual(urlsplit(url).path, '/report/pdf/base.partner_card_logo/1')
+        self.assertEqual(json.loads(parse_qs(urlsplit(url).query)['context'][0]),
+                         self.env.context)
+        self.assertOutput('')
+
+    def test_render_pdf_records(self):
+        result = self.env['res.partner'].browse([1, 3]).render_pdf('base.partner_card_logo')
+        self.assertEqual((result.name, result.getvalue()), ('Partner Card Logo.pdf', PDF))
+        [(path, data)] = self.odoo_server.report_requests
+        self.assertEqual(path, '/report/pdf/base.partner_card_logo/1,3')
+        # FIXME: the parameters are sent as a 'data' field, while Odoo reads
+        # the 'context' and 'options' fields: the context is not used
+        self.assertEqual(data, {'data': {'context': json.dumps(self.env.context)}})
+        self.assertOutput('')
+
+    def test_render_pdf_missing(self):
+        records = self.env['res.partner'].browse(1)
+        with self.assertRaisesRegex(odooly.Error, "Missing report: 'base.unknown'"):
+            records.render_pdf('base.unknown')
+        with self.assertRaisesRegex(odooly.Error, 'No report found'):
+            records.render_pdf()
+        # FIXME: the name is searched with 'like': 'base.partner_card' matches
+        # 'base.partner_card_logo' too, and the report is not found
+        with self.assertRaisesRegex(odooly.Error, "Missing report: 'base.partner_card'"):
+            records.render_pdf('base.partner_card')
+        self.assertEqual(self.odoo_server.report_requests, [])
+        self.assertOutput('')
+
+    def test_render_pdf_interactive(self):
+        mock.patch('odooly.client.Client._is_interactive', return_value=True).start()
+        mock.patch('odooly.report.open_with_default_app').start()
+        tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tmpdir.cleanup)
+        mock.patch('odooly.report.Path.cwd', return_value=Path(tmpdir.name)).start()
+        # Select the 1st report, save with the default filename, do not open
+        answers = mock.patch('odooly.report.input', create=True,
+                             side_effect=['1', 'y', '', 'n']).start()
+
+        result = self.env['res.partner'].browse(1).render_pdf()
+        self.assertEqual(result, Path(tmpdir.name) / 'Partner_Card.pdf')
+        self.assertEqual(result.read_bytes(), PDF)
+        self.assertEqual([c.args[0] for c in answers.mock_calls], [
+            'Select a report: ',
+            'Save? [Y/n] ',
+            'Enter filename [Partner_Card.pdf]: ',
+            'Open "Partner_Card.pdf"? [Y/n] ',
+        ])
+        reports = [
+            ' 1. Partner Card    (base.partner_card `qweb-pdf`)',
+            ' 2. Partner Sheet    (base.partner_sheet `qweb-html`)',
+        ]
+        if float(self.server_version) < 11.0:
+            # Odoo 9 and 10: no 'binding_model_id', all reports are listed
+            reports.append(' 3. Partner Card Logo    (base.partner_card_logo `qweb-pdf`)')
+        self.assertOutput('\n'.join(['Available reports:', *reports, '', '']))
+
+
+class TestReport10(_TestReport):
+    """Odoo 9 and 10: 'ir.actions.report.xml'."""
+    server_version = '10.0'
+
+
+class TestReport21(_TestReport):
+    """Odoo 11 to 21: 'ir.actions.report', with 'binding_model_id'."""
+    server_version = '21.0'
+
+
+del _TestWebApi, _TestModels, _TestReport

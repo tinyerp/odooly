@@ -1530,8 +1530,10 @@ class TestRecord18(TestRecord):
 
 
 class TestModel19(TestModel):
+    """Odoo 19 to 21: same behaviour."""
     server_version = '19.0'
 
 
 class TestRecord19(TestRecord):
+    """Odoo 19 to 21: same behaviour."""
     server_version = '19.0'

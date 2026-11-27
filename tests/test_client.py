@@ -633,7 +633,7 @@ class TestClientApi18(TestClientApi):
 
 
 class TestClientApi19(TestClientApi):
-    """Test the Client API for Odoo 19."""
+    """Test the Client API for Odoo 19 to 21: same behaviour."""
     server_version = '19.0'
 
 
