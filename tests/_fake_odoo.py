@@ -249,10 +249,9 @@ class FakeOdoo:
         elif service == 'object' and method in ('execute_kw', 'execute'):
             (db, uid, password, model, method, args) = params[:6]
             user = self.user(uid)
-            if db not in self.databases or not user or password not in (user.password,
-                                                                         user.api_key):
+            if not (db in self.databases and user and password in {user.password, user.api_key}):
                 raise OdooException(ACCESS_DENIED)
-            return self.call(user, model, method, args, {**(params[6:7] or [{}])[0]})
+            return self.call(user, model, method, args, {**(params[6:] or [{}])[0]})
         elif service == 'db':
             return self.rpc_db(method, params)
         raise OdooException(odoo_error('KeyError', f"Method not found: {service}.{method}"))

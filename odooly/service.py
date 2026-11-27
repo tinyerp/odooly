@@ -197,7 +197,6 @@ class Service:
         return memoize(self, name, wrapper)
 
 
-
 class LocalDatabase:
     """The ``web/database`` methods used by :class:`Client`, for a local server.
 
@@ -226,6 +225,7 @@ class LocalDatabase:
 
     def drop(self, master_pwd, name):
         return self._db.drop(master_pwd, name)
+
 
 class Json2:
     """A connection to Json-2 API

@@ -1,5 +1,4 @@
 """Test the local mode: the Odoo server runs in the same process."""
-import sys
 import types
 from pathlib import Path
 from unittest import mock

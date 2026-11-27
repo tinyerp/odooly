@@ -3,7 +3,7 @@ from unittest import mock, TestCase
 from unittest.mock import call, sentinel, ANY
 
 import odooly.run
-from ._common import FakeOdooTestCase, JsonRpcTestCase, OdooTestCase, OBJ, PseudoFile
+from ._common import FakeOdooTestCase, JsonRpcTestCase, OBJ, PseudoFile
 from ._fake_odoo import FakeOdoo, FakeUser
 
 AUTH = sentinel.AUTH
