@@ -62,6 +62,14 @@ class _TestLocal(OdooTestCase):
                 return [*self.databases]
             if params[0] != MASTER_PWD:
                 raise Exception('Access Denied')  # Raw odoo.exceptions.AccessDenied
+            # Signatures, with the master password: 'phone' since 12.0,
+            # 'neutralize_database' since 16.0
+            max_args = {
+                'create_database': 7 if self.version_info < (12,) else 8,
+                'duplicate_database': 3 if self.version_info < (16,) else 4,
+                'drop': 2,
+            }
+            assert len(params) <= max_args[method], f"Too many arguments: {method}{params}"
             if method == 'create_database':
                 self.databases.append(params[1])
             elif method == 'duplicate_database':
@@ -94,6 +102,9 @@ class _TestLocal(OdooTestCase):
         self.assertIs(self.odoo._get_pool, self.odoo.modules.registry.Registry)
         self.assertEqual(self.putenv.mock_calls, [mock.call('TZ', 'UTC'),
                                                   mock.call('PGAPPNAME', 'odooly')])
+        # Odoo < 15: reset the environments
+        reset = self.odoo.api.Environment.reset
+        self.assertEqual(reset.call_count, 1 if self.version_info < (15,) else 0)
 
         # The services are started once
         odooly.Client(['-c', '/other.conf'], 'db1', 'admin', 'admin')
@@ -161,6 +172,18 @@ class _TestLocal(OdooTestCase):
         # Odoo exceptions are not converted
         with self.assertRaisesRegex(Exception, 'Access Denied'):
             client.drop_database('wrong', 'db4')
+        self.assertOutput('')
+
+    def test_clone_neutralize_database(self):
+        client = odooly.Client(OPTIONS, 'db1', 'admin', 'admin')
+        if self.version_info < (16,):
+            with self.assertRaisesRegex(odooly.Error, "'neutralize_database' is not supported"):
+                client.clone_database(MASTER_PWD, 'db3', neutralize_database=True)
+            self.assertNotIn('db3', self.databases)
+        else:
+            client.clone_database(MASTER_PWD, 'db3', neutralize_database=True)
+            self.odoo.http.dispatch_rpc.assert_any_call(
+                'db', 'duplicate_database', (MASTER_PWD, 'db1', 'db3', True))
         self.assertOutput('')
 
     def test_verbose_hides_passwords(self):
@@ -264,6 +287,16 @@ class _TestLocal(OdooTestCase):
         # Odoo receives strings
         self.odoo.tools.config.parse_config.assert_called_once_with(['-c', 'odoo.conf'])
         self.assertOutput('')
+
+
+class TestLocal11(_TestLocal):
+    """Odoo 11: the first version for Python 3."""
+    version_info = (11, 0, 0, 'final', 0, '')
+
+
+class TestLocal12(_TestLocal):
+    """Odoo 12: the 'phone' argument for 'create_database'."""
+    version_info = (12, 0, 0, 'final', 0, '')
 
 
 class TestLocal18(_TestLocal):
