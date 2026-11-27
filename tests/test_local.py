@@ -42,6 +42,9 @@ class _TestLocal(OdooTestCase):
         odoo.release.version_info = self.version_info
         odoo.tools.config = mock.Mock(name='config')
         odoo.modules.registry.Registry = mock.Mock(name='Registry')
+        # A new cursor for each call
+        odoo.modules.registry.Registry.return_value.cursor.side_effect = mock.Mock
+        odoo.api.Environment = mock.MagicMock(name='Environment')
         odoo.http.dispatch_rpc = mock.Mock(side_effect=self._dispatch_rpc)
         mock.patch.dict('sys.modules', modules).start()
         return odoo
@@ -73,6 +76,7 @@ class _TestLocal(OdooTestCase):
             ('ir.model', 'fields_get'): {},
             ('ir.model', 'search_read'): [{'model': 'res.users', 'transient': False}],
             ('res.users', 'search_count'): len(self.users),
+            ('res.users', 'search'): [uid for (uid, __) in self.users.values()],
         }
         return results[model, method]
 
@@ -181,6 +185,54 @@ class _TestLocal(OdooTestCase):
             client.login(None, session_id='abc')
         self.assertIsNone(env.session_destroy())
         self.assertEqual(env.sudo().uid, 2)  # Default: the admin user
+        self.assertOutput('')
+
+    def test_cursor(self):
+        client = odooly.Client(OPTIONS, 'db1', 'admin', 'admin')
+        env = client.env
+        registry = self.odoo.modules.registry.Registry
+        self.assertIs(env.registry, registry.return_value)
+        registry.assert_called_with('db1')
+
+        # The cursor is kept on the Env
+        cr = env.cr
+        self.assertIs(env.cr, cr)
+        self.assertEqual(registry.return_value.cursor.call_count, 1)
+
+        # Another Env has its own cursor: another transaction
+        self.assertIsNot(env(context={'lang': 'fr_FR'}).cr, cr)
+        self.assertEqual(registry.return_value.cursor.call_count, 2)
+        self.assertOutput('')
+
+    def test_odoo_env(self):
+        env = odooly.Client(OPTIONS, 'db1', 'admin', 'admin').env
+        odoo_env = env.odoo_env
+        self.assertIs(odoo_env, self.odoo.api.Environment.return_value)
+        self.odoo.api.Environment.assert_called_once_with(env.cr, 2, env.context)
+
+        env_fr = env(context={'lang': 'fr_FR'})
+        env_fr.odoo_env
+        self.odoo.api.Environment.assert_called_with(env_fr.cr, 2, {'lang': 'fr_FR'})
+        self.assertOutput('')
+
+    def test_with_odoo(self):
+        env = odooly.Client(OPTIONS, 'db1', 'admin', 'admin').env
+        odoo_env = self.odoo.api.Environment.return_value
+        odoo_model = odoo_env.__getitem__.return_value
+        self.assertIs(env['res.users'].with_odoo(), odoo_model)
+        odoo_env.__getitem__.assert_called_with('res.users')
+
+        self.assertIs(env['res.users'].browse(2).with_odoo(), odoo_model.browse.return_value)
+        env['res.users'].browse([2, 6]).with_odoo()
+        self.rpc_calls()
+        env['res.users'].search([]).with_odoo()  # The search is executed first
+        self.assertEqual(self.rpc_calls(), [
+            ('object', 'execute_kw', 'db1', 2, 'res.users', 'search'),
+        ])
+        browse_args = [c.args for c in odoo_model.browse.call_args_list]
+        self.assertEqual(browse_args, [([2],), ([2, 6],), ([2, 6],)])
+        # Odoo needs plain integers
+        self.assertEqual({type(i) for (ids,) in browse_args for i in ids}, {int})
         self.assertOutput('')
 
     def test_from_config(self):

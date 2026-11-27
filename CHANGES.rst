@@ -7,6 +7,9 @@ Changelog
 
 * Fix local mode with Odoo 19: import the ``odoo`` sub-packages.
 
+* Fix ``with_odoo()`` for a :class:`Record` and for a lazy
+  :class:`RecordList`: they return the Odoo recordset.
+
 * Fix local mode: database list and selection, and methods
   :meth:`Client.create_database`, :meth:`Client.clone_database` and
   :meth:`Client.drop_database`, with the ``db`` service.

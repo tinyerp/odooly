@@ -476,6 +476,15 @@ class BaseRecord(BaseModel):
     def with_env(self, env):
         return env[self._name].browse(self.id)
 
+    def with_odoo(self):
+        """Return the Odoo recordset, in an ``odoo.api.Environment``.
+
+        Use same (db_name, uid, context) as current ``Env``.
+        Only available in ``local`` mode.
+        """
+        # Odoo needs plain integers: Record.id is an int subclass
+        return self.env.odoo_env[self._name].browse([*map(int, self.ids)])
+
     def _check_model(self, other, oper):
         if not (isinstance(other, BaseRecord) and self._model is other._model):
             raise TypeError(f"Mixing apples and oranges: {self} {oper} {other}")
