@@ -4,6 +4,8 @@ from unittest.mock import ANY, call, sentinel
 
 import odooly.run
 
+from ._fake_odoo import FakeOdoo
+
 type_call = type(call)
 
 
@@ -104,6 +106,23 @@ class OdooTestCase(TestCase):
             if startswith and stdout:
                 stdout_value = stdout_value[:len(stdout)]
             self.assertMultiLineEqual(stdout_value, stdout)
+
+
+class FakeOdooTestCase(OdooTestCase):
+    """Test with a fake Odoo server, which answers the HTTP requests by path.
+
+    Override :meth:`fake_odoo` to configure the server.  It is available
+    as :attr:`odoo_server`.
+    """
+    server_version = '19.0'
+    server = f"{FakeOdoo.server}/"
+
+    def fake_odoo(self):
+        return FakeOdoo(self.server_version)
+
+    def _patch_http_request(self):
+        self.odoo_server = self.fake_odoo()
+        return self.odoo_server.patch()
 
 
 class JsonRpcTestCase(OdooTestCase):
