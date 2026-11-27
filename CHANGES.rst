@@ -8,6 +8,9 @@ Changelog
 * Restore the documentation, the changelog and the test helpers in the
   source distribution, missing since 3.0.7.
 
+* Fix login when the database is bound to an anonymous Web session.
+  e.g. ``odooly --demo`` failed with ``404 Not Found``.
+
 
 3.0.8 (2026-11-27)
 ~~~~~~~~~~~~~~~~~~

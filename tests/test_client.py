@@ -867,6 +867,27 @@ class TestSharedSession(FakeOdooTestCase):
         self.assertOutput('')
 
 
+class TestAnonymousSession(FakeOdooTestCase):
+    """Database is bound to an anonymous session."""
+    server_version = '20.0'
+
+    def fake_odoo(self):
+        server = FakeOdoo(self.server_version, databases=['demo1', 'demo2'], list_db=False)
+        # Session cookie received on first visit, e.g. redirect to /odoo
+        server.sessions['ANON'] = {'uid': None, 'login': None, 'db': 'demo2'}
+        return server
+
+    def test_login_keeps_anonymous_session(self):
+        client = odooly.Client(self.server)
+        client._http.set_cookie(self.server, 'session_id', 'ANON')
+        client.login('demo', 'demo')
+
+        self.assertEqual(client.env.uid, 6)
+        self.assertEqual(client.env.db_name, 'demo2')
+        self.assertIn(('/web', 'ANON'), self.odoo_server.requests)
+        self.assertOutput('')
+
+
 class TestHTTPSessionCookie(TestCase):
 
     def test_set_cookie(self):
