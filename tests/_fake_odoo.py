@@ -228,7 +228,7 @@ class FakeOdoo:
             return self.rpc_db('list', ())
         if path == '/web/session/authenticate':
             user = self.check_login(params['db'], params['login'], params['password'])
-            mfa = user.totp is not None and self.version_info >= (15,)
+            mfa = user.totp is not None and self.version_info >= (14,)  # auth_totp
             sid = self.new_session(http, url, user, params['db'], mfa=mfa)
             return self.session_info(self.sessions[sid])
         if path == '/web/session/get_session_info':
@@ -259,7 +259,7 @@ class FakeOdoo:
                                         data['password'])
             except OdooException:
                 return self.page({'uid': None}, frontend=True)
-            mfa = user.totp is not None and self.version_info >= (15,)
+            mfa = user.totp is not None and self.version_info >= (14,)  # auth_totp
             sid = self.new_session(http, url, user, data.get('db', self.databases[0]), mfa=mfa)
             if mfa:
                 return self.page({'uid': None}, extra=TOTP_FORM, frontend=True)

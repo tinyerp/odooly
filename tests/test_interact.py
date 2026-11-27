@@ -6,7 +6,8 @@ from unittest.mock import call, ANY
 import odooly.run
 from odooly.colorize import decolor
 
-from ._common import OdooTestCase, JsonRpcTestCase
+from ._common import FakeOdooTestCase, OdooTestCase, JsonRpcTestCase
+from ._fake_odoo import FakeOdoo, FakeUser
 
 
 class _TestInteract(OdooTestCase):
@@ -255,6 +256,90 @@ class TestInteract19(_TestInteract):
         ])
         self.assertOutput(stderr='\n', startswith=True)
 
-    # TODO
-    test_no_database = None
-    test_invalid_user_password = None
+
+class TestInteractWeb19(_TestInteract, FakeOdooTestCase):
+    """Test interactive mode with Odoo 19, Web API on the fake server."""
+    protocol = 'Web API'
+    server_version = '19.0'
+
+    def fake_odoo(self):
+        server = FakeOdoo(self.server_version, databases=['database'], users=[
+            FakeUser(17, 'usr', 'passwd'),
+            FakeUser(51, 'gaspard', 'gaspard'),
+        ])
+        server.models = ['ir.model', 'res.users']  # Without 'res.company'
+        return server
+
+    def test_no_database(self):
+        env_tuple = (self.server, 'missingdb', 'usr', None, None)
+        mock.patch('sys.argv', new=['odooly', '--env', 'demo']).start()
+        mock.patch('odooly.environment.getpass', return_value='xyz').start()
+        read_config = mock.patch('odooly.run.InteractiveClient.get_config',
+                                 return_value=env_tuple).start()
+
+        # Launch interactive
+        self.infunc.side_effect = [
+            "client\n",
+            "env\n",
+            "env.sudo('gaspard')\n",
+            "client.login('gaspard')\n",
+            EOFError('Finished')]
+        odooly.run.main()
+
+        self.assertEqual(read_config.call_count, 1)
+        self.assertEqual(self.odoo_server.paths(), [
+            '/web/webclient/version_info',
+            '/web/database/list',
+            # TODO: inconsistent with JSON-RPC, which prints "Error: Not connected"
+            # when no database is selected.  The Web API tries a login without
+            # database (the server selects it) and the password fails.
+            '/web',
+            '/web/login',
+            '/web/database/list',
+            '/web/session/authenticate',
+        ])
+        outlines = self.stdout.popvalue().splitlines()
+        self.assertLinesEqual(outlines[-5:], [
+            "Database 'missingdb' does not exist: ['database']",
+            f"<Client '{self.server}web?db='>",
+            "<Env '@()'>",
+            "Error: Invalid username or password",  # TODO: "Error: Not connected"
+            "Error: Invalid username or password",
+        ])
+        self.assertOutput(stderr=ANY)
+
+    def test_invalid_user_password(self):
+        env_tuple = (self.server, 'database', 'usr', 'passwd', None)
+        mock.patch('sys.argv', new=['odooly', '--env', 'demo']).start()
+        mock.patch('os.environ', new={'LANG': 'fr_FR.UTF-8', 'NO_COLOR': '1'}).start()
+        mock.patch('odooly.run.InteractiveClient.get_config', return_value=env_tuple).start()
+        mock.patch('odooly.environment.getpass', return_value='x').start()
+
+        # Launch interactive
+        self.infunc.side_effect = [
+            "env['res.company']\n",
+            "client.login('gaspard')\n",
+            "env['res.company']\n",
+            EOFError('Finished')]
+        odooly.run.main()
+
+        self.assertEqual(self.odoo_server.requests, [
+            ('/web/webclient/version_info', None),
+            ('/web/database/list', None),
+            ('/web/session/authenticate', None),
+            # The password is tried as an API key, for JSON-2
+            ('/json/2/res.users/context_get', None),
+            ('/doc/res.device.json', 'SID1'),
+            ('/web/dataset/call_kw/ir.model/fields_get', 'SID1'),
+            ('/web/dataset/call_kw/ir.model/search_read', 'SID1'),
+            # Wrong password for 'gaspard'
+            ('/web/session/authenticate', None),
+        ])
+        outlines = self.stdout.popvalue().splitlines()
+        self.assertLinesEqual(outlines[-4:], [
+            f"Logged in as 'usr' with {self.protocol}",
+            'Model not found: res.company',
+            'Error: Invalid username or password',
+            'Model not found: res.company',
+        ])
+        self.assertOutput(stderr=ANY)

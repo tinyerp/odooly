@@ -36,11 +36,8 @@ Authentication methods per Odoo version, and per API:
  19.0 to 21.0 | Login 2FA               API Key   | API Key *(deprecated)*
               | *or* Login    no-auth             | Login *(deprecated)*
 ------------- -------------- --------- ---------- -------------------------
- 15.0 to 18.0 | Login 2FA                         | API Key    | API Key
+ 14.0 to 18.0 | Login 2FA                         | API Key    | API Key
               | *or* Login    no-auth             | *or* Login | *or* Login
-------------- -------------- --------- ---------- ------------ ------------
- 14.0                                             | API Key    | API Key
-                 Login        no-auth             | *or* Login | *or* Login
 ------------- -------------- --------- ---------- ------------ ------------
  8.0 to 13.0     Login        no-auth               Login        Login
 ------------- -------------- --------- ---------- ------------ ------------

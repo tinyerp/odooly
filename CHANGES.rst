@@ -7,6 +7,8 @@ Changelog
 
 * Local mode is fixed and tested with Odoo 11.0 and later.
 
+* Support 2FA with Webclient session, with Odoo 14.
+
 * Fix local mode with Odoo 19: import ``odoo.http``, which initializes
   Odoo and loads the services.
 
