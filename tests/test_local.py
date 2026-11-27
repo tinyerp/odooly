@@ -24,7 +24,7 @@ class _TestLocal(OdooTestCase):
         self.odoo_server = FakeOdoo(f'{self.version_info[0]}.0', databases=['db1', 'db2'])
         self.databases = self.odoo_server.databases
         self.odoo = self._fake_odoo()
-        mock.patch('odooly.service.atexit.register').start()
+        self.atexit_register = mock.patch('odooly.service.atexit.register').start()
         self.putenv = mock.patch('odooly.service.os.putenv').start()
 
     def _fake_odoo(self):
@@ -42,6 +42,7 @@ class _TestLocal(OdooTestCase):
         odoo = modules['odoo']
         odoo.release.version_info = self.version_info
         odoo.tools.config = mock.Mock(name='config')
+        odoo.sql_db.close_all = mock.Mock(name='close_all')
         odoo.modules.registry.Registry = mock.Mock(name='Registry')
         # A new cursor for each call
         odoo.modules.registry.Registry.return_value.cursor.side_effect = mock.Mock
@@ -115,9 +116,13 @@ class _TestLocal(OdooTestCase):
         reset = self.odoo.api.Environment.reset
         self.assertEqual(reset.call_count, 1 if self.version_info < (15,) else 0)
 
+        # Close the database connections at exit
+        self.atexit_register.assert_called_once_with(self.odoo.sql_db.close_all)
+
         # The services are started once
         odooly.Client(['-c', '/other.conf'], 'db1', 'admin', 'admin')
         self.odoo.tools.config.parse_config.assert_called_once_with(OPTIONS)
+        self.atexit_register.assert_called_once_with(self.odoo.sql_db.close_all)
         self.assertOutput('')
 
     def test_login(self):

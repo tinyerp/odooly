@@ -101,11 +101,7 @@ def start_odoo_services(options=None, appname=None):
 
         odoo._get_pool = odoo.modules.registry.Registry
         odoo._dispatch_rpc = getattr(odoo.http, 'dispatch_rpc', None) or _router_dispatch_rpc()
-
-        def close_all():
-            for db in odoo._get_pool.registries.keys():
-                odoo.sql_db.close_db(db)
-        atexit.register(close_all)
+        atexit.register(odoo.sql_db.close_all)
 
     return odoo
 

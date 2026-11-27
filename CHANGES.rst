@@ -39,6 +39,8 @@ Changelog
 
 * Fix environment variable ``ODOOLY_DEBUG``.
 
+* Fix error at exit in local mode, with Odoo 14 to 17.
+
 
 3.0.7 (2026-11-27)
 ~~~~~~~~~~~~~~~~~~
