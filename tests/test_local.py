@@ -247,14 +247,20 @@ class _TestLocal(OdooTestCase):
 
     def test_models_user(self):
         env = odooly.Client(OPTIONS, 'db1', 'demo', 'demo').env
-        models = sorted(name for (name, (transient, abstract)) in self.odoo_server.models.items()
-                        if not transient)
-        if self.version_info >= (15,):
-            models.remove('mail.thread')
-        self.assertEqual(env.models(), models)
-        if self.version_info >= (15,):
+        models = self.odoo_server.models
+        if self.version_info < (15,):
+            # A user can read 'ir.model'
+            self.assertEqual(env.models(), sorted(m for m in models if not models[m][0]))
+            self.assertEqual(env.models(transient=True), ['base.language.install'])
+        elif self.version_info < (16,):
+            # The Odoo exception is raised: all the models, from a Reference field
+            self.assertEqual(env.models(), sorted(models))
+            self.assertEqual(env.models(transient=True), [])
+            self.assertEqual(self.rpc_calls()[-1][-2:], ('ir.server.object.lines', 'fields_get'))
+        else:
             # The Odoo exception is raised: use the model selector
-            self.assertEqual(self.rpc_calls()[-1][-1], 'get_available_models')
+            self.assertEqual(env.models(), sorted(m for m in models if not any(models[m])))
+            self.assertEqual(self.rpc_calls()[-1][-2:], ('ir.model', 'get_available_models'))
         self.assertOutput('')
 
     def test_cursor(self):
@@ -344,6 +350,11 @@ class TestLocal11(_TestLocal):
 class TestLocal12(_TestLocal):
     """Odoo 12: the 'phone' argument for 'create_database'."""
     version_info = (12, 0, 0, 'final', 0, '')
+
+
+class TestLocal15(_TestLocal):
+    """Odoo 15: no Environment.reset(), and no 'neutralize_database'."""
+    version_info = (15, 0, 0, 'final', 0, '')
 
 
 class TestLocal18(_TestLocal):
