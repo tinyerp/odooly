@@ -2,6 +2,13 @@ Changelog
 ---------
 
 
+3.0.x (unreleased)
+~~~~~~~~~~~~~~~~~~
+
+* Restore the documentation, the changelog and the test helpers in the
+  source distribution, missing since 3.0.7.
+
+
 3.0.8 (2026-11-27)
 ~~~~~~~~~~~~~~~~~~
 
