@@ -114,10 +114,13 @@ class InteractiveClient(Client):
             return client.save(environment)
         if skip_save := user and user != conf_user:
             password = None
+        # A local server is identified by the "odoo" package, once started
+        cache_server = sys.modules.get('odoo') if isinstance(server, list) else server
         try:
-            client = Env._cache[Env, db, server].client
+            client = Env._cache[Env, db, cache_server].client
             client.verbose = verbose
-            client.login(user or conf_user, password=password, database=database, api_key=api_key)
+            client.login(user or conf_user, password=password, database=database or db,
+                         api_key=api_key)
         except KeyError:
             client = cls(server, database or db, user or conf_user,
                          password=password, api_key=api_key, verbose=verbose)
@@ -382,9 +385,9 @@ def connect_client(args):
         elif not args.config:
             server = ' '.join(args.args)
         elif args.args:
-            server = ['-c', args.config] + args.args
+            server = ['-c', str(args.config)] + args.args
         else:
-            server = ['-c', args.config]
+            server = ['-c', str(args.config)]
         kwargs = {
             "password": args.password,
             "api_key": args.api_key,
