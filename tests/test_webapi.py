@@ -263,9 +263,13 @@ class _TestReport(FakeOdooTestCase):
         self.assertEqual((result.name, result.getvalue()), ('Partner Card Logo.pdf', PDF))
         [(path, data)] = self.odoo_server.report_requests
         self.assertEqual(path, '/report/pdf/base.partner_card_logo/1,3')
-        # FIXME: the parameters are sent as a 'data' field, while Odoo reads
-        # the 'context' and 'options' fields: the context is not used
-        self.assertEqual(data, {'data': {'context': json.dumps(self.env.context)}})
+        # Fields 'context' and 'options', read by Odoo
+        self.assertEqual(data, {'context': json.dumps(self.env.context)})
+
+        records = self.env['res.partner'].browse([1, 3])
+        records.render_pdf('base.partner_card_logo', data={'is_test': True})
+        self.assertEqual(self.odoo_server.report_requests[-1][1], {
+            'context': json.dumps(self.env.context), 'options': '{"is_test": true}'})
         self.assertOutput('')
 
     def test_render_pdf_missing(self):
@@ -274,11 +278,18 @@ class _TestReport(FakeOdooTestCase):
             records.render_pdf('base.unknown')
         with self.assertRaisesRegex(odooly.Error, 'No report found'):
             records.render_pdf()
-        # FIXME: the name is searched with 'like': 'base.partner_card' matches
-        # 'base.partner_card_logo' too, and the report is not found
-        with self.assertRaisesRegex(odooly.Error, "Missing report: 'base.partner_card'"):
-            records.render_pdf('base.partner_card')
+        # Several reports match 'partner_card', and none is equal
+        with self.assertRaisesRegex(odooly.Error, "Missing report: 'partner_card'"):
+            records.render_pdf('partner_card')
         self.assertEqual(self.odoo_server.report_requests, [])
+        self.assertOutput('')
+
+    def test_render_pdf_name(self):
+        records = self.env['res.partner'].browse(1)
+        # A single report matches
+        self.assertEqual(records.render_pdf('card_logo').name, 'Partner Card Logo.pdf')
+        # Several reports match: the exact name is selected
+        self.assertEqual(records.render_pdf('base.partner_card').name, 'Partner Card.pdf')
         self.assertOutput('')
 
     def test_render_pdf_interactive(self):

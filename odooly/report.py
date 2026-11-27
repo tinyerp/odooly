@@ -32,10 +32,12 @@ def render_pdf(report_name, records, data=None):
     report = None
     if report_name:
         domain = [("model", "=", records._name), ("report_name", "like", report_name)]
-        try:
-            [report] = ir_actions_report.search(domain)
-        except ValueError:
-            pass
+        reports = ir_actions_report.search(domain)
+        if len(reports) == 1:
+            report = reports[0]
+        elif report_name in (names := reports.report_name):
+            # Several reports match: select the exact name
+            report = reports[names.index(report_name)]
     if not report and is_interactive:
         domain = [
             ("model", "=", records._name),
@@ -70,7 +72,7 @@ def render_pdf(report_name, records, data=None):
     ids = "/" + ",".join(str(res_id) for res_id in records.ids) if records else ""
     if len(records) > 1:
         # Use standard method:
-        result = env.client.report.pdf(f"{report.report_name}{ids}", data=params)
+        result = env.client.report.pdf(f"{report.report_name}{ids}", **params)
     else:
         # Use report_download in order to have a specific filename
         report_url = f"/report/pdf/{report.report_name}{ids}?{urlencode(params)}"

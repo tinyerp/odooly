@@ -29,6 +29,12 @@ Changelog
 * Fix ``with_odoo()`` for a :class:`Record` and for a lazy
   :class:`RecordList`: they return the Odoo recordset.
 
+* Fix ``render_pdf()`` for several records: the context and the options
+  were ignored by Odoo.
+
+* Fix ``render_pdf()`` when several reports match the name: select the
+  report with the exact name.
+
 * Support 2FA with Webclient session, with Odoo 14.
 
 * Fix environment variable ``ODOOLY_DEBUG``.
