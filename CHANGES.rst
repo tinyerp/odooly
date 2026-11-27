@@ -5,6 +5,22 @@ Changelog
 3.0.x (unreleased)
 ~~~~~~~~~~~~~~~~~~
 
+* Fix local mode with Odoo 19: import ``odoo.http``, which initializes
+  Odoo and loads the services.
+
+* Fix local mode: database list and selection, and methods
+  :meth:`Client.create_database`, :meth:`Client.clone_database` and
+  :meth:`Client.drop_database`, with the ``db`` service.
+
+* Fix local mode from the command line: option ``-c`` and environments
+  with ``scheme = local``.  Set ``PGAPPNAME=odooly``.
+
+* Clear error in local mode, for features which need a Webclient session:
+  Superuser, :meth:`Env.session_authenticate` and ``render_pdf``.
+
+* :meth:`InteractiveClient.from_config` switches back to the database of
+  the environment, when the client is reused.
+
 * Fix ``with_odoo()`` for a :class:`Record` and for a lazy
   :class:`RecordList`: they return the Odoo recordset.
 

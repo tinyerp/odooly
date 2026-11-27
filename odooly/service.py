@@ -7,7 +7,7 @@ from .helpers import format_params, memoize
 from .http import HTTPSession
 from .models import Id1, Ids, Model
 
-__all__ = ["WebAPI", "Service", "Json2"]
+__all__ = ["WebAPI", "Service", "Json2", "LocalDatabase"]
 
 # Web methods (not exhaustive)
 _web_methods = {
@@ -22,6 +22,7 @@ _web_methods = {
 # RPC methods
 _rpc_methods = {
     'common': ['login', 'authenticate', 'version'],
+    'db': ['create_database', 'drop', 'duplicate_database', 'list'],
     'object': ['execute', 'execute_kw'],
 }
 # Base model
@@ -60,7 +61,9 @@ def start_odoo_services(options=None, appname=None):
 
     Return the ``odoo`` package.
     """
-    import odoo
+    # Odoo >= 19: "odoo.http" imports "odoo.init" (core setup and monkey patches),
+    # the registry and the services, like "import odoo" did before
+    import odoo.http
     if not hasattr(odoo, "_get_pool"):
         os.putenv('TZ', 'UTC')
         if appname is not None:
@@ -154,9 +157,12 @@ class Service:
         if name not in self._methods:
             raise AttributeError(f"'Service' object has no attribute {name!r}")
 
+        # Hide the password: master password for "db", else user password
+        secret = 0 if self._endpoint == 'db' else 2
+
         def sanitize(args):
-            if len(args) > 2:
-                args = args[:2] + ('*',) + args[3:]
+            if len(args) > secret:
+                args = args[:secret] + ('*',) + args[secret + 1:]
             return ', '.join(repr(arg) for arg in args)
 
         def wrapper(self, *args):
@@ -169,6 +175,36 @@ class Service:
             return res
         return memoize(self, name, wrapper)
 
+
+
+class LocalDatabase:
+    """The ``web/database`` methods used by :class:`Client`, for a local server.
+
+    They are dispatched to the ``db`` RPC service.
+    """
+
+    def __init__(self, client):
+        self._db = Service(client, 'db')
+
+    def __repr__(self):
+        return f"<LocalDatabase {self._db!r}>"
+
+    def list(self):
+        return self._db.list()
+
+    def create(self, master_pwd, name, lang, password, demo=False, login='admin',
+               country_code=None, phone=None):
+        args = [master_pwd, name, demo, lang, password, login, country_code, phone]
+        while len(args) > 6 and not args[-1]:
+            args.pop()  # Optional arguments, not supported by old versions
+        return self._db.create_database(*args)
+
+    def duplicate(self, master_pwd, name, new_name, neutralize_database=False):
+        extra = [neutralize_database] if neutralize_database else []
+        return self._db.duplicate_database(master_pwd, name, new_name, *extra)
+
+    def drop(self, master_pwd, name):
+        return self._db.drop(master_pwd, name)
 
 class Json2:
     """A connection to Json-2 API

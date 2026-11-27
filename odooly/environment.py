@@ -340,6 +340,8 @@ class Env:
         return result
 
     def _ensure_session(self):
+        if not self.client.web:
+            raise Error("Not available: a Webclient session is needed")
         if self.uid != self.client._session_uid:
             auth_cache = self._cache_get('auth')
             (__, password, session_id) = auth_cache.get(self.user.login) or (None, None, None)
@@ -588,6 +590,8 @@ class Env:
 
     def session_authenticate(self, login=None, password=None, session_id=None):
         """Create a Webclient session for current user."""
+        if not self.client.web:
+            raise Error("Not available: a Webclient session is needed")
         if not login:
             login = self.user.login
         # Reuse the session, if it is still valid

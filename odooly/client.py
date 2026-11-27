@@ -3,7 +3,6 @@ import os
 import re
 import time
 from getpass import getpass
-from pathlib import Path
 from threading import current_thread
 from urllib.parse import urlencode, urljoin, urlsplit
 
@@ -12,7 +11,7 @@ from .environment import Env, ADMIN_USER
 from .exceptions import Error, ServerError
 from .helpers import format_params, partial
 from .http import HTTPSession
-from .service import Json2, Service, WebAPI, start_odoo_services
+from .service import Json2, LocalDatabase, Service, WebAPI, start_odoo_services
 
 __all__ = ["Client"]
 
@@ -51,8 +50,7 @@ class Client:
 
     def _set_services(self, server, db):
         if isinstance(server, list):
-            appname = Path(__file__).name.rstrip('co')
-            server = start_odoo_services(server, appname=appname)
+            server = start_odoo_services(server, appname='odooly')
         elif isinstance(server, str):
             rsvr = urlsplit(server)
             if "@" in rsvr.netloc:
@@ -94,6 +92,8 @@ class Client:
             # Create the RPC services
             self.common = Service(self, 'common')
             self._object = Service(self, 'object')
+            if self.web is None:  # Local server
+                self.database = LocalDatabase(self)
             self.server_version = self.common.version()['server_version']
         # Parse server version
         major_minor = re.search(r'\d+\.?\d*', self.server_version).group()
@@ -299,7 +299,7 @@ class Client:
             else:
                 if not database:
                     # Database selector page
-                    database = self._select_database(dbs)
+                    database = self._select_database(dbs) or ''
                 if dbs and database not in dbs:
                     raise Error(f"Database {database!r} does not exist: {dbs}")
         if database and env.db_name != database:
