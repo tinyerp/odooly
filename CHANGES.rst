@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-3.0.x (unreleased)
+3.0.8 (2026-11-27)
 ~~~~~~~~~~~~~~~~~~
 
 * Local mode is fixed and tested with Odoo 11.0 and later.
