@@ -29,6 +29,8 @@ Changelog
 * Fix ``with_odoo()`` for a :class:`Record` and for a lazy
   :class:`RecordList`: they return the Odoo recordset.
 
+* Support 2FA with Webclient session, with Odoo 14.
+
 * Fix environment variable ``ODOOLY_DEBUG``.
 
 

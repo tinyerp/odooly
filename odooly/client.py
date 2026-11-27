@@ -204,7 +204,7 @@ class Client:
         try:
             if db:
                 info = self.web_session.authenticate(db=db, login=login, password=password)
-                if self.version_info >= 15.0 and info['uid'] is None:  # Is it 2FA?
+                if self.version_info >= 14.0 and info['uid'] is None:  # Is it 2FA?
                     info = self._authenticate_web(db=db, login=login, password=password)
             else:
                 info = self._authenticate_web(login=login, password=password)
