@@ -2,7 +2,7 @@ Changelog
 ---------
 
 
-3.0.x (unreleased)
+3.0.9 (2026-11-27)
 ~~~~~~~~~~~~~~~~~~
 
 * Restore the documentation, the changelog and the test helpers in the
