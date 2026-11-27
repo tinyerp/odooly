@@ -128,6 +128,12 @@ class FakeOdoo:
         http.set_cookie(url, 'session_id', sid)
         return sid
 
+    def monodb(self, session):
+        """The database of the session, or the only database, like ``odoo.http``."""
+        if session and session.get('db'):
+            return session['db']
+        return self.databases[0] if len(self.databases) == 1 else None
+
     def session_info(self, session):
         user = self.users.get(session['login'])
         if session['uid'] == 1:
@@ -338,13 +344,13 @@ class FakeOdoo:
                 raise http_error(404, 'Not Found')
             return self.model_doc(path[5:-5])
         if path == '/web/login' and data:
+            db = data.get('db') or self.monodb(session)
             try:
-                user = self.check_login(data.get('db', self.databases[0]), data['login'],
-                                        data['password'])
+                user = self.check_login(db, data['login'], data['password'])
             except OdooException:
                 return self.page({'uid': None}, frontend=True)
             mfa = user.totp is not None and self.version_info >= (14,)  # auth_totp
-            sid = self.new_session(http, url, user, data.get('db', self.databases[0]), mfa=mfa)
+            sid = self.new_session(http, url, user, db, mfa=mfa)
             if mfa:
                 return self.page({'uid': None}, extra=TOTP_FORM, frontend=True)
             return self.page(self.session_info(self.sessions[sid]), frontend=True)
@@ -360,6 +366,8 @@ class FakeOdoo:
                 session['uid'] = 1
             return self.page(self.session_info(session) if session else {'uid': None})
         if path == '/web':
+            if not (query.get('db') or self.monodb(session)):
+                raise http_error(404, 'Not Found')  # No database selected
             if session and session['uid']:
                 return self.page(self.session_info(session))
             return self.page({'uid': None})

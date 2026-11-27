@@ -199,7 +199,9 @@ class Client:
         return info
 
     def _authenticate_session(self, db, login, password):
-        self._set_session(None)  # Do not authenticate on the shared session
+        if self._session_uid:
+            # Do not authenticate on the shared session
+            self._set_session(None)
         info = {'uid': None}
         try:
             if db:
