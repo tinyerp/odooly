@@ -167,7 +167,7 @@ class _TestModels(FakeOdooTestCase):
     """Test Env.models(), for an admin and for a user."""
     database = 'database'
     # Expected behaviour, per version
-    user_models = 'all'     # Models for a user: 'all', None, or 'model selector'
+    user_models = 'all'     # Models for a user: 'all', 'reference field' or 'model selector'
     abstract = True         # Abstract models are listed
 
     def fake_odoo(self):
@@ -192,12 +192,17 @@ class _TestModels(FakeOdooTestCase):
         if self.user_models == 'all':
             self.assertEqual(env.models(), self.all_models())
             self.assertEqual(env.models(transient=True), ['base.language.install'])
-        elif self.user_models is None:
-            # Odoo 15: a user cannot read 'ir.model', only the models known by odooly
-            self.assertEqual(env.models(), ['ir.model', 'res.users'])
-            # Without the list of models, the model name is not checked
+        elif self.user_models == 'reference field':
+            # Odoo 15: all the models, from a Reference field, without 'transient'
+            all_models = sorted(self.odoo_server.models)
+            self.assertEqual(env.models(), all_models)
+            self.assertEqual(env.models(transient=True), [])
+            self.assertEqual(self.odoo_server.paths()[-1],
+                             '/web/dataset/call_kw/ir.server.object.lines/fields_get')
+            # The model name is checked
             self.assertEqual(env['res.partner'].search([]).ids, [1, 3])
-            self.assertEqual(env['res.partnerX']._name, 'res.partnerX')
+            with self.assertRaisesRegex(odooly.Error, 'Model not found: res.partnerX'):
+                env['res.partnerX']
         else:
             # Only the models of the model selector: no transient, no abstract
             self.assertEqual(env.models(), sorted(set(self.all_models()) - {'mail.thread'}))
@@ -213,9 +218,9 @@ class TestModels14(_TestModels):
 
 
 class TestModels15(_TestModels):
-    """Odoo 15: a user cannot read 'ir.model'."""
+    """Odoo 15: a user cannot read 'ir.model', and no 'get_available_models'."""
     server_version = '15.0'
-    user_models = None
+    user_models = 'reference field'
 
 
 class TestModels18(_TestModels):

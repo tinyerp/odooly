@@ -454,9 +454,17 @@ class Env:
             domain = [('abstract', '=', False)] if 'abstract' in ir_model._keys else []  # Odoo 19
             try:
                 models = ir_model.search_read(domain, ('model', 'transient'))
-            except ServerError:
-                # Only Odoo 15 prevents non-admin user to retrieve models
-                models = ir_model.get_available_models() if self.client.version_info >= 16.0 else {}
+            except Exception:  # ServerError, or the Odoo exception in local mode
+                # Since Odoo 15, a user cannot read 'ir.model'
+                if self.client.version_info >= 16.0:
+                    models = ir_model.get_available_models()
+                elif self.client.version_info >= 15.0:
+                    # Odoo 15: this Reference field lists all the models (without 'transient')
+                    fields = self.execute('ir.server.object.lines', 'fields_get',
+                                          ['resource_ref'], ['selection'])
+                    models = [{'model': name} for (name, __) in fields['resource_ref']['selection']]
+                else:
+                    models = {}
             self._model_names.update({m['model']: m.get('transient', False) for m in models})
             self._access_models = bool(models)
         return sorted(mod for mod, is_transient in self._model_names.items()

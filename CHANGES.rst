@@ -39,6 +39,11 @@ Changelog
 
 * Fix environment variable ``ODOOLY_DEBUG``.
 
+* Fix ``Env.models()`` for a user with Odoo 15: retrieve all the models
+  from a Reference field, because ``ir.model`` is not readable.
+
+* Fix ``Env.models()`` for a user in local mode, with Odoo 15 and later.
+
 * Fix error at exit in local mode, with Odoo 14 to 17.
 
 

@@ -156,6 +156,12 @@ class FakeOdoo:
             return self.context(user, user.uid)
         if model == 'ir.model':
             return self.call_ir_model(user, method, args)
+        if (model, method) == ('ir.server.object.lines', 'fields_get'):
+            # Since Odoo 12, the Reference field lists the models (with sudo since 15)
+            if self.version_info < (15,) and not user.is_system:
+                raise OdooException(ACCESS_ERROR)
+            selection = [[name, name] for name in sorted(self.models)]
+            return {'resource_ref': {'type': 'reference', 'selection': selection}}
         if (model, method) == ('ir.model.access', 'check'):  # Odoo < 18
             if (user.login, args[0], args[1]) in self.denied:
                 raise OdooException(ACCESS_ERROR)

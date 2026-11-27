@@ -245,6 +245,18 @@ class _TestLocal(OdooTestCase):
         self.assertEqual(env.sudo().uid, 2)  # Default: the admin user
         self.assertOutput('')
 
+    def test_models_user(self):
+        env = odooly.Client(OPTIONS, 'db1', 'demo', 'demo').env
+        models = sorted(name for (name, (transient, abstract)) in self.odoo_server.models.items()
+                        if not transient)
+        if self.version_info >= (15,):
+            models.remove('mail.thread')
+        self.assertEqual(env.models(), models)
+        if self.version_info >= (15,):
+            # The Odoo exception is raised: use the model selector
+            self.assertEqual(self.rpc_calls()[-1][-1], 'get_available_models')
+        self.assertOutput('')
+
     def test_cursor(self):
         client = odooly.Client(OPTIONS, 'db1', 'admin', 'admin')
         env = client.env
