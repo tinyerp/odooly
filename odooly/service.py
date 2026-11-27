@@ -61,17 +61,9 @@ def start_odoo_services(options=None, appname=None):
 
     Return the ``odoo`` package.
     """
-    import odoo
-    # Odoo >= 19 does not import the sub-packages with "import odoo"
-    import odoo.api
+    # Odoo >= 19: "odoo.http" imports "odoo.init" (core setup and monkey patches),
+    # the registry and the services, like "import odoo" did before
     import odoo.http
-    import odoo.modules.registry
-    import odoo.release
-    import odoo.service.common
-    import odoo.service.db
-    import odoo.service.model
-    import odoo.sql_db
-    import odoo.tools
     if not hasattr(odoo, "_get_pool"):
         os.putenv('TZ', 'UTC')
         if appname is not None:
